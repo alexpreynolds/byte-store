@@ -76,7 +76,9 @@ bs_init_lookup(char* fn)
 void
 bs_print_lookup(lookup_t* l)
 {
-    fprintf(stderr, "Lookup\n----------------------\n");
+    fprintf(stderr, "----------------------\n");
+    fprintf(stderr, "Lookup\n");
+    fprintf(stderr, "----------------------\n");
     for (uint32_t idx = 0; idx < l->nelems; idx++) {
         fprintf(stderr, 
                 "Element [%09d] [%s | %" PRIu64 " | %" PRIu64 " | %s]\n", 
@@ -86,6 +88,7 @@ bs_print_lookup(lookup_t* l)
                 l->elems[idx]->stop,
                 l->elems[idx]->id);
     }
+    fprintf(stderr, "----------------------\n");
 }
 
 void 
