@@ -195,6 +195,7 @@ bs_init_sut_store(uint32_t n)
 void
 bs_populate_sut_store_with_random_scores(sut_store_t* s)
 {
+    unsigned char score = 0;
     FILE* os = NULL;
     
     /* seed RNG */
@@ -211,11 +212,14 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
 
     /* write stream of random scores out to os ptr */
     for (uint32_t idx = 0; idx < s->nbytes; idx++) {
-        unsigned char score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+        do {
+            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+        } while (score > 201);
         if (fputc(score, os) != score) {
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);
         }
+        /* fprintf(stderr, "writing score [%c | %3.2f]\n", score, bs_encode_unsigned_char_to_float[score]); */
     }
 
     fclose(os);
