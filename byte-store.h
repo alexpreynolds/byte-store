@@ -61,6 +61,7 @@ static const char *bs_name = "byte-store";
 
 off_t      bs_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 lookup_t*  bs_init_lookup(char* fn);
+void       bs_print_lookup(lookup_t* l);
 void       bs_delete_lookup(lookup_t** l);
 element_t* bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
 void       bs_delete_element(element_t** e);

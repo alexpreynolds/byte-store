@@ -11,7 +11,8 @@ main(int argc, char** argv)
     bs_init_command_line_options(argc, argv);
 
     lookup = bs_init_lookup(bs_global_args.lookup_fn);
-
+    bs_print_lookup(lookup);
+    
     if (bs_global_args.store_create_flag) {
         store = bs_init_store(pairs);
         bs_delete_store(&store);
@@ -70,6 +71,21 @@ bs_init_lookup(char* fn)
     fclose(lf);
 
     return l;
+}
+
+void
+bs_print_lookup(lookup_t* l)
+{
+    fprintf(stderr, "Lookup\n----------------------\n");
+    for (uint32_t idx = 0; idx < l->nelems; idx++) {
+        fprintf(stderr, 
+                "Element [%09d] [%s | %" PRIu64 " | %" PRIu64 " | %s]\n", 
+                idx, 
+                l->elems[idx]->chr,
+                l->elems[idx]->start,
+                l->elems[idx]->stop,
+                l->elems[idx]->id);
+    }
 }
 
 void 
