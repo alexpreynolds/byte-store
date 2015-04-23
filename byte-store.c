@@ -5,7 +5,6 @@ main(int argc, char** argv)
 {
     lookup_t *lookup = NULL;
     store_t* store = NULL;
-    uint32_t pairs = 0;
 
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
@@ -14,7 +13,8 @@ main(int argc, char** argv)
     bs_print_lookup(lookup);
     
     if (bs_global_args.store_create_flag) {
-        store = bs_init_store(pairs);
+        store = bs_init_store(lookup->nelems);
+        bs_populate_store(store);
         bs_delete_store(&store);
     }
     else if (bs_global_args.store_query_flag) {
@@ -177,35 +177,55 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l)
 }
 
 store_t* 
-bs_init_store(uint32_t pairs)
+bs_init_store(uint32_t n)
 {
     store_t* s = NULL;
 
     s = malloc(sizeof(store_t));
-    s->pairs = pairs;
-    s->nbytes = pairs * (pairs + 1) / 2; /* upper diagonal matrix */
-    s->data = malloc(sizeof(unsigned char) * s->nbytes);
-
-    if (!s || !s->data) {
-        fprintf(stderr, "Error: Could not allocate space for store\n");
+    if (!s) {
+        fprintf(stderr, "Error: Could not allocate space for store!\n");
         exit(EXIT_FAILURE);
     }
+    s->nelems = n;
+    s->nbytes = n * (n - 1) / 2; /* strictly upper triangular (SUT) matrix */
 
     return s;
 }
 
 void
-bs_populate_store()
+bs_populate_store(store_t* s)
 {
+    FILE* os = NULL;
+    
+    /* seed RNG */
+    if (bs_global_args.rng_seed_flag)
+        mt19937_seed_rng(bs_global_args.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_global_args.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output store!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* write stream of random scores out to os ptr */
+    for (uint32_t idx = 0; idx < s->nbytes; idx++) {
+        unsigned char score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+        if (fputc(score, os) != score) {
+            fprintf(stderr, "Error: Could not write score to output store!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(os);
 }
 
 void
 bs_delete_store(store_t** s)
 {
-    free((*s)->data);
-    (*s)->data = NULL;
     (*s)->nbytes = 0;
-    (*s)->pairs = 0;
+    (*s)->nelems = 0;
     free(*s);
     *s = NULL;
 }
@@ -218,6 +238,7 @@ bs_init_globals()
     bs_global_args.rng_seed_flag = kFalse;
     bs_global_args.rng_seed_value = 0;
     bs_global_args.lookup_fn[0] = '\0';
+    bs_global_args.store_fn[0] = '\0';
 }
 
 void 
@@ -248,6 +269,9 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'l':
             memcpy(bs_global_args.lookup_fn, optarg, strlen(optarg) + 1);
+            break;
+        case 's':
+            memcpy(bs_global_args.store_fn, optarg, strlen(optarg) + 1);
             break;
         case 'd':
             bs_global_args.rng_seed_flag = kTrue;
@@ -284,12 +308,18 @@ bs_init_command_line_options(int argc, char** argv)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
+    if (strlen(bs_global_args.store_fn) == 0) {
+        fprintf(stderr, "Error: Must specify store filename!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
 }
 
 void 
-bs_print_usage(FILE* output_stream) 
+bs_print_usage(FILE* os) 
 {
-    fprintf(output_stream,
+    fprintf(os,
             "\n" \
             " Usage: \n\n" \
             "\t Create data store:\n" \
