@@ -24,6 +24,12 @@ main(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
+off_t
+bs_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
+{
+    return (n*(n-1)/2) - (n-i)*((n-i)-1)/2 + j - i - 1; /* cf. http://stackoverflow.com/a/27088560/19410 */
+}
+
 lookup_t*
 bs_init_lookup(char* fn)
 {
@@ -250,6 +256,12 @@ bs_init_command_line_options(int argc, char** argv)
 
     if (!bs_global_args.store_create_flag && !bs_global_args.store_query_flag) {
         fprintf(stderr, "Error: Must either create or query a data store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (strlen(bs_global_args.lookup_fn) == 0) {
+        fprintf(stderr, "Error: Must specify lookup table filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
