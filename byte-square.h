@@ -3,19 +3,72 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <getopt.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include "mt19937.h"
 
-void bs_init_command_line_options(int argc, char** argv);
-void bs_print_usage(FILE* output_stream);
+#define BUF_MAX_LEN 1024
+#define FN_MAX_LEN 1024
+
+typedef int boolean;
+extern const boolean kTrue;
+extern const boolean kFalse;
+
+const boolean kTrue = 1;
+const boolean kFalse = 0;
+
+typedef struct element {
+    char* chr;
+    uint64_t start;
+    uint64_t stop;
+    char* id;
+} element_t;
+
+typedef struct lookup {
+    uint64_t capacity;
+    uint32_t nelems;
+    element_t** elems;
+} lookup_t;
+
+typedef struct store {
+    uint32_t pairs;
+    uint64_t nbytes;
+    unsigned char* data;
+} store_t;
+
+static struct bs_global_args_t {
+    boolean store_create_flag;
+    boolean store_query_flag;
+    boolean rng_seed_flag;
+    uint32_t rng_seed_value;
+    char lookup_fn[FN_MAX_LEN];
+} bs_global_args;
 
 static struct option bs_client_long_options[] = {
-    { "help", no_argument, NULL, 'h' },
-    { NULL,   no_argument, NULL,  0  }
+    { "store-create", no_argument,       NULL, 'c' },
+    { "store-query",  no_argument,       NULL, 'q' },
+    { "lookup",       required_argument, NULL, 'l' },
+    { "rng-seed",     required_argument, NULL, 'd' },
+    { "help",         no_argument,       NULL, 'h' },
+    { NULL,           no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "h?";
+static const char *bs_client_opt_string = "cql:dh?";
 
 static const char *bs_name = "byte-square";
+
+lookup_t*  bs_init_lookup(char* fn);
+void       bs_delete_lookup(lookup_t** l);
+element_t* bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
+void       bs_delete_element(element_t** e);
+void       bs_push_elem_to_lookup(element_t* e, lookup_t** l);
+store_t*   bs_init_store(uint32_t pairs);
+void       bs_populate_store();
+void       bs_delete_store(store_t** s);
+void       bs_init_globals();
+void       bs_init_command_line_options(int argc, char** argv);
+void       bs_print_usage(FILE* output_stream);
 
 #endif // BYTE_SQUARE_H_
