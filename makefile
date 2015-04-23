@@ -9,5 +9,6 @@ all:
 
 clean:
 	rm byte-square
+        rm -rf *.a
 	rm -rf *.o
 	rm -rf *~
