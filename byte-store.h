@@ -33,18 +33,18 @@ typedef struct lookup {
     element_t** elems;
 } lookup_t;
 
-typedef struct store {
+typedef struct sut_store {
     uint32_t nelems;
     uint64_t nbytes;
-} store_t;
+} sut_store_t;
 
 static struct bs_global_args_t {
-    boolean store_create_flag;
-    boolean store_query_flag;
+    boolean sut_store_create_flag;
+    boolean sut_store_query_flag;
     boolean rng_seed_flag;
     uint32_t rng_seed_value;
     char lookup_fn[FN_MAX_LEN];
-    char store_fn[FN_MAX_LEN];
+    char sut_store_fn[FN_MAX_LEN];
 } bs_global_args;
 
 static struct option bs_client_long_options[] = {
@@ -61,18 +61,18 @@ static const char *bs_client_opt_string = "cql:s:dh?";
 
 static const char *bs_name = "byte-store";
 
-off_t      bs_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
-lookup_t*  bs_init_lookup(char* fn);
-void       bs_print_lookup(lookup_t* l);
-void       bs_delete_lookup(lookup_t** l);
-element_t* bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
-void       bs_delete_element(element_t** e);
-void       bs_push_elem_to_lookup(element_t* e, lookup_t** l);
-store_t*   bs_init_store(uint32_t n);
-void       bs_populate_store(store_t* s);
-void       bs_delete_store(store_t** s);
-void       bs_init_globals();
-void       bs_init_command_line_options(int argc, char** argv);
-void       bs_print_usage(FILE* os);
+off_t          bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
+lookup_t*      bs_init_lookup(char* fn);
+void           bs_print_lookup(lookup_t* l);
+void           bs_delete_lookup(lookup_t** l);
+element_t*     bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
+void           bs_delete_element(element_t** e);
+void           bs_push_elem_to_lookup(element_t* e, lookup_t** l);
+sut_store_t*   bs_init_sut_store(uint32_t n);
+void           bs_populate_sut_store_with_random_scores(sut_store_t* s);
+void           bs_delete_sut_store(sut_store_t** s);
+void           bs_init_globals();
+void           bs_init_command_line_options(int argc, char** argv);
+void           bs_print_usage(FILE* os);
 
 #endif // BYTE_STORE_H_

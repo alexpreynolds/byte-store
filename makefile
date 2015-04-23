@@ -12,3 +12,4 @@ clean:
 	rm -rf *.a
 	rm -rf *.o
 	rm -rf *~
+	rm -rf *.bs

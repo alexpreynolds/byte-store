@@ -4,29 +4,29 @@ int
 main(int argc, char** argv) 
 {
     lookup_t *lookup = NULL;
-    store_t* store = NULL;
+    sut_store_t* sut_store = NULL;
 
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
 
     lookup = bs_init_lookup(bs_global_args.lookup_fn);
-    bs_print_lookup(lookup);
-    
-    if (bs_global_args.store_create_flag) {
-        store = bs_init_store(lookup->nelems);
-        bs_populate_store(store);
-        bs_delete_store(&store);
+    /* bs_print_lookup(lookup); */
+    sut_store = bs_init_sut_store(lookup->nelems);
+        
+    if (bs_global_args.sut_store_create_flag) {
+        bs_populate_sut_store_with_random_scores(sut_store);
     }
-    else if (bs_global_args.store_query_flag) {
+    else if (bs_global_args.sut_store_query_flag) {
     }
 
+    bs_delete_sut_store(&sut_store);
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
 }
 
 off_t
-bs_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
+bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 {
     return (n*(n-1)/2) - (n-i)*((n-i)-1)/2 + j - i - 1; /* cf. http://stackoverflow.com/a/27088560/19410 */
 }
@@ -176,14 +176,14 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l)
     (*l)->nelems++;
 }
 
-store_t* 
-bs_init_store(uint32_t n)
+sut_store_t* 
+bs_init_sut_store(uint32_t n)
 {
-    store_t* s = NULL;
+    sut_store_t* s = NULL;
 
-    s = malloc(sizeof(store_t));
+    s = malloc(sizeof(sut_store_t));
     if (!s) {
-        fprintf(stderr, "Error: Could not allocate space for store!\n");
+        fprintf(stderr, "Error: Could not allocate space for SUT store!\n");
         exit(EXIT_FAILURE);
     }
     s->nelems = n;
@@ -193,7 +193,7 @@ bs_init_store(uint32_t n)
 }
 
 void
-bs_populate_store(store_t* s)
+bs_populate_sut_store_with_random_scores(sut_store_t* s)
 {
     FILE* os = NULL;
     
@@ -203,9 +203,9 @@ bs_populate_store(store_t* s)
     else
         mt19937_seed_rng(time(NULL));
 
-    os = fopen(bs_global_args.store_fn, "wb");
+    os = fopen(bs_global_args.sut_store_fn, "wb");
     if (ferror(os)) {
-        fprintf(stderr, "Error: Could not open handle to output store!\n");
+        fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -213,7 +213,7 @@ bs_populate_store(store_t* s)
     for (uint32_t idx = 0; idx < s->nbytes; idx++) {
         unsigned char score = (unsigned char) (mt19937_generate_random_ulong() % 256);
         if (fputc(score, os) != score) {
-            fprintf(stderr, "Error: Could not write score to output store!\n");
+            fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -222,7 +222,7 @@ bs_populate_store(store_t* s)
 }
 
 void
-bs_delete_store(store_t** s)
+bs_delete_sut_store(sut_store_t** s)
 {
     (*s)->nbytes = 0;
     (*s)->nelems = 0;
@@ -233,12 +233,12 @@ bs_delete_store(store_t** s)
 void
 bs_init_globals()
 {
-    bs_global_args.store_create_flag = kFalse;
-    bs_global_args.store_query_flag = kFalse;
+    bs_global_args.sut_store_create_flag = kFalse;
+    bs_global_args.sut_store_query_flag = kFalse;
     bs_global_args.rng_seed_flag = kFalse;
     bs_global_args.rng_seed_value = 0;
     bs_global_args.lookup_fn[0] = '\0';
-    bs_global_args.store_fn[0] = '\0';
+    bs_global_args.sut_store_fn[0] = '\0';
 }
 
 void 
@@ -262,16 +262,16 @@ bs_init_command_line_options(int argc, char** argv)
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
         case 'c':
-            bs_global_args.store_create_flag = kTrue;
+            bs_global_args.sut_store_create_flag = kTrue;
             break;
         case 'q':
-            bs_global_args.store_query_flag = kTrue;
+            bs_global_args.sut_store_query_flag = kTrue;
             break;
         case 'l':
             memcpy(bs_global_args.lookup_fn, optarg, strlen(optarg) + 1);
             break;
         case 's':
-            memcpy(bs_global_args.store_fn, optarg, strlen(optarg) + 1);
+            memcpy(bs_global_args.sut_store_fn, optarg, strlen(optarg) + 1);
             break;
         case 'd':
             bs_global_args.rng_seed_flag = kTrue;
@@ -291,14 +291,14 @@ bs_init_command_line_options(int argc, char** argv)
                                     &bs_client_long_index);
     }
 
-    if (bs_global_args.store_create_flag && bs_global_args.store_query_flag) {
-        fprintf(stderr, "Error: Cannot both create and query data store!\n");
+    if (bs_global_args.sut_store_create_flag && bs_global_args.sut_store_query_flag) {
+        fprintf(stderr, "Error: Cannot both create and query SUT data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (!bs_global_args.store_create_flag && !bs_global_args.store_query_flag) {
-        fprintf(stderr, "Error: Must either create or query a data store!\n");
+    if (!bs_global_args.sut_store_create_flag && !bs_global_args.sut_store_query_flag) {
+        fprintf(stderr, "Error: Must either create or query a SUT data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -309,8 +309,8 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (strlen(bs_global_args.store_fn) == 0) {
-        fprintf(stderr, "Error: Must specify store filename!\n");
+    if (strlen(bs_global_args.sut_store_fn) == 0) {
+        fprintf(stderr, "Error: Must specify SUT store filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -322,9 +322,9 @@ bs_print_usage(FILE* os)
     fprintf(os,
             "\n" \
             " Usage: \n\n" \
-            "\t Create data store:\n" \
+            "\t Create SUT data store:\n" \
             "\t\t %s --store-create --lookup=fn --store=fn\n\n" \
-            "\t Query data store:\n" \
+            "\t Query SUT data store:\n" \
             "\t\t %s --store-query  --lookup=fn --store=fn --query=str\n\n" \
             " Notes:\n\n" \
             " - Lookup file is a sorted BED3 or BED4 file\n\n" \
