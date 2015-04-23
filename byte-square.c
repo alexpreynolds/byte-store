@@ -45,6 +45,6 @@ void
 bs_print_usage(FILE* output_stream) 
 {
     fprintf(output_stream,
-            "Usage: %s (--store-make|--store-query) --lookup-file=fn --store-file=fn\n",
+            "Usage: %s (--store-make|--store-query) --lookup-file=fn --store-file=fn --query-string=str\n",
             bs_name);
 }
