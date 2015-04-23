@@ -1,5 +1,5 @@
-#ifndef BYTE_SQUARE_H_
-#define BYTE_SQUARE_H_
+#ifndef BYTE_STORE_H_
+#define BYTE_STORE_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -57,7 +57,7 @@ static struct option bs_client_long_options[] = {
 
 static const char *bs_client_opt_string = "cql:dh?";
 
-static const char *bs_name = "byte-square";
+static const char *bs_name = "byte-store";
 
 lookup_t*  bs_init_lookup(char* fn);
 void       bs_delete_lookup(lookup_t** l);
@@ -71,4 +71,4 @@ void       bs_init_globals();
 void       bs_init_command_line_options(int argc, char** argv);
 void       bs_print_usage(FILE* output_stream);
 
-#endif // BYTE_SQUARE_H_
+#endif // BYTE_STORE_H_

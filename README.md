@@ -1,2 +1,2 @@
-# byte-square
-Exploration of a randomly-generated upper triangular matrix
+# byte-store
+Exploration of a randomly-generated upper triangular matrix represented with a 1-byte store

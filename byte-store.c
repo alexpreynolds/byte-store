@@ -1,4 +1,4 @@
-#include "byte-square.h"
+#include "byte-store.h"
 
 int
 main(int argc, char** argv) 
