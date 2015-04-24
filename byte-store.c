@@ -10,7 +10,6 @@ main(int argc, char** argv)
     bs_init_command_line_options(argc, argv);
 
     lookup = bs_init_lookup(bs_global_args.lookup_fn);
-    /* bs_print_lookup(lookup); */
     sut_store = bs_init_sut_store(lookup->nelems);
         
     if (bs_global_args.sut_store_create_flag) {
@@ -23,6 +22,33 @@ main(int argc, char** argv)
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
+}
+
+void
+bs_test_score_encoding()
+{
+    double d;
+    double epsilon = 0.00001;
+    unsigned char uc;
+
+    for (d = -1.0f, uc = 0x00; d <= 1.0f; d += 0.01f, uc++) {
+        fprintf(stderr, "Testing [ %3.2f | 0x%02x ] -> [ 0x%02x | %3.2f ]\n", d, uc, bs_encode_double_to_unsigned_char(d), bs_encode_unsigned_char_to_double(uc));
+        assert(bs_encode_double_to_unsigned_char(d) == uc);
+        assert(fabs(bs_encode_unsigned_char_to_double(uc) - d) < epsilon);
+    }
+}
+
+inline double
+bs_encode_unsigned_char_to_double(unsigned char uc)
+{
+    return bs_encode_unsigned_char_to_double_table[uc];
+}
+
+inline unsigned char
+bs_encode_double_to_unsigned_char(double d) 
+{
+    int d_lookup = (int) (((d < 0) ? ceil(d * 100.0f) : floor((d + 0.01f) * 100.0f)) + 100.0f);
+    return bs_encode_double_to_unsigned_char_table[d_lookup];
 }
 
 off_t
@@ -219,7 +245,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);
         }
-        /* fprintf(stderr, "writing score [%c | %3.2f]\n", score, bs_encode_unsigned_char_to_float[score]); */
+        /* fprintf(stderr, "writing score [%c | %3.2f]\n", score, bs_encode_unsigned_char_to_double[score]); */
     }
 
     fclose(os);
