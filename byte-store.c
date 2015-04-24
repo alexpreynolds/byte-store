@@ -6,6 +6,14 @@ main(int argc, char** argv)
     lookup_t *lookup = NULL;
     sut_store_t* sut_store = NULL;
 
+    fprintf(stderr, " %4.3f | 0x%02x\n", -0.14, bs_encode_double_to_unsigned_char(-0.14));
+    fprintf(stderr, " %4.3f | 0x%02x\n", -0.142, bs_encode_double_to_unsigned_char(-0.142));
+
+    fprintf(stderr, " %4.3f | 0x%02x\n", 0.14, bs_encode_double_to_unsigned_char(0.14));
+    fprintf(stderr, " %4.3f | 0x%02x\n", 0.142, bs_encode_double_to_unsigned_char(0.142));
+
+    //bs_test_score_encoding();
+
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
 
@@ -28,11 +36,16 @@ void
 bs_test_score_encoding()
 {
     double d;
-    double epsilon = 0.00001;
+    double epsilon = 0.000001;
     unsigned char uc;
 
     for (d = -1.0f, uc = 0x00; d <= 1.0f; d += 0.01f, uc++) {
-        fprintf(stderr, "Testing [ %3.2f | 0x%02x ] -> [ 0x%02x | %3.2f ]\n", d, uc, bs_encode_double_to_unsigned_char(d), bs_encode_unsigned_char_to_double(uc));
+        fprintf(stderr, 
+                "----\nTesting [ %3.6f | 0x%02x ] -> [ 0x%02x | %3.6f ]\n", 
+                d, 
+                uc, 
+                bs_encode_double_to_unsigned_char(d), 
+                bs_encode_unsigned_char_to_double(uc));
         assert(bs_encode_double_to_unsigned_char(d) == uc);
         assert(fabs(bs_encode_unsigned_char_to_double(uc) - d) < epsilon);
     }
@@ -47,14 +60,15 @@ bs_encode_unsigned_char_to_double(unsigned char uc)
 inline unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
-    int d_lookup = (int) (((d < 0) ? ceil(d * 100.0f) : floor((d + 0.01f) * 100.0f)) + 100.0f);
-    return bs_encode_double_to_unsigned_char_table[d_lookup];
+    //fprintf(stderr, "floor(d * 100.0f) [%4.3f] [%14.13f] [%4.3f] [0x%02x]\n", d, d*100.0f, floor(d * 100.0f), (unsigned char) (floor(d * 100.0f)+100.0f));
+    return (unsigned char) (((d <= 0) ? ceil(d * 100.0f) : ceil(d * 100.0f)) + 100.0f);
 }
 
 off_t
 bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 {
-    return (n*(n-1)/2) - (n-i)*((n-i)-1)/2 + j - i - 1; /* cf. http://stackoverflow.com/a/27088560/19410 */
+    /* cf. http://stackoverflow.com/a/27088560/19410 */
+    return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1; 
 }
 
 lookup_t*
