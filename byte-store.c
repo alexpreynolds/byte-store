@@ -6,13 +6,18 @@ main(int argc, char** argv)
     lookup_t *lookup = NULL;
     sut_store_t* sut_store = NULL;
 
+    /*
     fprintf(stderr, " %4.3f | 0x%02x\n", -0.14, bs_encode_double_to_unsigned_char(-0.14));
     fprintf(stderr, " %4.3f | 0x%02x\n", -0.142, bs_encode_double_to_unsigned_char(-0.142));
-
     fprintf(stderr, " %4.3f | 0x%02x\n", 0.14, bs_encode_double_to_unsigned_char(0.14));
     fprintf(stderr, " %4.3f | 0x%02x\n", 0.142, bs_encode_double_to_unsigned_char(0.142));
 
-    //bs_test_score_encoding();
+    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.580, bs_encode_unsigned_char_to_double_table[42], (unsigned char) 42, bs_encode_double_to_unsigned_char(-0.580));
+    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.585, bs_encode_unsigned_char_to_double_table[42], (unsigned char) 42, bs_encode_double_to_unsigned_char(-0.585));
+    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.590, bs_encode_unsigned_char_to_double_table[41], (unsigned char) 41, bs_encode_double_to_unsigned_char(-0.590));
+    */
+
+    bs_test_score_encoding();
 
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
@@ -38,17 +43,35 @@ bs_test_score_encoding()
     double d;
     double epsilon = 0.000001;
     unsigned char uc;
+    int count;
 
-    for (d = -1.0f, uc = 0x00; d <= 1.0f; d += 0.01f, uc++) {
+    for (d = -1.0f, uc = 0x00, count = 0; d <= 1.0f; d += 0.005f, ++count) {
+	if (count % 2 == 1) {
+	    uc++;
+	}
+	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
+	double encode_uc = bs_encode_unsigned_char_to_double(uc);
+	double trunc_d = bs_truncate_double_to_precision(d, 2);
+	unsigned char encode_trunc_d = bs_encode_double_to_unsigned_char(trunc_d);
         fprintf(stderr, 
-                "----\nTesting [ %3.6f | 0x%02x ] -> [ 0x%02x | %3.6f ]\n", 
+                "----\nTest [%06d] [ %3.6f | 0x%02x ] -> [ 0x%02x | %3.6f ] (trunc: %3.6f | 0x%02x)\n", 
+		count,
                 d, 
                 uc, 
-                bs_encode_double_to_unsigned_char(d), 
-                bs_encode_unsigned_char_to_double(uc));
-        assert(bs_encode_double_to_unsigned_char(d) == uc);
-        assert(fabs(bs_encode_unsigned_char_to_double(uc) - d) < epsilon);
+                encode_d,
+                encode_uc,
+		trunc_d,
+		encode_trunc_d);
+        assert(encode_trunc_d == uc);
+        assert(fabs(encode_uc - trunc_d) < epsilon);
     }
+}
+
+inline double
+bs_truncate_double_to_precision(double d, int prec)
+{
+    double factor = powf(10, prec);
+    return ((d < 0) ? ceil(d * factor) : floor(d * factor)) / factor;
 }
 
 inline double
@@ -60,8 +83,15 @@ bs_encode_unsigned_char_to_double(unsigned char uc)
 inline unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
-    //fprintf(stderr, "floor(d * 100.0f) [%4.3f] [%14.13f] [%4.3f] [0x%02x]\n", d, d*100.0f, floor(d * 100.0f), (unsigned char) (floor(d * 100.0f)+100.0f));
-    return (unsigned char) (((d <= 0) ? ceil(d * 100.0f) : ceil(d * 100.0f)) + 100.0f);
+    //fprintf(stderr, "-----------\nd: [%3.6f]\n", d);
+    //fprintf(stderr, "floor(d * 100.0f) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) floor(d * 100.0f), (unsigned char) (fabs(floor(d * 100.0f)+100.0f)));
+    fprintf(stderr, "ceil(d * 100.0f)  [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*1000.0f, (int) (ceil(d * 1000.0f)/10.0f) + 100, (int) (ceil(d * 1000.0f)/10.0f) + 100);
+    //fprintf(stderr, "round(d * 100.0f) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) round(d * 100.0f), (unsigned char) (fabs(round(d * 100.0f)+100.0f)));
+    //fprintf(stderr, "floor(round(d * 100.0f)) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) floor(round(d * 100.0f)), (unsigned char) (fabs(floor(round(d * 100.0f)+100.0f))));
+    //fprintf(stderr, "ceil(round(d * 100.0f)) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) ceil(round(d * 100.0f)), (unsigned char) (fabs(ceil(round(d * 100.0f)+100.0f))));
+    int encode_d = (int) ((d < 0) ? ceil(d * 1000.0f)/10.0f : floor(d * 1000.0f)/10.0f) + 100;
+    //return (unsigned char) (((d <= 0) ? ceil(d * 10000.0f)/100.0f : floor(d * 10000.0f)/100.0f) + 100);
+    return (unsigned char) encode_d;
 }
 
 off_t
@@ -254,7 +284,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     for (uint32_t idx = 0; idx < s->nbytes; idx++) {
         do {
             score = (unsigned char) (mt19937_generate_random_ulong() % 256);
-        } while (score > 201);
+        } while (score > 200);
         if (fputc(score, os) != score) {
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);

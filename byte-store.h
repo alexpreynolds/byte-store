@@ -92,6 +92,7 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00};
 
 void                         bs_test_score_encoding();
+static inline double         bs_truncate_double_to_precision(double d, int prec);
 static inline double         bs_encode_unsigned_char_to_double(unsigned char uc);
 static inline unsigned char  bs_encode_double_to_unsigned_char(double d);
 off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
