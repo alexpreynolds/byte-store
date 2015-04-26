@@ -6,19 +6,6 @@ main(int argc, char** argv)
     lookup_t *lookup = NULL;
     sut_store_t* sut_store = NULL;
 
-    /*
-    fprintf(stderr, " %4.3f | 0x%02x\n", -0.14, bs_encode_double_to_unsigned_char(-0.14));
-    fprintf(stderr, " %4.3f | 0x%02x\n", -0.142, bs_encode_double_to_unsigned_char(-0.142));
-    fprintf(stderr, " %4.3f | 0x%02x\n", 0.14, bs_encode_double_to_unsigned_char(0.14));
-    fprintf(stderr, " %4.3f | 0x%02x\n", 0.142, bs_encode_double_to_unsigned_char(0.142));
-
-    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.580, bs_encode_unsigned_char_to_double_table[42], (unsigned char) 42, bs_encode_double_to_unsigned_char(-0.580));
-    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.585, bs_encode_unsigned_char_to_double_table[42], (unsigned char) 42, bs_encode_double_to_unsigned_char(-0.585));
-    fprintf(stderr, " %4.3f | %4.3f | 0x%02x | 0x%02x\n", -0.590, bs_encode_unsigned_char_to_double_table[41], (unsigned char) 41, bs_encode_double_to_unsigned_char(-0.590));
-    */
-
-    bs_test_score_encoding();
-
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
 
@@ -40,57 +27,40 @@ main(int argc, char** argv)
 void
 bs_test_score_encoding()
 {
+    double epsilon = 0.000001f;
     double d;
-    double epsilon = 0.000001;
-    unsigned char uc;
     int count;
 
-    for (d = -1.0f, uc = 0x00, count = 0; d <= 1.0f; d += 0.005f, ++count) {
-	if (count % 2 == 1) {
-	    uc++;
-	}
+    for (d = -1.0f, count = 0; d <= 1.0f; d += epsilon, ++count) {
 	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
-	double encode_uc = bs_encode_unsigned_char_to_double(uc);
-	double trunc_d = bs_truncate_double_to_precision(d, 2);
-	unsigned char encode_trunc_d = bs_encode_double_to_unsigned_char(trunc_d);
         fprintf(stderr, 
-                "----\nTest [%06d] [ %3.6f | 0x%02x ] -> [ 0x%02x | %3.6f ] (trunc: %3.6f | 0x%02x)\n", 
+                "Test [%07d] [ %3.7f ] -> [ 0x%02x ]\n",
 		count,
                 d, 
-                uc, 
-                encode_d,
-                encode_uc,
-		trunc_d,
-		encode_trunc_d);
-        assert(encode_trunc_d == uc);
-        assert(fabs(encode_uc - trunc_d) < epsilon);
+                encode_d);
     }
 }
 
-inline double
+inline static double
 bs_truncate_double_to_precision(double d, int prec)
 {
     double factor = powf(10, prec);
-    return ((d < 0) ? ceil(d * factor) : floor(d * factor)) / factor;
+    return (d < 0) ? ceil(d * factor)/factor : floor((d + 0.000001) * factor)/factor;
 }
 
-inline double
+inline static double
 bs_encode_unsigned_char_to_double(unsigned char uc)
 {
     return bs_encode_unsigned_char_to_double_table[uc];
 }
 
-inline unsigned char
+inline static unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
-    //fprintf(stderr, "-----------\nd: [%3.6f]\n", d);
-    //fprintf(stderr, "floor(d * 100.0f) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) floor(d * 100.0f), (unsigned char) (fabs(floor(d * 100.0f)+100.0f)));
-    fprintf(stderr, "ceil(d * 100.0f)  [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*1000.0f, (int) (ceil(d * 1000.0f)/10.0f) + 100, (int) (ceil(d * 1000.0f)/10.0f) + 100);
-    //fprintf(stderr, "round(d * 100.0f) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) round(d * 100.0f), (unsigned char) (fabs(round(d * 100.0f)+100.0f)));
-    //fprintf(stderr, "floor(round(d * 100.0f)) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) floor(round(d * 100.0f)), (unsigned char) (fabs(floor(round(d * 100.0f)+100.0f))));
-    //fprintf(stderr, "ceil(round(d * 100.0f)) [%4.3f] [%14.13f] [%d] [0x%02x]\n", d, d*100.0f, (int) ceil(round(d * 100.0f)), (unsigned char) (fabs(ceil(round(d * 100.0f)+100.0f))));
-    int encode_d = (int) ((d < 0) ? ceil(d * 1000.0f)/10.0f : floor(d * 1000.0f)/10.0f) + 100;
-    //return (unsigned char) (((d <= 0) ? ceil(d * 10000.0f)/100.0f : floor(d * 10000.0f)/100.0f) + 100);
+    double epsilon = 0.0000001f;
+    d += (d < 0) ? -epsilon : epsilon; /* jitter is used to deal with interval edges */
+    d = bs_truncate_double_to_precision(d, 2);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100));
     return (unsigned char) encode_d;
 }
 
