@@ -73,7 +73,7 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
      -0.40, -0.39, -0.38, -0.37, -0.36, -0.35, -0.34, -0.33, -0.32, -0.31,
      -0.30, -0.29, -0.28, -0.27, -0.26, -0.25, -0.24, -0.23, -0.22, -0.21,
      -0.20, -0.19, -0.18, -0.17, -0.16, -0.15, -0.14, -0.13, -0.12, -0.11,
-     -0.10, -0.09, -0.08, -0.07, -0.06, -0.05, -0.04, -0.03, -0.02, -0.01,
+     -0.10, -0.09, -0.08, -0.07, -0.06, -0.05, -0.04, -0.03, -0.02, -0.01, -0.00,
      +0.00, +0.01, +0.02, +0.03, +0.04, +0.05, +0.06, +0.07, +0.08, +0.09,
      +0.10, +0.11, +0.12, +0.13, +0.14, +0.15, +0.16, +0.17, +0.18, +0.19,
      +0.20, +0.21, +0.22, +0.23, +0.24, +0.25, +0.26, +0.27, +0.28, +0.29,
@@ -89,12 +89,12 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00,
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00,
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00,
-     +0.00, +0.00, +0.00, +0.00, +0.00, +0.00};
+     +0.00, +0.00, +0.00, +0.00, +0.00};
 
 void                         bs_test_score_encoding();
 static inline double         bs_truncate_double_to_precision(double d, int prec);
-static inline double         bs_encode_unsigned_char_to_double(unsigned char uc);
 static inline unsigned char  bs_encode_double_to_unsigned_char(double d);
+static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
 off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 lookup_t*                    bs_init_lookup(char* fn);
 void                         bs_print_lookup(lookup_t* l);

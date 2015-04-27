@@ -24,6 +24,17 @@ main(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
+/**
+ * @brief      bs_test_score_encoding()
+ *
+ * @details    Encodes scores in the interval [-1.0, +1.0]
+ *             at 1e-6 increments. Encoded scores are 
+ *             unsigned char byte values equivalent to 
+ *             the provided score value. Decoded scores are
+ *             the double-type "bin" with which the original
+ *             score associates.
+ */
+
 void
 bs_test_score_encoding()
 {
@@ -33,13 +44,27 @@ bs_test_score_encoding()
 
     for (d = -1.0f, count = 0; d <= 1.0f; d += epsilon, ++count) {
 	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
+	double decode_d = bs_decode_unsigned_char_to_double(encode_d);
         fprintf(stderr, 
-                "Test [%07d] [ %3.7f ] -> [ 0x%02x ]\n",
+                "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
 		count,
                 d, 
-                encode_d);
+                encode_d,
+                decode_d);
     }
 }
+
+/**
+ * @brief      bs_truncate_double_to_precision(d, prec)
+ *
+ * @details    Truncates double-type value to specified precision.
+ *
+ * @param      d      (double) value to be truncated
+ *             prec   (signed integer) value to determine 
+ *                    precision of truncated value
+ *
+ * @return     (double) truncated value
+ */
 
 inline static double
 bs_truncate_double_to_precision(double d, int prec)
@@ -48,11 +73,24 @@ bs_truncate_double_to_precision(double d, int prec)
     return (d < 0) ? ceil(d * factor)/factor : floor((d + 0.000001) * factor)/factor;
 }
 
-inline static double
-bs_encode_unsigned_char_to_double(unsigned char uc)
-{
-    return bs_encode_unsigned_char_to_double_table[uc];
-}
+/**
+ * @brief      bs_encode_double_to_unsigned_char(d)
+ *
+ * @details    Encodes double-type value to unsigned char-type
+ *             byte bin.
+ *
+ * @param      d      (double) value to be encoded
+ *
+ * @return     (unsigned char) encoded score byte value
+ *
+ * @example    bs_encode_double_to_unsigned_char(-0.010) = 0x63
+ *             bs_encode_double_to_unsigned_char(-0.009) = 0x64
+ *             bs_encode_double_to_unsigned_char(-0.000) = 0x64
+ *             bs_encode_double_to_unsigned_char(+0.000) = 0x65
+ *             bs_encode_double_to_unsigned_char(+0.139) = 0x72
+ *             bs_encode_double_to_unsigned_char(+0.140) = 0x73
+ *             bs_encode_double_to_unsigned_char(+0.142) = 0x73
+ */
 
 inline static unsigned char
 bs_encode_double_to_unsigned_char(double d) 
@@ -60,9 +98,46 @@ bs_encode_double_to_unsigned_char(double d)
     double epsilon = 0.0000001f;
     d += (d < 0) ? -epsilon : epsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100));
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
     return (unsigned char) encode_d;
 }
+
+/**
+ * @brief      bs_decode_unsigned_char_to_double(uc)
+ *
+ * @details    Decodes unsigned char-type byte bin to
+ *             equivalent score bin.
+ *
+ * @param      uc     (unsigned char) value to be decoded
+ *
+ * @return     (double) decoded score bin start value
+ *
+ * @example    bs_decode_unsigned_char_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
+ *             bs_decode_unsigned_char_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
+ *             bs_decode_unsigned_char_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
+ */
+
+inline static double
+bs_decode_unsigned_char_to_double(unsigned char uc)
+{
+    return bs_encode_unsigned_char_to_double_table[uc];
+}
+
+/**
+ * @brief      bs_sut_byte_offset_for_element_ij(n, i, j)
+ *
+ * @details    Returns the byte offset (off_t) value from a linear
+ *             representation of bytes in a strictly upper-triangular (SUT)
+ *             matrix of order n, for given row i and column j.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *             i      (uint32_t) i-th row of matrix
+ *             j      (uint32_t) j-th column of matrix
+ *
+ * @return     (off_t) byte offset into SUT byte array
+ *
+ * @todo       Test condition where i == j.
+ */
 
 off_t
 bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
@@ -70,6 +145,17 @@ bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
     /* cf. http://stackoverflow.com/a/27088560/19410 */
     return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1; 
 }
+
+/**
+ * @brief      bs_init_lookup(fn)
+ *
+ * @details    Read BED-formatted coordinates into a "lookup table" pointer.
+ *             Function allocates memory to lookup table pointer, as needed.
+ *
+ * @param      fn     (char*) filename string
+ *
+ * @return     (lookup_t*) lookup table pointer referencing element data
+ */
 
 lookup_t*
 bs_init_lookup(char* fn)
@@ -113,14 +199,22 @@ bs_init_lookup(char* fn)
     return l;
 }
 
+/**
+ * @brief      bs_print_lookup(l)
+ *
+ * @details    Print contents of lookup_t* to standard output (for debugging).
+ *
+ * @param      l      (lookup_t*) lookup table pointer
+ */
+
 void
 bs_print_lookup(lookup_t* l)
 {
-    fprintf(stderr, "----------------------\n");
-    fprintf(stderr, "Lookup\n");
-    fprintf(stderr, "----------------------\n");
+    fprintf(stdout, "----------------------\n");
+    fprintf(stdout, "Lookup\n");
+    fprintf(stdout, "----------------------\n");
     for (uint32_t idx = 0; idx < l->nelems; idx++) {
-        fprintf(stderr, 
+        fprintf(stdout, 
                 "Element [%09d] [%s | %" PRIu64 " | %" PRIu64 " | %s]\n", 
                 idx, 
                 l->elems[idx]->chr,
@@ -128,8 +222,16 @@ bs_print_lookup(lookup_t* l)
                 l->elems[idx]->stop,
                 l->elems[idx]->id);
     }
-    fprintf(stderr, "----------------------\n");
+    fprintf(stdout, "----------------------\n");
 }
+
+/**
+ * @brief      bs_delete_lookup(l)
+ *
+ * @details    Release memory used by lookup_t* pointer.
+ *
+ * @param      l      (lookup_t**) pointer to lookup table pointer
+ */
 
 void 
 bs_delete_lookup(lookup_t** l)
@@ -144,6 +246,20 @@ bs_delete_lookup(lookup_t** l)
     free(*l);
     *l = NULL;
 }
+
+/**
+ * @brief      bs_init_element(chr, start, stop, id)
+ *
+ * @details    Allocates space for element_t* and copies chr, start, stop
+ *             and id values to element.
+ *
+ * @param      chr    (char*) chromosome string 
+ *             start  (uint64_t) start coordinate position
+ *             stop   (uint64_t) stop coordinate position
+ *             id     (char*) id string 
+ *
+ * @return     (element_t*) element pointer
+ */
 
 element_t*
 bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id)
@@ -179,6 +295,14 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id)
     return e;
 }
 
+/**
+ * @brief      bs_delete_element(e)
+ *
+ * @details    Releases space for element_t* and components.
+ *
+ * @param      e      (element_t**) pointer to element_t pointer
+ */
+
 void
 bs_delete_element(element_t** e)
 {
@@ -191,6 +315,15 @@ bs_delete_element(element_t** e)
     free(*e);
     *e = NULL;
 }
+
+/**
+ * @brief      bs_push_elem_to_lookup(e, l)
+ *
+ * @details    Pushes element_t pointer to lookup table.
+ *
+ * @param      e      (element_t*) element pointer
+ *             l      (lookup_t**) pointer to lookup table pointer
+ */
 
 void
 bs_push_elem_to_lookup(element_t* e, lookup_t** l)
@@ -216,6 +349,16 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l)
     (*l)->nelems++;
 }
 
+/**
+ * @brief      bs_init_sut_store(n)
+ *
+ * @details    Initialize sut_store_t pointer to store SUT attributes.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *
+ * @return     (sut_store_t*) pointer to SUT attribute struct
+ */
+
 sut_store_t* 
 bs_init_sut_store(uint32_t n)
 {
@@ -231,6 +374,16 @@ bs_init_sut_store(uint32_t n)
 
     return s;
 }
+
+/**
+ * @brief      bs_populate_sut_store_with_random_scores(s)
+ *
+ * @details    Write randomly-generated unsigned char bytes to a
+ *             FILE* handle associated with the specified SUT 
+ *             store filename.
+ *
+ * @param      s      (sut_store_t*) pointer to SUT attribute struct
+ */
 
 void
 bs_populate_sut_store_with_random_scores(sut_store_t* s)
@@ -265,6 +418,14 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     fclose(os);
 }
 
+/**
+ * @brief      bs_delete_sut_store(s)
+ *
+ * @details    Release memory associated with SUT store pointer.
+ *
+ * @param      s      (sut_store_t**) pointer to SUT attribute struct pointer
+ */
+
 void
 bs_delete_sut_store(sut_store_t** s)
 {
@@ -273,6 +434,12 @@ bs_delete_sut_store(sut_store_t** s)
     free(*s);
     *s = NULL;
 }
+
+/**
+ * @brief      bs_init_globals()
+ *
+ * @details    Initialize application global variables.
+ */
 
 void
 bs_init_globals()
@@ -284,6 +451,15 @@ bs_init_globals()
     bs_global_args.lookup_fn[0] = '\0';
     bs_global_args.sut_store_fn[0] = '\0';
 }
+
+/**
+ * @brief      bs_init_command_line_options(argc, argv)
+ *
+ * @details    Initialize application state from command-line options.
+ *
+ * @param      argc    (int) number of CLI arguments
+ *             argv    (char**) pointer to character pointer of option values
+ */
 
 void 
 bs_init_command_line_options(int argc, char** argv)
@@ -359,6 +535,14 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 }
+
+/**
+ * @brief      bs_print_usage(os)
+ *
+ * @details    Prints application usage statement to specified output stream.
+ *
+ * @param      os      (FILE*) output FILE stream (e.g., "stdout" or "stderr")
+ */
 
 void 
 bs_print_usage(FILE* os) 
