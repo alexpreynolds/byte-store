@@ -149,6 +149,7 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
 static inline double         bs_truncate_double_to_precision(double d, int prec);
 static inline unsigned char  bs_encode_double_to_unsigned_char(double d);
 static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
+void                         bs_parse_query_str(lookup_t* l);
 void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 lookup_t*                    bs_init_lookup(char* fn);

@@ -17,16 +17,7 @@ main(int argc, char** argv)
             bs_populate_sut_store_with_random_scores(sut_store);
         }
         else if (bs_globals.store_query_flag) {
-            /* parse query string for index values */
-            bs_parse_query_str_to_indices(bs_globals.store_query_str, 
-                                          &bs_globals.store_query_idx_start, 
-                                          &bs_globals.store_query_idx_end);
-            
-            if (((bs_globals.store_query_idx_start + 1) > lookup->nelems) || ((bs_globals.store_query_idx_end + 1) > lookup->nelems)) {
-                fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
-                bs_print_usage(stderr);
-                exit(EXIT_FAILURE);
-            }
+            bs_parse_query_str(lookup);
             bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
         }
         bs_delete_sut_store(&sut_store);
@@ -96,6 +87,29 @@ bs_encode_double_to_unsigned_char(double d)
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
     return (unsigned char) encode_d;
+}
+
+/**
+ * @brief      bs_parse_query_str()
+ *
+ * @details    Parses index-query string and performs some validation
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ */
+
+void
+bs_parse_query_str(lookup_t* l)
+{
+    /* parse query string for index values */
+    bs_parse_query_str_to_indices(bs_globals.store_query_str, 
+                                  &bs_globals.store_query_idx_start, 
+                                  &bs_globals.store_query_idx_end);
+    
+    if (((bs_globals.store_query_idx_start + 1) > l->nelems) || ((bs_globals.store_query_idx_end + 1) > l->nelems)) {
+        fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
 }
 
 /**
