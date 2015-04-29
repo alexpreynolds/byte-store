@@ -90,6 +90,10 @@ bs_truncate_double_to_precision(double d, int prec)
  *             bs_encode_double_to_unsigned_char(+0.139) = 0x72
  *             bs_encode_double_to_unsigned_char(+0.140) = 0x73
  *             bs_encode_double_to_unsigned_char(+0.142) = 0x73
+ *
+ *             <-------- (-1.00, -0.99] (-0.99, -0.98] ...
+ *                   ... (-0.01, -0.00] [+0.00, +0.01) ... 
+ *                   ... [+0.98, +0.99) [+0.99, +1.00) --------->
  */
 
 inline static unsigned char
@@ -542,7 +546,7 @@ bs_init_command_line_options(int argc, char** argv)
  * @details    Prints application usage statement to specified output stream.
  *
  * @param      os      (FILE*) output FILE stream (e.g., "stdout" or "stderr")
- */
+ */ 
 
 void 
 bs_print_usage(FILE* os) 
