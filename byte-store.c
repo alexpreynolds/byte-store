@@ -142,7 +142,7 @@ bs_decode_unsigned_char_to_double(unsigned char uc)
 /**
  * @brief      bs_sut_byte_offset_for_element_ij(n, i, j)
  *
- * @details    Returns the byte offset (off_t) value from a linear
+ * @details    Returns a zero-indexed byte offset (off_t) value from a linear
  *             representation of bytes in a strictly upper-triangular (SUT)
  *             matrix of order n, for given row i and column j.
  *
@@ -151,8 +151,6 @@ bs_decode_unsigned_char_to_double(unsigned char uc)
  *             j      (uint32_t) j-th column of matrix
  *
  * @return     (off_t) byte offset into SUT byte array
- *
- * @todo       Test condition where i == j.
  */
 
 off_t
@@ -196,20 +194,21 @@ bs_init_lookup(char* fn)
     l->elems = NULL;
 
     lf = fopen(fn, "r");
-    if (lf) {
-        while (fgets(buf, BUF_MAX_LEN, lf)) {
-            sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
-            sscanf(start_str, "%" SCNu64, &start_val);
-            sscanf(stop_str, "%" SCNu64, &stop_val);
-            element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str);
-            bs_push_elem_to_lookup(e, &l);
-        }
-    }
-    else {
+    if (ferror(lf)) {
         fprintf(stderr, "Error: Could not open or read from [%s]\n", fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
+    /* parse BED element into element_t* and push to lookup table */
+    while (fgets(buf, BUF_MAX_LEN, lf)) {
+        sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
+        sscanf(start_str, "%" SCNu64, &start_val);
+        sscanf(stop_str, "%" SCNu64, &stop_val);
+        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str);
+        bs_push_elem_to_lookup(e, &l);
+    }
+
     fclose(lf);
 
     return l;
@@ -416,6 +415,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     os = fopen(bs_globals.sut_store_fn, "wb");
     if (ferror(os)) {
         fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
+        bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
