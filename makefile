@@ -7,7 +7,7 @@ all:
 	$(CC) $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
 	$(CC) $(BLDFLAGS) $(CFLAGS) byte-store.o -o byte-store mt19937.a
 
-test:
+test-sut:
 	./byte-store -t sut -c -l test1000.bed -s test1000.bs
 	./byte-store -t sut -q -l test1000.bed -s test1000.bs -i 0-999 | awk '$$7>=0.91'
 
