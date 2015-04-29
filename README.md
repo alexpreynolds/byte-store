@@ -1,2 +1,2 @@
 # byte-store
-Exploration of a randomly-generated upper triangular matrix represented with a 1-byte store
+Generation and querying of randomly-generated upper triangular and square matrices storing 1-byte-encoded (correlation) score values between -1.0 and +1.0

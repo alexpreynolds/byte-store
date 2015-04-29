@@ -146,8 +146,8 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
     memcpy(start_str, qs, start_len);
     memcpy(end_str, qs_delim + 1, end_len);
     
-    *start = atoi(start_str);
-    *end = atoi(end_str);
+    *start = (uint32_t) strtol(start_str, NULL, 10);
+    *end = (uint32_t) strtol(end_str, NULL, 10);
 }
 
 /**
@@ -506,7 +506,7 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
-            bs_globals.rng_seed_value = atoi(optarg);
+            bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
             break;
         case 'h':
         case '?':
