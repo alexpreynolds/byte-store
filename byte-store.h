@@ -10,17 +10,31 @@
 #include <time.h>
 #include <math.h>
 #include <assert.h>
+#include <sys/stat.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 1024
 #define FN_MAX_LEN 1024
+#define QUERY_MAX_LEN 40
+
+#define swap(x,y) do \
+{ unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
+    memcpy(swap_temp,&y,sizeof(x)); \
+    memcpy(&y,&x,       sizeof(x)); \
+    memcpy(&x,swap_temp,sizeof(x)); \
+} while(0)
 
 typedef int boolean;
 extern const boolean kTrue;
 extern const boolean kFalse;
-
 const boolean kTrue = 1;
 const boolean kFalse = 0;
+
+extern const double kEpsilon;
+const double kEpsilon = 0.0000001f;
+
+extern const int kQueryDelim;
+const int kQueryDelim = (int) '-';
 
 typedef struct element {
     char* chr;
@@ -40,18 +54,22 @@ typedef struct sut_store {
     uint64_t nbytes;
 } sut_store_t;
 
-static struct bs_global_args_t {
+static struct bs_globals_t {
     boolean sut_store_create_flag;
     boolean sut_store_query_flag;
+    char sut_store_query_str[QUERY_MAX_LEN];
+    uint32_t sut_store_query_idx_start;
+    uint32_t sut_store_query_idx_end;
     boolean rng_seed_flag;
     uint32_t rng_seed_value;
     char lookup_fn[FN_MAX_LEN];
     char sut_store_fn[FN_MAX_LEN];
-} bs_global_args;
+} bs_globals;
 
 static struct option bs_client_long_options[] = {
     { "store-create", no_argument,       NULL, 'c' },
     { "store-query",  no_argument,       NULL, 'q' },
+    { "index-query",  required_argument, NULL, 'i' },
     { "lookup",       required_argument, NULL, 'l' },
     { "store",        required_argument, NULL, 's' },
     { "rng-seed",     required_argument, NULL, 'd' },
@@ -59,7 +77,7 @@ static struct option bs_client_long_options[] = {
     { NULL,           no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "cql:s:dh?";
+static const char *bs_client_opt_string = "cqi:l:s:dh?";
 
 static const char *bs_name = "byte-store";
 
@@ -105,10 +123,10 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
      +0.00, +0.00, +0.00, +0.00};
 
-void                         bs_test_score_encoding();
 static inline double         bs_truncate_double_to_precision(double d, int prec);
 static inline unsigned char  bs_encode_double_to_unsigned_char(double d);
 static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
+void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 lookup_t*                    bs_init_lookup(char* fn);
 void                         bs_print_lookup(lookup_t* l);
@@ -118,9 +136,12 @@ void                         bs_delete_element(element_t** e);
 void                         bs_push_elem_to_lookup(element_t* e, lookup_t** l);
 sut_store_t*                 bs_init_sut_store(uint32_t n);
 void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
+void                         bs_print_sut_store_to_bed7(lookup_t* l, FILE* os);
 void                         bs_delete_sut_store(sut_store_t** s);
+void                         bs_test_score_encoding();
 void                         bs_init_globals();
 void                         bs_init_command_line_options(int argc, char** argv);
 void                         bs_print_usage(FILE* os);
+inline boolean               bs_file_exists(const char* fn);
 
 #endif // BYTE_STORE_H_

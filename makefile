@@ -9,6 +9,7 @@ all:
 
 test:
 	./byte-store -c -l test1000.bed -s test1000.bs
+	./byte-store -q -l test1000.bed -s test1000.bs -i 0-999 | awk '$$7>=0.91'
 
 clean:
 	rm -rf byte-store

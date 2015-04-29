@@ -3,55 +3,26 @@
 int
 main(int argc, char** argv) 
 {
-    lookup_t *lookup = NULL;
+    lookup_t* lookup = NULL;
     sut_store_t* sut_store = NULL;
 
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
 
-    lookup = bs_init_lookup(bs_global_args.lookup_fn);
+    lookup = bs_init_lookup(bs_globals.lookup_fn);
     sut_store = bs_init_sut_store(lookup->nelems);
         
-    if (bs_global_args.sut_store_create_flag) {
+    if (bs_globals.sut_store_create_flag) {
         bs_populate_sut_store_with_random_scores(sut_store);
     }
-    else if (bs_global_args.sut_store_query_flag) {
+    else if (bs_globals.sut_store_query_flag) {
+        bs_print_sut_store_to_bed7(lookup, stdout);
     }
 
     bs_delete_sut_store(&sut_store);
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
-}
-
-/**
- * @brief      bs_test_score_encoding()
- *
- * @details    Encodes scores in the interval [-1.0, +1.0]
- *             at 1e-6 increments. Encoded scores are 
- *             unsigned char byte values equivalent to 
- *             the provided score value. Decoded scores are
- *             the double-type "bin" with which the original
- *             score associates.
- */
-
-void
-bs_test_score_encoding()
-{
-    double epsilon = 0.000001f;
-    double d;
-    int count;
-
-    for (d = -1.0f, count = 0; d <= 1.0f; d += epsilon, ++count) {
-	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
-	double decode_d = bs_decode_unsigned_char_to_double(encode_d);
-        fprintf(stderr, 
-                "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
-		count,
-                d, 
-                encode_d,
-                decode_d);
-    }
 }
 
 /**
@@ -70,14 +41,22 @@ inline static double
 bs_truncate_double_to_precision(double d, int prec)
 {
     double factor = powf(10, prec);
-    return (d < 0) ? ceil(d * factor)/factor : floor((d + 0.000001) * factor)/factor;
+    return (d < 0) ? ceil(d * factor)/factor : floor((d + kEpsilon) * factor)/factor;
 }
 
 /**
  * @brief      bs_encode_double_to_unsigned_char(d)
  *
- * @details    Encodes double-type value to unsigned char-type
- *             byte bin.
+ * @details    Encodes double-type value between -1 and +1 to 
+ *             unsigned char-type byte "bin".
+ *
+ *             (-1.00, -0.99] (-0.99, -0.98] ...
+ *                   ... (-0.01, -0.00] [+0.00, +0.01) ... 
+ *                           ... [+0.98, +0.99) [+0.99, +1.00)
+ *
+ *                            ---to---
+ *
+ *             { 0x00, 0x01, ... , 0x64, 0x65, ... , 0xc9 }
  *
  * @param      d      (double) value to be encoded
  *
@@ -90,20 +69,53 @@ bs_truncate_double_to_precision(double d, int prec)
  *             bs_encode_double_to_unsigned_char(+0.139) = 0x72
  *             bs_encode_double_to_unsigned_char(+0.140) = 0x73
  *             bs_encode_double_to_unsigned_char(+0.142) = 0x73
- *
- *             <-------- (-1.00, -0.99] (-0.99, -0.98] ...
- *                   ... (-0.01, -0.00] [+0.00, +0.01) ... 
- *                   ... [+0.98, +0.99) [+0.99, +1.00) --------->
  */
 
 inline static unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
-    double epsilon = 0.0000001f;
-    d += (d < 0) ? -epsilon : epsilon; /* jitter is used to deal with interval edges */
+    d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
     return (unsigned char) encode_d;
+}
+
+/**
+ * @brief      bs_parse_query_str_to_indices(qs, start, end)
+ *
+ * @details    Parses index-query string into indices.
+ *
+ * @param      qs     (char*) string to parse into indices
+ *             start  (uint32_t*) pointer to start index value to be populated
+ *             end    (uint32_t*) pointer to end index value to be populated
+ */
+
+void
+bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
+{
+    ssize_t qs_len = strlen(qs);
+    char start_str[QUERY_MAX_LEN] = {0};
+    char end_str[QUERY_MAX_LEN] = {0};
+    char* qs_delim = strchr(qs, kQueryDelim);
+    ssize_t start_len = qs_delim - qs;
+    ssize_t end_len = qs_len - start_len;
+
+    if ((!qs_delim) || 
+        (start_len < 0) || 
+        (start_len >= QUERY_MAX_LEN) || 
+        (end_len < 0) || 
+        (end_len >= QUERY_MAX_LEN)) 
+        {
+            fprintf(stderr, "Error: Index query string not formatted correctly?\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+
+    memcpy(start_str, qs, start_len);
+    memcpy(end_str, qs_delim + 1, end_len);
+    
+    *start = atoi(start_str);
+    *end = atoi(end_str);
 }
 
 /**
@@ -147,7 +159,7 @@ off_t
 bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 {
     /* cf. http://stackoverflow.com/a/27088560/19410 */
-    return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1; 
+    return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1;
 }
 
 /**
@@ -396,12 +408,12 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     FILE* os = NULL;
     
     /* seed RNG */
-    if (bs_global_args.rng_seed_flag)
-        mt19937_seed_rng(bs_global_args.rng_seed_value);
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
     else
         mt19937_seed_rng(time(NULL));
 
-    os = fopen(bs_global_args.sut_store_fn, "wb");
+    os = fopen(bs_globals.sut_store_fn, "wb");
     if (ferror(os)) {
         fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
         exit(EXIT_FAILURE);
@@ -411,15 +423,84 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     for (uint32_t idx = 0; idx < s->nbytes; idx++) {
         do {
             score = (unsigned char) (mt19937_generate_random_ulong() % 256);
-        } while (score > 200);
+        } while (score > 200); /* sample until within bin range */
         if (fputc(score, os) != score) {
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);
         }
-        /* fprintf(stderr, "writing score [%c | %3.2f]\n", score, bs_encode_unsigned_char_to_double[score]); */
     }
 
     fclose(os);
+}
+
+/**
+ * @brief      bs_print_sut_store_to_bed7(l, os)
+ *
+ * @details    Queries SUT store for provided index range globals
+ *             and prints BED7 (BED3 + BED3 + floating point) to 
+ *             specified output stream. The two BED3 elements are 
+ *             retrieved from the lookup table and represent a 
+ *             score pairing.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sut_store_to_bed7(lookup_t* l, FILE* os)
+{
+    if (!bs_file_exists(bs_globals.sut_store_fn)) {
+        fprintf(stderr, "Error: SUT store file [%s] does not exist!\n", bs_globals.sut_store_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(bs_globals.sut_store_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input SUT store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* parse query string for index values */
+    bs_parse_query_str_to_indices(bs_globals.sut_store_query_str, 
+                                  &bs_globals.sut_store_query_idx_start, 
+                                  &bs_globals.sut_store_query_idx_end);
+
+    if (((bs_globals.sut_store_query_idx_start + 1) > l->nelems) || ((bs_globals.sut_store_query_idx_end + 1) > l->nelems)) {
+        fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.sut_store_query_idx_start != bs_globals.sut_store_query_idx_end) {
+        /* swap indices, if row and column range are in lower triangle */
+        if (bs_globals.sut_store_query_idx_start > bs_globals.sut_store_query_idx_end) {
+            swap(bs_globals.sut_store_query_idx_start, bs_globals.sut_store_query_idx_end);
+        }
+        for (uint32_t row_idx = bs_globals.sut_store_query_idx_start; row_idx < bs_globals.sut_store_query_idx_end; row_idx++) {
+            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.sut_store_query_idx_end; col_idx++) {
+                off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, col_idx);
+                fseek(is, is_offset, SEEK_SET);
+                int uc = fgetc(is);
+                fprintf(os, 
+                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                        l->elems[row_idx]->chr,
+                        l->elems[row_idx]->start,
+                        l->elems[row_idx]->stop,
+                        l->elems[col_idx]->chr,
+                        l->elems[col_idx]->start,
+                        l->elems[col_idx]->stop,
+                        bs_decode_unsigned_char_to_double((unsigned char) uc));
+            }
+        }
+    } 
+    else {
+        fprintf(stderr, "Warning: Store offset NA for diagonal\n");
+    }
+
+    fclose(is);
 }
 
 /**
@@ -440,6 +521,36 @@ bs_delete_sut_store(sut_store_t** s)
 }
 
 /**
+ * @brief      bs_test_score_encoding()
+ *
+ * @details    Tests encoding of scores in the interval 
+ *             [-1.0, +1.0] at kEpsilon increments. 
+ *
+ *             Encoded scores are unsigned char byte values 
+ *             equivalent to the provided score value. Decoded 
+ *             scores are the double-typed "bin" with which the 
+ *             original score associates.
+ */
+
+void
+bs_test_score_encoding()
+{
+    double d;
+    int count;
+
+    for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
+	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
+	double decode_d = bs_decode_unsigned_char_to_double(encode_d);
+        fprintf(stderr, 
+                "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
+		count,
+                d, 
+                encode_d,
+                decode_d);
+    }
+}
+
+/**
  * @brief      bs_init_globals()
  *
  * @details    Initialize application global variables.
@@ -448,12 +559,15 @@ bs_delete_sut_store(sut_store_t** s)
 void
 bs_init_globals()
 {
-    bs_global_args.sut_store_create_flag = kFalse;
-    bs_global_args.sut_store_query_flag = kFalse;
-    bs_global_args.rng_seed_flag = kFalse;
-    bs_global_args.rng_seed_value = 0;
-    bs_global_args.lookup_fn[0] = '\0';
-    bs_global_args.sut_store_fn[0] = '\0';
+    bs_globals.sut_store_create_flag = kFalse;
+    bs_globals.sut_store_query_flag = kFalse;
+    bs_globals.sut_store_query_str[0] = '\0';
+    bs_globals.sut_store_query_idx_start = 0;
+    bs_globals.sut_store_query_idx_end = 0;
+    bs_globals.rng_seed_flag = kFalse;
+    bs_globals.rng_seed_value = 0;
+    bs_globals.lookup_fn[0] = '\0';
+    bs_globals.sut_store_fn[0] = '\0';
 }
 
 /**
@@ -486,20 +600,28 @@ bs_init_command_line_options(int argc, char** argv)
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
         case 'c':
-            bs_global_args.sut_store_create_flag = kTrue;
+            bs_globals.sut_store_create_flag = kTrue;
             break;
         case 'q':
-            bs_global_args.sut_store_query_flag = kTrue;
+            bs_globals.sut_store_query_flag = kTrue;
+            break;
+        case 'i':
+            memcpy(bs_globals.sut_store_query_str, optarg, strlen(optarg) + 1);
             break;
         case 'l':
-            memcpy(bs_global_args.lookup_fn, optarg, strlen(optarg) + 1);
+            memcpy(bs_globals.lookup_fn, optarg, strlen(optarg) + 1);
+            if (!bs_file_exists(bs_globals.lookup_fn)) {
+                fprintf(stderr, "Error: Lookup file [%s] does not exist!\n", bs_globals.lookup_fn);
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             break;
         case 's':
-            memcpy(bs_global_args.sut_store_fn, optarg, strlen(optarg) + 1);
+            memcpy(bs_globals.sut_store_fn, optarg, strlen(optarg) + 1);
             break;
         case 'd':
-            bs_global_args.rng_seed_flag = kTrue;
-            bs_global_args.rng_seed_value = atoi(optarg);
+            bs_globals.rng_seed_flag = kTrue;
+            bs_globals.rng_seed_value = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -515,25 +637,25 @@ bs_init_command_line_options(int argc, char** argv)
                                     &bs_client_long_index);
     }
 
-    if (bs_global_args.sut_store_create_flag && bs_global_args.sut_store_query_flag) {
+    if (bs_globals.sut_store_create_flag && bs_globals.sut_store_query_flag) {
         fprintf(stderr, "Error: Cannot both create and query SUT data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (!bs_global_args.sut_store_create_flag && !bs_global_args.sut_store_query_flag) {
+    if (!bs_globals.sut_store_create_flag && !bs_globals.sut_store_query_flag) {
         fprintf(stderr, "Error: Must either create or query a SUT data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (strlen(bs_global_args.lookup_fn) == 0) {
+    if (strlen(bs_globals.lookup_fn) == 0) {
         fprintf(stderr, "Error: Must specify lookup table filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (strlen(bs_global_args.sut_store_fn) == 0) {
+    if (strlen(bs_globals.sut_store_fn) == 0) {
         fprintf(stderr, "Error: Must specify SUT store filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -557,11 +679,27 @@ bs_print_usage(FILE* os)
             "\t Create SUT data store:\n" \
             "\t\t %s --store-create --lookup=fn --store=fn\n\n" \
             "\t Query SUT data store:\n" \
-            "\t\t %s --store-query  --lookup=fn --store=fn --query=str\n\n" \
+            "\t\t %s --store-query  --lookup=fn --store=fn --index-query=str\n\n" \
             " Notes:\n\n" \
             " - Lookup file is a sorted BED3 or BED4 file\n\n" \
             " - Query string is a numeric range specifing indices of interest from lookup\n" \
             "   table (e.g. \"17-83\" represents indices 17 through 83)\n\n",
             bs_name,
             bs_name);
+}
+
+/**
+ * @brief      bs_file_exists(fn)
+ *
+ * @details    Returns kTrue or kFalse depending on whether filename 
+ *             refers to an existing file.
+ *
+ * @param      fn      (const char*) filename to test existence
+ */ 
+
+inline boolean 
+bs_file_exists(const char* fn)
+{
+    struct stat buf;
+    return (boolean) (stat(fn, &buf) == 0);
 }
