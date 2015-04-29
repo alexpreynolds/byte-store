@@ -172,27 +172,6 @@ bs_decode_unsigned_char_to_double(unsigned char uc)
 }
 
 /**
- * @brief      bs_sut_byte_offset_for_element_ij(n, i, j)
- *
- * @details    Returns a zero-indexed byte offset (off_t) value from a linear
- *             representation of bytes in a strictly upper-triangular (SUT)
- *             matrix of order n, for given row i and column j.
- *
- * @param      n      (uint32_t) order of square matrix
- *             i      (uint32_t) i-th row of matrix
- *             j      (uint32_t) j-th column of matrix
- *
- * @return     (off_t) byte offset into SUT byte array
- */
-
-off_t
-bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
-{
-    /* cf. http://stackoverflow.com/a/27088560/19410 */
-    return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1;
-}
-
-/**
  * @brief      bs_init_lookup(fn)
  *
  * @details    Read BED-formatted coordinates into a "lookup table" pointer.
@@ -638,7 +617,7 @@ bs_init_sut_store(uint32_t n)
  *             FILE* handle associated with the specified SUT 
  *             store filename.
  *
- * @param      s      (sut_store_t*) pointer to SUT attribute struct
+ * @param      s      (sut_store_t*) pointer to SUT struct
  */
 
 void
@@ -672,6 +651,27 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     }
 
     fclose(os);
+}
+
+/**
+ * @brief      bs_sut_byte_offset_for_element_ij(n, i, j)
+ *
+ * @details    Returns a zero-indexed byte offset (off_t) value from a linear
+ *             representation of bytes in a strictly upper-triangular (SUT)
+ *             matrix of order n, for given row i and column j.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *             i      (uint32_t) i-th row of matrix
+ *             j      (uint32_t) j-th column of matrix
+ *
+ * @return     (off_t) byte offset into SUT byte array
+ */
+
+off_t
+bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
+{
+    /* cf. http://stackoverflow.com/a/27088560/19410 */
+    return (n * (n - 1)/2) - (n - i)*((n - i) - 1)/2 + j - i - 1;
 }
 
 /**
@@ -738,11 +738,65 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
  *
  * @details    Release memory associated with SUT store pointer.
  *
- * @param      s      (sut_store_t**) pointer to SUT attribute struct pointer
+ * @param      s      (sut_store_t**) pointer to SUT struct pointer
  */
 
 void
 bs_delete_sut_store(sut_store_t** s)
+{
+    (*s)->attr->nbytes = 0;
+    (*s)->attr->nelems = 0;
+    free((*s)->attr);
+    (*s)->attr = NULL;
+    free(*s);
+    *s = NULL;
+}
+
+/**
+ * @brief      bs_init_sqr_store(n)
+ *
+ * @details    Initialize sqr_store_t pointer to store square matrix attributes.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *
+ * @return     (sqr_store_t*) pointer to square matrix struct
+ */
+
+sqr_store_t* 
+bs_init_sqr_store(uint32_t n)
+{
+    sqr_store_t* s = NULL;
+    store_attr_t* a = NULL;
+
+    s = malloc(sizeof(sqr_store_t));
+    if (!s) {
+        fprintf(stderr, "Error: Could not allocate space for square matrix store!\n");
+        exit(EXIT_FAILURE);
+    }
+    a = malloc(sizeof(store_attr_t));
+    if (!a) {
+        fprintf(stderr, "Error: Could not allocate space for square matrix store attributes!\n");
+        exit(EXIT_FAILURE);
+    }
+    a->nelems = n;
+    a->nbytes = n * n;
+    memcpy(a->fn, bs_globals.store_fn, strlen(bs_globals.store_fn) + 1);
+
+    s->attr = a;
+
+    return s;
+}
+
+/**
+ * @brief      bs_delete_sqr_store(s)
+ *
+ * @details    Release memory associated with square matrix store pointer.
+ *
+ * @param      s      (sqr_store_t**) pointer to square matrix struct pointer
+ */
+
+void
+bs_delete_sqr_store(sqr_store_t** s)
 {
     (*s)->attr->nbytes = 0;
     (*s)->attr->nelems = 0;
