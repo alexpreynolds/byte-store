@@ -3,23 +3,41 @@
 int
 main(int argc, char** argv) 
 {
-    lookup_t* lookup = NULL;
-    sut_store_t* sut_store = NULL;
-
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
 
+    sut_store_t* sut_store = NULL;
+    lookup_t* lookup = NULL;
     lookup = bs_init_lookup(bs_globals.lookup_fn);
-    sut_store = bs_init_sut_store(lookup->nelems);
-        
-    if (bs_globals.sut_store_create_flag) {
-        bs_populate_sut_store_with_random_scores(sut_store);
-    }
-    else if (bs_globals.sut_store_query_flag) {
-        bs_print_sut_store_to_bed7(lookup, stdout);
-    }
 
-    bs_delete_sut_store(&sut_store);
+    switch(bs_globals.store_type) {
+    case kStoreSUT:
+        sut_store = bs_init_sut_store(lookup->nelems);
+        if (bs_globals.store_create_flag) {
+            bs_populate_sut_store_with_random_scores(sut_store);
+        }
+        else if (bs_globals.store_query_flag) {
+            /* parse query string for index values */
+            bs_parse_query_str_to_indices(bs_globals.store_query_str, 
+                                          &bs_globals.store_query_idx_start, 
+                                          &bs_globals.store_query_idx_end);
+            
+            if (((bs_globals.store_query_idx_start + 1) > lookup->nelems) || ((bs_globals.store_query_idx_end + 1) > lookup->nelems)) {
+                fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
+        }
+        bs_delete_sut_store(&sut_store);
+        break;
+    case kStoreSquareMatrix:
+        break;
+    case kStoreUndefined:
+        fprintf(stderr, "Error: You should never see this error!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
@@ -365,162 +383,6 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l)
 }
 
 /**
- * @brief      bs_init_sut_store(n)
- *
- * @details    Initialize sut_store_t pointer to store SUT attributes.
- *
- * @param      n      (uint32_t) order of square matrix
- *
- * @return     (sut_store_t*) pointer to SUT attribute struct
- */
-
-sut_store_t* 
-bs_init_sut_store(uint32_t n)
-{
-    sut_store_t* s = NULL;
-
-    s = malloc(sizeof(sut_store_t));
-    if (!s) {
-        fprintf(stderr, "Error: Could not allocate space for SUT store!\n");
-        exit(EXIT_FAILURE);
-    }
-    s->nelems = n;
-    s->nbytes = n * (n - 1) / 2; /* strictly upper triangular (SUT) matrix */
-
-    return s;
-}
-
-/**
- * @brief      bs_populate_sut_store_with_random_scores(s)
- *
- * @details    Write randomly-generated unsigned char bytes to a
- *             FILE* handle associated with the specified SUT 
- *             store filename.
- *
- * @param      s      (sut_store_t*) pointer to SUT attribute struct
- */
-
-void
-bs_populate_sut_store_with_random_scores(sut_store_t* s)
-{
-    unsigned char score = 0;
-    FILE* os = NULL;
-    
-    /* seed RNG */
-    if (bs_globals.rng_seed_flag)
-        mt19937_seed_rng(bs_globals.rng_seed_value);
-    else
-        mt19937_seed_rng(time(NULL));
-
-    os = fopen(bs_globals.sut_store_fn, "wb");
-    if (ferror(os)) {
-        fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-
-    /* write stream of random scores out to os ptr */
-    for (uint32_t idx = 0; idx < s->nbytes; idx++) {
-        do {
-            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
-        } while (score > 200); /* sample until within bin range */
-        if (fputc(score, os) != score) {
-            fprintf(stderr, "Error: Could not write score to output SUT store!\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    fclose(os);
-}
-
-/**
- * @brief      bs_print_sut_store_to_bed7(l, os)
- *
- * @details    Queries SUT store for provided index range globals
- *             and prints BED7 (BED3 + BED3 + floating point) to 
- *             specified output stream. The two BED3 elements are 
- *             retrieved from the lookup table and represent a 
- *             score pairing.
- *
- * @param      l      (lookup_t*) pointer to lookup table
- *             os     (FILE*) pointer to output stream
- */
-
-void
-bs_print_sut_store_to_bed7(lookup_t* l, FILE* os)
-{
-    if (!bs_file_exists(bs_globals.sut_store_fn)) {
-        fprintf(stderr, "Error: SUT store file [%s] does not exist!\n", bs_globals.sut_store_fn);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    
-    FILE* is = NULL;
-    is = fopen(bs_globals.sut_store_fn, "rb");
-    if (ferror(is)) {
-        fprintf(stderr, "Error: Could not open handle to input SUT store!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-
-    /* parse query string for index values */
-    bs_parse_query_str_to_indices(bs_globals.sut_store_query_str, 
-                                  &bs_globals.sut_store_query_idx_start, 
-                                  &bs_globals.sut_store_query_idx_end);
-
-    if (((bs_globals.sut_store_query_idx_start + 1) > l->nelems) || ((bs_globals.sut_store_query_idx_end + 1) > l->nelems)) {
-        fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-
-    if (bs_globals.sut_store_query_idx_start != bs_globals.sut_store_query_idx_end) {
-        /* swap indices, if row and column range are in lower triangle */
-        if (bs_globals.sut_store_query_idx_start > bs_globals.sut_store_query_idx_end) {
-            swap(bs_globals.sut_store_query_idx_start, bs_globals.sut_store_query_idx_end);
-        }
-        for (uint32_t row_idx = bs_globals.sut_store_query_idx_start; row_idx < bs_globals.sut_store_query_idx_end; row_idx++) {
-            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.sut_store_query_idx_end; col_idx++) {
-                off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, col_idx);
-                fseek(is, is_offset, SEEK_SET);
-                int uc = fgetc(is);
-                fprintf(os, 
-                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                        l->elems[row_idx]->chr,
-                        l->elems[row_idx]->start,
-                        l->elems[row_idx]->stop,
-                        l->elems[col_idx]->chr,
-                        l->elems[col_idx]->start,
-                        l->elems[col_idx]->stop,
-                        bs_decode_unsigned_char_to_double((unsigned char) uc));
-            }
-        }
-    } 
-    else {
-        fprintf(stderr, "Warning: Store offset NA for diagonal\n");
-    }
-
-    fclose(is);
-}
-
-/**
- * @brief      bs_delete_sut_store(s)
- *
- * @details    Release memory associated with SUT store pointer.
- *
- * @param      s      (sut_store_t**) pointer to SUT attribute struct pointer
- */
-
-void
-bs_delete_sut_store(sut_store_t** s)
-{
-    (*s)->nbytes = 0;
-    (*s)->nelems = 0;
-    free(*s);
-    *s = NULL;
-}
-
-/**
  * @brief      bs_test_score_encoding()
  *
  * @details    Tests encoding of scores in the interval 
@@ -559,15 +421,17 @@ bs_test_score_encoding()
 void
 bs_init_globals()
 {
-    bs_globals.sut_store_create_flag = kFalse;
-    bs_globals.sut_store_query_flag = kFalse;
-    bs_globals.sut_store_query_str[0] = '\0';
-    bs_globals.sut_store_query_idx_start = 0;
-    bs_globals.sut_store_query_idx_end = 0;
+    bs_globals.store_create_flag = kFalse;
+    bs_globals.store_query_flag = kFalse;
+    bs_globals.store_query_str[0] = '\0';
+    bs_globals.store_query_idx_start = 0;
+    bs_globals.store_query_idx_end = 0;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
     bs_globals.lookup_fn[0] = '\0';
-    bs_globals.sut_store_fn[0] = '\0';
+    bs_globals.store_fn[0] = '\0';
+    bs_globals.store_type_str[0] = '\0';
+    bs_globals.store_type = kStoreUndefined;
 }
 
 /**
@@ -599,14 +463,21 @@ bs_init_command_line_options(int argc, char** argv)
 
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
+        case 't':
+            memcpy(bs_globals.store_type_str, optarg, strlen(optarg) + 1);
+            bs_globals.store_type =
+                (strcmp(bs_globals.store_type_str, kStoreSUTStr) == 0) ? kStoreSUT :
+                (strcmp(bs_globals.store_type_str, kStoreSquareMatrixStr) == 0) ? kStoreSquareMatrix :
+                kStoreUndefined;
+            break;
         case 'c':
-            bs_globals.sut_store_create_flag = kTrue;
+            bs_globals.store_create_flag = kTrue;
             break;
         case 'q':
-            bs_globals.sut_store_query_flag = kTrue;
+            bs_globals.store_query_flag = kTrue;
             break;
         case 'i':
-            memcpy(bs_globals.sut_store_query_str, optarg, strlen(optarg) + 1);
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
             break;
         case 'l':
             memcpy(bs_globals.lookup_fn, optarg, strlen(optarg) + 1);
@@ -617,7 +488,7 @@ bs_init_command_line_options(int argc, char** argv)
             }
             break;
         case 's':
-            memcpy(bs_globals.sut_store_fn, optarg, strlen(optarg) + 1);
+            memcpy(bs_globals.store_fn, optarg, strlen(optarg) + 1);
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
@@ -637,14 +508,14 @@ bs_init_command_line_options(int argc, char** argv)
                                     &bs_client_long_index);
     }
 
-    if (bs_globals.sut_store_create_flag && bs_globals.sut_store_query_flag) {
-        fprintf(stderr, "Error: Cannot both create and query SUT data store!\n");
+    if (bs_globals.store_create_flag && bs_globals.store_query_flag) {
+        fprintf(stderr, "Error: Cannot both create and query data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (!bs_globals.sut_store_create_flag && !bs_globals.sut_store_query_flag) {
-        fprintf(stderr, "Error: Must either create or query a SUT data store!\n");
+    if (!bs_globals.store_create_flag && !bs_globals.store_query_flag) {
+        fprintf(stderr, "Error: Must either create or query a data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -655,8 +526,14 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (strlen(bs_globals.sut_store_fn) == 0) {
-        fprintf(stderr, "Error: Must specify SUT store filename!\n");
+    if (strlen(bs_globals.store_fn) == 0) {
+        fprintf(stderr, "Error: Must specify store filename!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.store_type == kStoreUndefined) {
+        fprintf(stderr, "Error: Must specify store type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -676,14 +553,15 @@ bs_print_usage(FILE* os)
     fprintf(os,
             "\n" \
             " Usage: \n\n" \
-            "\t Create SUT data store:\n" \
-            "\t\t %s --store-create --lookup=fn --store=fn\n\n" \
-            "\t Query SUT data store:\n" \
-            "\t\t %s --store-query  --lookup=fn --store=fn --index-query=str\n\n" \
+            "\t Create data store:\n" \
+            "\t\t %s --store-create --store-type [sut|sqr] --lookup=fn --store=fn\n\n" \
+            "\t Query data store:\n" \
+            "\t\t %s --store-query  --store-type [sut|sqr] --lookup=fn --store=fn --index-query=str\n\n" \
             " Notes:\n\n" \
             " - Lookup file is a sorted BED3 or BED4 file\n\n" \
             " - Query string is a numeric range specifing indices of interest from lookup\n" \
-            "   table (e.g. \"17-83\" represents indices 17 through 83)\n\n",
+            "   table (e.g. \"17-83\" represents indices 17 through 83)\n" \
+            " - Output is in BED7 format (BED3 + BED3 + floating point score)\n\n",
             bs_name,
             bs_name);
 }
@@ -702,4 +580,160 @@ bs_file_exists(const char* fn)
 {
     struct stat buf;
     return (boolean) (stat(fn, &buf) == 0);
+}
+
+/**
+ * @brief      bs_init_sut_store(n)
+ *
+ * @details    Initialize sut_store_t pointer to store SUT attributes.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *
+ * @return     (sut_store_t*) pointer to SUT attribute struct
+ */
+
+sut_store_t* 
+bs_init_sut_store(uint32_t n)
+{
+    sut_store_t* s = NULL;
+    store_attr_t* a = NULL;
+
+    s = malloc(sizeof(sut_store_t));
+    if (!s) {
+        fprintf(stderr, "Error: Could not allocate space for SUT store!\n");
+        exit(EXIT_FAILURE);
+    }
+    a = malloc(sizeof(store_attr_t));
+    if (!a) {
+        fprintf(stderr, "Error: Could not allocate space for SUT store attributes!\n");
+        exit(EXIT_FAILURE);
+    }
+    a->nelems = n;
+    a->nbytes = n * (n - 1) / 2; /* strictly upper triangular (SUT) matrix */
+    memcpy(a->fn, bs_globals.store_fn, strlen(bs_globals.store_fn) + 1);
+
+    s->attr = a;
+
+    return s;
+}
+
+/**
+ * @brief      bs_populate_sut_store_with_random_scores(s)
+ *
+ * @details    Write randomly-generated unsigned char bytes to a
+ *             FILE* handle associated with the specified SUT 
+ *             store filename.
+ *
+ * @param      s      (sut_store_t*) pointer to SUT attribute struct
+ */
+
+void
+bs_populate_sut_store_with_random_scores(sut_store_t* s)
+{
+    unsigned char score = 0;
+    FILE* os = NULL;
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* write stream of random scores out to os ptr */
+    for (uint32_t idx = 0; idx < s->attr->nbytes; idx++) {
+        do {
+            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+        } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
+        if (fputc(score, os) != score) {
+            fprintf(stderr, "Error: Could not write score to output SUT store!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(os);
+}
+
+/**
+ * @brief      bs_print_sut_store_to_bed7(l, os)
+ *
+ * @details    Queries SUT store for provided index range globals
+ *             and prints BED7 (BED3 + BED3 + floating point) to 
+ *             specified output stream. The two BED3 elements are 
+ *             retrieved from the lookup table and represent a 
+ *             score pairing.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
+{
+    if (!bs_file_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
+        /* swap indices, if row and column range are in lower triangle */
+        if (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) {
+            swap(bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+        }
+        for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
+            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
+                off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, col_idx);
+                fseek(is, is_offset, SEEK_SET);
+                int uc = fgetc(is);
+                fprintf(os, 
+                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                        l->elems[row_idx]->chr,
+                        l->elems[row_idx]->start,
+                        l->elems[row_idx]->stop,
+                        l->elems[col_idx]->chr,
+                        l->elems[col_idx]->start,
+                        l->elems[col_idx]->stop,
+                        bs_decode_unsigned_char_to_double((unsigned char) uc));
+            }
+        }
+    } 
+    else {
+        fprintf(stderr, "Warning: Store offset NA for diagonal\n");
+    }
+
+    fclose(is);
+}
+
+/**
+ * @brief      bs_delete_sut_store(s)
+ *
+ * @details    Release memory associated with SUT store pointer.
+ *
+ * @param      s      (sut_store_t**) pointer to SUT attribute struct pointer
+ */
+
+void
+bs_delete_sut_store(sut_store_t** s)
+{
+    (*s)->attr->nbytes = 0;
+    (*s)->attr->nelems = 0;
+    free((*s)->attr);
+    (*s)->attr = NULL;
+    free(*s);
+    *s = NULL;
 }

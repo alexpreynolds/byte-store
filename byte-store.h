@@ -49,24 +49,47 @@ typedef struct lookup {
     element_t** elems;
 } lookup_t;
 
-typedef struct sut_store {
+typedef struct store_attr {
     uint32_t nelems;
     uint64_t nbytes;
+    char fn[FN_MAX_LEN];
+} store_attr_t;
+
+typedef struct sut_store {
+    store_attr_t* attr;
 } sut_store_t;
 
+typedef struct sqr_store {
+    store_attr_t* attr;
+} sqr_store_t;
+
+extern const char* kStoreSUTStr;
+extern const char* kStoreSquareMatrixStr;
+const char* kStoreSUTStr = "sut";
+const char* kStoreSquareMatrixStr = "sqr";
+
+typedef enum store_type {
+    kStoreSUT = 0,
+    kStoreSquareMatrix,
+    kStoreUndefined
+} store_type_t;
+
 static struct bs_globals_t {
-    boolean sut_store_create_flag;
-    boolean sut_store_query_flag;
-    char sut_store_query_str[QUERY_MAX_LEN];
-    uint32_t sut_store_query_idx_start;
-    uint32_t sut_store_query_idx_end;
+    boolean store_create_flag;
+    boolean store_query_flag;
+    char store_query_str[QUERY_MAX_LEN];
+    uint32_t store_query_idx_start;
+    uint32_t store_query_idx_end;
     boolean rng_seed_flag;
     uint32_t rng_seed_value;
     char lookup_fn[FN_MAX_LEN];
-    char sut_store_fn[FN_MAX_LEN];
+    char store_fn[FN_MAX_LEN];
+    char store_type_str[BUF_MAX_LEN];
+    store_type_t store_type;
 } bs_globals;
 
 static struct option bs_client_long_options[] = {
+    { "store-type",   required_argument, NULL, 't' },
     { "store-create", no_argument,       NULL, 'c' },
     { "store-query",  no_argument,       NULL, 'q' },
     { "index-query",  required_argument, NULL, 'i' },
@@ -77,7 +100,7 @@ static struct option bs_client_long_options[] = {
     { NULL,           no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "cqi:l:s:dh?";
+static const char *bs_client_opt_string = "t:cqi:l:s:dh?";
 
 static const char *bs_name = "byte-store";
 
@@ -134,14 +157,14 @@ void                         bs_delete_lookup(lookup_t** l);
 element_t*                   bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
 void                         bs_delete_element(element_t** e);
 void                         bs_push_elem_to_lookup(element_t* e, lookup_t** l);
-sut_store_t*                 bs_init_sut_store(uint32_t n);
-void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
-void                         bs_print_sut_store_to_bed7(lookup_t* l, FILE* os);
-void                         bs_delete_sut_store(sut_store_t** s);
 void                         bs_test_score_encoding();
 void                         bs_init_globals();
 void                         bs_init_command_line_options(int argc, char** argv);
 void                         bs_print_usage(FILE* os);
 inline boolean               bs_file_exists(const char* fn);
+sut_store_t*                 bs_init_sut_store(uint32_t n);
+void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
+void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os);
+void                         bs_delete_sut_store(sut_store_t** s);
 
 #endif // BYTE_STORE_H_
