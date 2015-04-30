@@ -829,7 +829,7 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
 
     /* write stream of random scores out to os ptr */
     for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
-        for (uint32_t col_idx = 0; col_idx <= l->nelems; col_idx++) {
+        for (uint32_t col_idx = 0; col_idx < l->nelems; col_idx++) {
             if (row_idx < col_idx) {
                 do {
                     score = (unsigned char) (mt19937_generate_random_ulong() % 256);
@@ -840,14 +840,16 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
                 }
             }
             else if (row_idx == col_idx) {
-                if (fputc(kSelfCorrelationScore, os) != kSelfCorrelationScore) {
+                score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+                if (fputc(score, os) != score) {
                     fprintf(stderr, "Error: Could not write kSelfCorrelationScore to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
             }
             else if (row_idx > col_idx) {
-                /* write placeholder to mtx[row_idx][col_idx] */
-                if (fputc(kBlankScore, os) != kBlankScore) {
+                /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
+                score = bs_encode_double_to_unsigned_char(kBlankScore);
+                if (fputc(score, os) != score) {
                     fprintf(stderr, "Error: Could not write kBlankScore to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
@@ -857,9 +859,9 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
 
     fclose(os);
     
-    /* do second pass over matrix to overwrite with "mirror" values */
+    /* do a second pass over matrix to overwrite with "mirror" values */
     
-    os = fopen(bs_globals.store_fn, "rwb");
+    os = fopen(bs_globals.store_fn, "rb+");
     if (ferror(os)) {
         fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
         bs_print_usage(stderr);
@@ -872,32 +874,30 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
         fprintf(stderr, "Error: Could not allocate space to row byte buffer!\n");
         exit(EXIT_FAILURE);
     }
-    
     int uc = 0;
     off_t start_offset = 0;
     off_t end_offset = 0;
     off_t offset_idx = 0;
     ssize_t byte_idx = 0;
-    for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
-        /* copy row to buffer */
+    for (uint32_t row_idx = 0; row_idx < l->nelems - 1; row_idx++) {
+        /* copy row of score bytes to a temporary buffer */
         start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
-        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, l->nelems);
+        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, l->nelems - 1);
         fseek(os, start_offset, SEEK_SET);
         for (offset_idx = start_offset; offset_idx <= end_offset; offset_idx++) {
             uc = fgetc(os);
-            byte_idx = (ssize_t) offset_idx - start_offset; 
+            byte_idx = (ssize_t) offset_idx - start_offset;
             row_bytes[byte_idx] = uc;
         }
-        /* copy buffer to column */
+        /* copy temporary buffer to equivalent column */
         start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx + 1, row_idx);
-        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, l->nelems, row_idx);
+        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, l->nelems - 1, row_idx);
         for (offset_idx = start_offset, byte_idx = 0; offset_idx <= end_offset; offset_idx += l->nelems, byte_idx++) {
             fseek(os, offset_idx, SEEK_SET);
             uc = row_bytes[byte_idx];
             fputc(uc, os);
         }
-    }
-    
+    }    
     free(row_bytes);
     row_bytes = NULL;
     
@@ -972,19 +972,6 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                         bs_decode_unsigned_char_to_double((unsigned char) uc));
             }
         }
-    }
-    else {
-        /*
-        fprintf(os, 
-                "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                l->elems[row_idx]->chr,
-                l->elems[row_idx]->start,
-                l->elems[row_idx]->stop,
-                l->elems[col_idx]->chr,
-                l->elems[col_idx]->start,
-                l->elems[col_idx]->stop,
-                kSelfCorrelationScore);
-        */
     }
 
     fclose(is);
