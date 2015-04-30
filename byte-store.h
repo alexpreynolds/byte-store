@@ -36,8 +36,8 @@ const double kEpsilon = 0.0000001f;
 extern const double kSelfCorrelationScore;
 const double kSelfCorrelationScore = +1.0f;
 
-extern const double kBlankScore;
-const double kBlankScore = +0.0f;
+extern const double kNoCorrelationScore;
+const double kNoCorrelationScore = +0.0f;
 
 extern const int kQueryDelim;
 const int kQueryDelim = (int) '-';

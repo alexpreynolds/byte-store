@@ -848,9 +848,9 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
             }
             else if (row_idx > col_idx) {
                 /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
-                score = bs_encode_double_to_unsigned_char(kBlankScore);
+                score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
                 if (fputc(score, os) != score) {
-                    fprintf(stderr, "Error: Could not write kBlankScore to output square matrix store!\n");
+                    fprintf(stderr, "Error: Could not write kNoCorrelationScore to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
             }
