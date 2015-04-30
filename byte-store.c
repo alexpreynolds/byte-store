@@ -800,6 +800,34 @@ bs_init_sqr_store(uint32_t n)
 void
 bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
+    unsigned char score = 0;
+    FILE* os = NULL;
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* write stream of random scores out to os ptr */
+    for (uint32_t idx = 0; idx < s->attr->nbytes; idx++) {
+        do {
+            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+        } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
+        if (fputc(score, os) != score) {
+            fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(os);
 }
 
 /**
