@@ -26,7 +26,7 @@ main(int argc, char** argv)
     case kStoreSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            bs_populate_sqr_store_with_random_scores(lookup);
+            bs_populate_sqr_store_with_random_scores(sqr_store);
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -805,11 +805,11 @@ bs_init_sqr_store(uint32_t n)
  *             FILE* handle associated with the specified square 
  *             matrix store filename.
  *
- * @param      l      (lookup_t*) pointer to lookup table
+ * @param      s      (lookup_t*) pointer to square matrix store
  */
 
 void
-bs_populate_sqr_store_with_random_scores(lookup_t* l)
+bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
@@ -828,8 +828,8 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
     }
 
     /* write stream of random scores out to os ptr */
-    for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
-        for (uint32_t col_idx = 0; col_idx < l->nelems; col_idx++) {
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
+        for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             if (row_idx < col_idx) {
                 do {
                     score = (unsigned char) (mt19937_generate_random_ulong() % 256);
@@ -869,7 +869,7 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
     }
     
     unsigned char* row_bytes = NULL;
-    row_bytes = malloc(l->nelems - 1); /* first byte is a self-correlation score and is not needed */
+    row_bytes = malloc(s->attr->nelems - 1); /* first byte is a self-correlation score and is not needed */
     if (!row_bytes) {
         fprintf(stderr, "Error: Could not allocate space to row byte buffer!\n");
         exit(EXIT_FAILURE);
@@ -879,14 +879,14 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
     off_t end_offset = 0;
     off_t offset_idx = 0;
     ssize_t byte_idx = 0;
-    for (uint32_t row_idx = 0; row_idx < l->nelems - 1; row_idx++) {
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems - 1; row_idx++) {
         /* copy row of score bytes to a temporary buffer */
-        fseek(os, bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1), SEEK_SET);
-        fread(row_bytes, sizeof(unsigned char), l->nelems - row_idx - 1, os);
+        fseek(os, bs_sqr_byte_offset_for_element_ij(s->attr->nelems, row_idx, row_idx + 1), SEEK_SET);
+        fread(row_bytes, sizeof(unsigned char), s->attr->nelems - row_idx - 1, os);
         /* copy temporary buffer to equivalent column */
-        start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx + 1, row_idx);
-        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, l->nelems - 1, row_idx);
-        for (offset_idx = start_offset, byte_idx = 0; offset_idx <= end_offset; offset_idx += l->nelems, byte_idx++) {
+        start_offset =  bs_sqr_byte_offset_for_element_ij(s->attr->nelems, row_idx + 1, row_idx);
+        end_offset = bs_sqr_byte_offset_for_element_ij(s->attr->nelems, s->attr->nelems - 1, row_idx);
+        for (offset_idx = start_offset, byte_idx = 0; offset_idx <= end_offset; offset_idx += s->attr->nelems, byte_idx++) {
             fseek(os, offset_idx, SEEK_SET);
             uc = row_bytes[byte_idx];
             fputc(uc, os);
