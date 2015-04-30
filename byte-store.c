@@ -7,6 +7,7 @@ main(int argc, char** argv)
     bs_init_command_line_options(argc, argv);
 
     sut_store_t* sut_store = NULL;
+    sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
     lookup = bs_init_lookup(bs_globals.lookup_fn);
 
@@ -23,6 +24,15 @@ main(int argc, char** argv)
         bs_delete_sut_store(&sut_store);
         break;
     case kStoreSquareMatrix:
+        sqr_store = bs_init_sqr_store(lookup->nelems);
+        if (bs_globals.store_create_flag) {
+            bs_populate_sqr_store_with_random_scores(sqr_store);
+        }
+        else if (bs_globals.store_query_flag) {
+            bs_parse_query_str(lookup);
+            bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+        }
+        bs_delete_sqr_store(&sqr_store);
         break;
     case kStoreUndefined:
         fprintf(stderr, "Error: You should never see this error!\n");
@@ -59,13 +69,13 @@ bs_truncate_double_to_precision(double d, int prec)
  * @details    Encodes double-type value between -1 and +1 to 
  *             unsigned char-type byte "bin".
  *
- *             (-1.00, -0.99] (-0.99, -0.98] ...
- *                   ... (-0.01, -0.00] [+0.00, +0.01) ... 
- *                           ... [+0.98, +0.99) [+0.99, +1.00)
+ *             (-1.01, -1.00] (-1.00, -0.99] (-0.99, -0.98] ...
+ *                        ... (-0.01, -0.00] [+0.00, +0.01) ... 
+ *                        ... [+0.98, +0.99) [+0.99, +1.00) [+1.00, +1.01)
  *
- *                            ---to---
+ *                                  ---to---
  *
- *             { 0x00, 0x01, ... , 0x64, 0x65, ... , 0xc9 }
+ *             { 0x00, 0x01, 0x02, ... , 0x64, 0x65, ... , 0xc8, 0xc9 }
  *
  * @param      d      (double) value to be encoded
  *
@@ -675,7 +685,7 @@ bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 }
 
 /**
- * @brief      bs_print_sut_store_to_bed7(l, os)
+ * @brief      bs_print_sut_store_to_bed7(l, s, os)
  *
  * @details    Queries SUT store for provided index range globals
  *             and prints BED7 (BED3 + BED3 + floating point) to 
@@ -684,6 +694,7 @@ bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
  *             score pairing.
  *
  * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sut_store_t*) pointer to SUT store
  *             os     (FILE*) pointer to output stream
  */
 
@@ -794,11 +805,11 @@ bs_init_sqr_store(uint32_t n)
  *             FILE* handle associated with the specified square 
  *             matrix store filename.
  *
- * @param      s      (sqr_store_t*) pointer to square matrix struct
+ * @param      l      (lookup_t*) pointer to lookup table
  */
 
 void
-bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
+bs_populate_sqr_store_with_random_scores(lookup_t* l)
 {
     unsigned char score = 0;
     FILE* os = NULL;
@@ -817,17 +828,166 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
     }
 
     /* write stream of random scores out to os ptr */
-    for (uint32_t idx = 0; idx < s->attr->nbytes; idx++) {
-        do {
-            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
-        } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
-        if (fputc(score, os) != score) {
-            fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
-            exit(EXIT_FAILURE);
+    for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
+        for (uint32_t col_idx = 0; col_idx <= l->nelems; col_idx++) {
+            if (row_idx < col_idx) {
+                do {
+                    score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+                } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
+                if (fputc(score, os) != score) {
+                    fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (row_idx == col_idx) {
+                if (fputc(kSelfCorrelationScore, os) != kSelfCorrelationScore) {
+                    fprintf(stderr, "Error: Could not write kSelfCorrelationScore to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (row_idx > col_idx) {
+                /* write placeholder to mtx[row_idx][col_idx] */
+                if (fputc(kBlankScore, os) != kBlankScore) {
+                    fprintf(stderr, "Error: Could not write kBlankScore to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
         }
     }
 
     fclose(os);
+    
+    /* do second pass over matrix to overwrite with "mirror" values */
+    
+    os = fopen(bs_globals.store_fn, "rwb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    unsigned char* row_bytes = NULL;
+    row_bytes = malloc(l->nelems - 1);
+    if (!row_bytes) {
+        fprintf(stderr, "Error: Could not allocate space to row byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    int uc = 0;
+    off_t start_offset = 0;
+    off_t end_offset = 0;
+    off_t offset_idx = 0;
+    ssize_t byte_idx = 0;
+    for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
+        /* copy row to buffer */
+        start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
+        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, l->nelems);
+        fseek(os, start_offset, SEEK_SET);
+        for (offset_idx = start_offset; offset_idx <= end_offset; offset_idx++) {
+            uc = fgetc(os);
+            byte_idx = (ssize_t) offset_idx - start_offset; 
+            row_bytes[byte_idx] = uc;
+        }
+        /* copy buffer to column */
+        start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx + 1, row_idx);
+        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, l->nelems, row_idx);
+        for (offset_idx = start_offset, byte_idx = 0; offset_idx <= end_offset; offset_idx += l->nelems, byte_idx++) {
+            fseek(os, offset_idx, SEEK_SET);
+            uc = row_bytes[byte_idx];
+            fputc(uc, os);
+        }
+    }
+    
+    free(row_bytes);
+    row_bytes = NULL;
+    
+    fclose(os);
+}
+
+/**
+ * @brief      bs_sqr_byte_offset_for_element_ij(n, i, j)
+ *
+ * @details    Returns a zero-indexed byte offset (off_t) value from a linear
+ *             representation of bytes in a square matrix of order n, for 
+ *             given row i and column j.
+ *
+ * @param      n      (uint32_t) order of square matrix
+ *             i      (uint32_t) i-th row of matrix
+ *             j      (uint32_t) j-th column of matrix
+ *
+ * @return     (off_t) byte offset into SUT byte array
+ */
+
+off_t
+bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
+{
+    return i + i * (n - 1) + j;
+}
+
+/**
+ * @brief      bs_print_sqr_store_to_bed7(l, s, os)
+ *
+ * @details    Queries square matrix store for provided index range 
+ *             globals and prints BED7 (BED3 + BED3 + floating point) 
+ *             to specified output stream. The two BED3 elements 
+ *             are retrieved from the lookup table and represent 
+ *             a score pairing.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    if (!bs_file_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
+        for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
+            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
+                off_t is_offset = (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) ? bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, col_idx) : bs_sqr_byte_offset_for_element_ij(l->nelems, col_idx, row_idx);
+                fseek(is, is_offset, SEEK_SET);
+                int uc = fgetc(is);
+                fprintf(os, 
+                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                        l->elems[row_idx]->chr,
+                        l->elems[row_idx]->start,
+                        l->elems[row_idx]->stop,
+                        l->elems[col_idx]->chr,
+                        l->elems[col_idx]->start,
+                        l->elems[col_idx]->stop,
+                        bs_decode_unsigned_char_to_double((unsigned char) uc));
+            }
+        }
+    }
+    else {
+        /*
+        fprintf(os, 
+                "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                l->elems[row_idx]->chr,
+                l->elems[row_idx]->start,
+                l->elems[row_idx]->stop,
+                l->elems[col_idx]->chr,
+                l->elems[col_idx]->start,
+                l->elems[col_idx]->stop,
+                kSelfCorrelationScore);
+        */
+    }
+
+    fclose(is);
 }
 
 /**
