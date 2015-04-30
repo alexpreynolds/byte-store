@@ -869,7 +869,7 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
     }
     
     unsigned char* row_bytes = NULL;
-    row_bytes = malloc(l->nelems - 1);
+    row_bytes = malloc(l->nelems - 1); /* first byte is a self-correlation score and is not needed */
     if (!row_bytes) {
         fprintf(stderr, "Error: Could not allocate space to row byte buffer!\n");
         exit(EXIT_FAILURE);
@@ -881,14 +881,8 @@ bs_populate_sqr_store_with_random_scores(lookup_t* l)
     ssize_t byte_idx = 0;
     for (uint32_t row_idx = 0; row_idx < l->nelems - 1; row_idx++) {
         /* copy row of score bytes to a temporary buffer */
-        start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
-        end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, l->nelems - 1);
-        fseek(os, start_offset, SEEK_SET);
-        for (offset_idx = start_offset; offset_idx <= end_offset; offset_idx++) {
-            uc = fgetc(os);
-            byte_idx = (ssize_t) offset_idx - start_offset;
-            row_bytes[byte_idx] = uc;
-        }
+        fseek(os, bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1), SEEK_SET);
+        fread(row_bytes, sizeof(unsigned char), l->nelems - row_idx - 1, os);
         /* copy temporary buffer to equivalent column */
         start_offset =  bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx + 1, row_idx);
         end_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, l->nelems - 1, row_idx);
