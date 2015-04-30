@@ -174,7 +174,9 @@ off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint3
 void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os);
 void                         bs_delete_sut_store(sut_store_t** s);
 sqr_store_t*                 bs_init_sqr_store(uint32_t n);
-void                         bs_populate_sqr_store_with_random_scores(sqr_store_t* s);
+void                         bs_populate_sqr_store_with_random_scores(lookup_t* l);
+off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
+void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 
 #endif // BYTE_STORE_H_

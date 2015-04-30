@@ -26,7 +26,7 @@ main(int argc, char** argv)
     case kStoreSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            bs_populate_sqr_store_with_random_scores(sqr_store);
+            bs_populate_sqr_store_with_random_scores(lookup);
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
