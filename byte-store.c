@@ -788,6 +788,21 @@ bs_init_sqr_store(uint32_t n)
 }
 
 /**
+ * @brief      bs_populate_sqr_store_with_random_scores(s)
+ *
+ * @details    Write randomly-generated unsigned char bytes to a
+ *             FILE* handle associated with the specified square 
+ *             matrix store filename.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix struct
+ */
+
+void
+bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
+{
+}
+
+/**
  * @brief      bs_delete_sqr_store(s)
  *
  * @details    Release memory associated with square matrix store pointer.
