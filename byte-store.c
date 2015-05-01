@@ -26,7 +26,7 @@ main(int argc, char** argv)
     case kStoreSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            bs_populate_sqr_store_with_random_scores(sqr_store);
+            bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -813,6 +813,8 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
+    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    unsigned char no_correlation_score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -834,26 +836,18 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
                 do {
                     score = (unsigned char) (mt19937_generate_random_ulong() % 256);
                 } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
-                if (fputc(score, os) != score) {
-                    fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
-                    exit(EXIT_FAILURE);
-                }
             }
             else if (row_idx == col_idx) {
-                score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
-                if (fputc(score, os) != score) {
-                    fprintf(stderr, "Error: Could not write kSelfCorrelationScore to output square matrix store!\n");
-                    exit(EXIT_FAILURE);
-                }
+                score = self_correlation_score;
             }
             else if (row_idx > col_idx) {
                 /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
-                score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
-                if (fputc(score, os) != score) {
-                    fprintf(stderr, "Error: Could not write kNoCorrelationScore to output square matrix store!\n");
-                    exit(EXIT_FAILURE);
-                }
+                score = no_correlation_score;
             }
+	    if (fputc(score, os) != score) {
+		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zd, %zd)!\n", row_idx, col_idx);
+		exit(EXIT_FAILURE);
+	    }
         }
     }
 
@@ -915,6 +909,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
+    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -929,6 +924,109 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
         exit(EXIT_FAILURE);
     }
 
+    /* 
+       To eliminate a second pass through the store file (required to write the 
+       lower triangle portion of the matrix) we need to buffer values from the 
+       just-written upper-triangular-side row. Those buffered values can then be 
+       written as we stream through the cells of the square matrix we are 
+       populating. 
+
+       However, due to the order in which we need to retrieve cached score values, 
+       we keep an n-element array of "row nodes" that each point to the start of 
+       a linked list of row-ordered score values.
+
+       A "row_node_ptr" (an element in the n-element array row_node_ptr_buf) 
+       points to the "head" of a row's elements in the store_buf_node_t* linked 
+       list node_ptr_buf.
+
+       row_node_ptr_buf[0]
+       ┌───┐
+       │ 0 │ 
+       └───┘
+         ↓ head, tail
+       ┌────────┐   ┌────────┐         ┌────────┐
+       │ (0, 1) │ → │ (0, 2) │ → ... → │ (0, n) │
+       └────────┘   └────────┘         └────────┘
+       list of 0-row scores
+
+       This structure is built for each row, as we stream through values:
+
+       row_node_ptr_buf[1]
+       ┌───┐
+       │ 1 │ 
+       └───┘
+         ↓ head, tail
+       ┌────────┐   ┌────────┐         ┌────────┐
+       │ (1, 2) │ → │ (1, 3) │ → ... → │ (1, n) │
+       └────────┘   └────────┘         └────────┘
+       list of 1-row scores
+
+       ...
+
+       We populate the matrix one row at a time, like scanlines in an old television set.
+
+       We populate the matrix, starting at the first row, where row_idx < col_idx.
+       We take the linked list row_node_ptr_buf[0]->tail and append the just-
+       calculated score value. The head node row_node_ptr_buf[0]->head remains 
+       the first node pointed to by row_node_ptr_buf[0]->tail.
+       
+       On the next row (r=1), we run into the immediate case where row_idx > col_idx.
+       We grab the head pointer of row_node_ptr_buf[col_idx] -- note the use of col_idx
+       -- and retrieve the stored score value. Once we have the value, we delete the head 
+       node from the linked list. The head pointer is moved the next node in the list.
+
+       On the same row, we again run into the case where row_idx < col_idx. So we
+       start appending nodes to row_node_ptr_buf[1]->list and set row_node_ptr_buf[1]->head
+       to the start of this list.
+
+       On the next row (r=2), we again run into the case where row_idx > col_idx.
+       We grab the head of row_node_ptr_buf[col_idx], retrieve the score value, delete
+       the head node and move the head pointer to the next node. Once row_idx < col_idx,
+       we grow a new list.
+
+       Storage
+       -------
+
+       We grow and shrink lists as we walk through and populate a symmetric square matrix.
+
+       For an even order value for n, a quarter of the square matrix should need its scores 
+       to be buffered:
+
+       (n/2)^2 * sizeof(store_buf_node_t)
+
+       For an odd order of n, the limit is:
+
+       ((n+1)/2) * ((n+1)/2 - 1) * sizeof(store_buf_node_t)
+
+       We also need to store pointers to each row's linked list of buffered scores, and 
+       the head of that list:
+
+       n * sizeof(store_buf_row_node_t*) bytes
+       
+       The total storage for the cache is the sum of these two values for a given n.
+
+       Operations
+       ----------
+
+       There are (n * (n - 1))/2 list node insertions and, to match each node creation,
+       we need (n * (n - 1))/2 node deletions. Thus, caching is O(n^2).
+
+    */
+
+    /* set up and init array of store_buf_row_node_t* */
+    store_buf_row_node_t** row_node_ptr_buf = NULL;
+    row_node_ptr_buf = malloc(sizeof(store_buf_row_node_t*) * s->attr->nelems);
+    for (uint32_t elem_idx = 0; elem_idx < s->attr->nelems; elem_idx++) {
+	row_node_ptr_buf[elem_idx] = NULL;
+	row_node_ptr_buf[elem_idx] = malloc(sizeof(store_buf_row_node_t));
+	if (!row_node_ptr_buf[elem_idx]) {
+	    fprintf(stderr, "Error: Could not allocate space for row node ptr buffer!\n");
+	    exit(EXIT_FAILURE);
+	}
+	row_node_ptr_buf[elem_idx]->head = NULL;
+	row_node_ptr_buf[elem_idx]->tail = NULL;
+    }
+
     /* write stream of random scores out to os ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
@@ -940,24 +1038,57 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
                     fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
+		/* add score to buffer linked list */
+		if (!row_node_ptr_buf[row_idx]->tail) {
+		    row_node_ptr_buf[row_idx]->tail = bs_init_store_buf_node(score);
+		    row_node_ptr_buf[row_idx]->head = row_node_ptr_buf[row_idx]->tail;
+		}
+		else {
+		    store_buf_node_t* new_node = bs_init_store_buf_node(score);
+		    bs_insert_store_buf_node(row_node_ptr_buf[row_idx]->tail, new_node);
+		    row_node_ptr_buf[row_idx]->tail = new_node;
+		}
             }
             else if (row_idx == col_idx) {
-                score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+                score = self_correlation_score;
                 if (fputc(score, os) != score) {
                     fprintf(stderr, "Error: Could not write kSelfCorrelationScore to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
             }
             else if (row_idx > col_idx) {
-                /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
-                score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
+		/* retrieve cached score from buffer -- we switch to col_idx to get mirror element */
+		score = row_node_ptr_buf[col_idx]->head->data;
+		/* get pointer to next node (which could be NULL) */
+		store_buf_node_t* next_node = row_node_ptr_buf[col_idx]->head->next;
+		/* delete what head is pointing to */
+		free(row_node_ptr_buf[col_idx]->head);
+		/* move head up to next node, if it exists, else set head and tail to NULL */
+		if (next_node) {
+		    row_node_ptr_buf[col_idx]->head = next_node;
+		}
+		else {
+		    row_node_ptr_buf[col_idx]->head = NULL;
+		    row_node_ptr_buf[col_idx]->tail = NULL;
+		}
+		/* writed cached score value to file handle */
                 if (fputc(score, os) != score) {
-                    fprintf(stderr, "Error: Could not write kNoCorrelationScore to output square matrix store!\n");
+                    fprintf(stderr, "Error: Could not write cached score to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
             }
         }
     }
+
+    /* clean up the cache */
+    for (uint32_t elem_idx = 0; elem_idx < s->attr->nelems; elem_idx++) {
+	if (row_node_ptr_buf[elem_idx]->head || row_node_ptr_buf[elem_idx]->tail) {
+	    fprintf(stderr, "Error: Some cached row node data was not copied over entirely!\n");
+	    exit(EXIT_FAILURE);
+	}
+	free(row_node_ptr_buf[elem_idx]);
+    }
+    free(row_node_ptr_buf);
 
     fclose(os);
 }
@@ -1077,7 +1208,8 @@ bs_init_store_buf_node(unsigned char uc)
 /**
  * @brief      bs_insert_store_buf_node(n,i)
  *
- * @details    Inserts store buffer node 'i' after node 'n'.
+ * @details    If node 'n->next' exists, inserts node 'i' between nodes 
+ *             'n' and 'n->next'. Otherwise, 'n->next' is set to 'i'.
  *
  * @param      n      (store_buf_node_t*) point node before inserted node
  *             i      (store_buf_node_t*) node to insert after point node
@@ -1091,35 +1223,4 @@ bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i)
     if (n->next)
         i->next = n->next;
     n->next = i;
-}
-
-/**
- * @brief      bs_remove_store_buf_node(n,r,c)
- *
- * @details    Remove node after node n that matches row_idx and col_idx values.
- *
- * @param      n      (store_buf_node_t*) node head after which queries are done
- *             r      (uint32_t) row index
- *             c      (uint32_t) column index
- */
-
-void
-bs_remove_store_buf_node(store_buf_node_t** n, uint32_t r, uint32_t c)
-{
-    if (!*n)
-        return;
-    store_buf_node_t* curr = NULL;
-    store_buf_node_t* prev = NULL;
-    for (curr = *n; curr != NULL; prev = curr, curr = curr->next) {
-        if ((curr->row_idx == r) && (curr->col_idx == c)) {
-            if (!prev) {
-                *n = curr->next;
-            }
-            else {
-                prev->next = curr->next;
-            }
-            free(curr), curr = NULL;
-            return;
-        }
-    }
 }

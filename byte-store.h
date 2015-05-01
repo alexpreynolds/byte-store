@@ -71,10 +71,13 @@ typedef struct sqr_store {
 
 typedef struct store_buf_node {
     unsigned char data;
-    uint32_t row_idx;
-    uint32_t col_idx;
     struct store_buf_node *next;
 } store_buf_node_t;
+
+typedef struct store_buf_row_node {
+    struct store_buf_node *head;
+    struct store_buf_node *tail;
+} store_buf_row_node_t;
 
 extern const char* kStoreSUTStr;
 extern const char* kStoreSquareMatrixStr;
@@ -188,6 +191,5 @@ void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
 void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);
-void                         bs_remove_store_buf_node(store_buf_node_t** n, uint32_t r, uint32_t c);
 
 #endif // BYTE_STORE_H_
