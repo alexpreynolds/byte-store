@@ -69,6 +69,13 @@ typedef struct sqr_store {
     store_attr_t* attr;
 } sqr_store_t;
 
+typedef struct store_buf_node {
+    unsigned char data;
+    uint32_t row_idx;
+    uint32_t col_idx;
+    struct store_buf_node *next;
+} store_buf_node_t;
+
 extern const char* kStoreSUTStr;
 extern const char* kStoreSquareMatrixStr;
 const char* kStoreSUTStr = "sut";
@@ -175,8 +182,12 @@ void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t
 void                         bs_delete_sut_store(sut_store_t** s);
 sqr_store_t*                 bs_init_sqr_store(uint32_t n);
 void                         bs_populate_sqr_store_with_random_scores(sqr_store_t* s);
+void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
+store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
+void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);
+void                         bs_remove_store_buf_node(store_buf_node_t** n, uint32_t r, uint32_t c);
 
 #endif // BYTE_STORE_H_

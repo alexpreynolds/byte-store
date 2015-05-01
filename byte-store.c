@@ -805,7 +805,7 @@ bs_init_sqr_store(uint32_t n)
  *             FILE* handle associated with the specified square 
  *             matrix store filename.
  *
- * @param      s      (lookup_t*) pointer to square matrix store
+ * @param      s      (sqr_store_t*) pointer to square matrix store
  */
 
 void
@@ -899,6 +899,70 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 }
 
 /**
+ * @brief      bs_populate_sqr_store_with_buffered_random_scores(s)
+ *
+ * @details    Write randomly-generated unsigned char bytes to a
+ *             FILE* handle associated with the specified square 
+ *             matrix store filename, buffering rows of data to 
+ *             populate lower diagonal values without a second 
+ *             pass through the file handle..
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ */
+
+void
+bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
+{
+    unsigned char score = 0;
+    FILE* os = NULL;
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* write stream of random scores out to os ptr */
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
+        for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
+            if (row_idx < col_idx) {
+                do {
+                    score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+                } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
+                if (fputc(score, os) != score) {
+                    fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (row_idx == col_idx) {
+                score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+                if (fputc(score, os) != score) {
+                    fprintf(stderr, "Error: Could not write kSelfCorrelationScore to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (row_idx > col_idx) {
+                /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
+                score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
+                if (fputc(score, os) != score) {
+                    fprintf(stderr, "Error: Could not write kNoCorrelationScore to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+    }
+
+    fclose(os);
+}
+
+/**
  * @brief      bs_sqr_byte_offset_for_element_ij(n, i, j)
  *
  * @details    Returns a zero-indexed byte offset (off_t) value from a linear
@@ -988,4 +1052,74 @@ bs_delete_sqr_store(sqr_store_t** s)
     (*s)->attr = NULL;
     free(*s);
     *s = NULL;
+}
+
+/**
+ * @brief      bs_init_store_buf_node(uc)
+ *
+ * @details    Returns new store buffer node pointer.
+ *
+ * @param      uc     (unsigned char) data value
+ *
+ * @return     (store_buf_node_t*) pointer to buffer node
+ */
+
+store_buf_node_t*
+bs_init_store_buf_node(unsigned char uc)
+{
+    store_buf_node_t* b = NULL;
+    b = malloc(sizeof(store_buf_node_t));
+    b->data = uc;
+    b->next = NULL;
+    return b;
+}
+
+/**
+ * @brief      bs_insert_store_buf_node(n,i)
+ *
+ * @details    Inserts store buffer node 'i' after node 'n'.
+ *
+ * @param      n      (store_buf_node_t*) point node before inserted node
+ *             i      (store_buf_node_t*) node to insert after point node
+ */
+
+void
+bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i)
+{
+    if (!n)
+        return;
+    if (n->next)
+        i->next = n->next;
+    n->next = i;
+}
+
+/**
+ * @brief      bs_remove_store_buf_node(n,r,c)
+ *
+ * @details    Remove node after node n that matches row_idx and col_idx values.
+ *
+ * @param      n      (store_buf_node_t*) node head after which queries are done
+ *             r      (uint32_t) row index
+ *             c      (uint32_t) column index
+ */
+
+void
+bs_remove_store_buf_node(store_buf_node_t** n, uint32_t r, uint32_t c)
+{
+    if (!*n)
+        return;
+    store_buf_node_t* curr = NULL;
+    store_buf_node_t* prev = NULL;
+    for (curr = *n; curr != NULL; prev = curr, curr = curr->next) {
+        if ((curr->row_idx == r) && (curr->col_idx == c)) {
+            if (!prev) {
+                *n = curr->next;
+            }
+            else {
+                prev->next = curr->next;
+            }
+            free(curr), curr = NULL;
+            return;
+        }
+    }
 }
