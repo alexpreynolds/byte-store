@@ -339,19 +339,24 @@ bs_init_signal(char* cds)
     uint32_t entry_idx = 0;
     boolean finished = kFalse;
     do {
-        end = (entry_idx > 0) ? strchr(start + 1, kSignalDelim) : strchr(cds, kSignalDelim);
+        end = strchr(((entry_idx > 0) ? start + 1 : cds), kSignalDelim);
         if (!end) {
             end = cds + strlen(cds);
             finished = kTrue;
         }
-        memcpy(entry_buf, start + ((entry_idx > 0) ? 1 : 0), end - start);
-        entry_buf[end - start - ((entry_idx > 0) ? 1 : 0)] = '\0';
+        uint32_t offset = (entry_idx > 0) ? 1 : 0;
+        memcpy(entry_buf, start + offset, end - start);
+        entry_buf[end - start - offset] = '\0';
         sscanf(entry_buf, "%lf", &s->data[entry_idx++]);
         start = end;
     } while (!finished);
     s->mean = bs_mean_signal(s->data, s->n);
-    if (s->n >= 2)
+    if (s->n >= 2) {
         s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
+    }
+    else {
+        fprintf(stderr, "Warning: Vector has one value and therefore does not have a standard deviation!\n");
+    }
     return s;
 }
 
@@ -394,11 +399,13 @@ bs_print_signal(signal_t* s)
 inline double
 bs_mean_signal(double* d, uint32_t len)
 {
-    if (len == 0)
+    if (len == 0) {
         return 0.0f;
+    }
     double s = 0.0f;
-    for (uint32_t idx = 0; idx < len; idx++)
+    for (uint32_t idx = 0; idx < len; idx++) {
         s += d[idx];
+    }
     return s / len;
 }
 
@@ -419,8 +426,9 @@ inline double
 bs_sample_sd_signal(double* d, uint32_t len, double m)
 {
     double s = 0.0f;
-    for (uint32_t idx = 0; idx < len; idx++)
+    for (uint32_t idx = 0; idx < len; idx++) {
         s += (d[idx] - m) * (d[idx] - m);
+    }
     return sqrt(s / (len - 1));
 }
 
@@ -446,7 +454,7 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
         exit(EXIT_FAILURE);
     }
     if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
-        fprintf(stderr, "Error: Vectors have zero standard deviation!!\n");
+        fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
         bs_print_signal(a);
         bs_print_signal(b);
         exit(EXIT_FAILURE);
