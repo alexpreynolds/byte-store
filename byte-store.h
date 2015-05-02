@@ -195,6 +195,7 @@ signal_t*                    bs_init_signal(char *cds);
 void                         bs_print_signal(signal_t* s);
 inline double                bs_mean_signal(double* d, uint32_t len);
 inline double                bs_sample_sd_signal(double* d, uint32_t len, double m);
+inline double                bs_pearson_r_signal(signal_t* a, signal_t* b);
 void                         bs_delete_signal(signal_t** s);
 element_t*                   bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
 void                         bs_delete_element(element_t** e);

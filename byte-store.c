@@ -350,7 +350,8 @@ bs_init_signal(char* cds)
         start = end;
     } while (!finished);
     s->mean = bs_mean_signal(s->data, s->n);
-    s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
+    if (s->n >= 2)
+        s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
     return s;
 }
 
@@ -421,6 +422,39 @@ bs_sample_sd_signal(double* d, uint32_t len, double m)
     for (uint32_t idx = 0; idx < len; idx++)
         s += (d[idx] - m) * (d[idx] - m);
     return sqrt(s / (len - 1));
+}
+
+/**
+ * @brief      bs_pearson_r_signal(a, b)
+ *
+ * @details    Calculates the Pearson's r correlation of two
+ *             signal vectors
+ *
+ * @param      a      (signal_t*) pointer to first signal struct
+ *             b      (signal_t*) pointer to second signal struct
+ *
+ * @return     (double) Pearson's r correlation score result
+ */
+
+inline double
+bs_pearson_r_signal(signal_t* a, signal_t* b)
+{
+    if (a->n != b->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a);
+        bs_print_signal(b);
+        exit(EXIT_FAILURE);
+    }
+    if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
+        fprintf(stderr, "Error: Vectors have zero standard deviation!!\n");
+        bs_print_signal(a);
+        bs_print_signal(b);
+        exit(EXIT_FAILURE);
+    }
+    double s = 0.0f;
+    for (uint32_t idx = 0; idx < a->n; idx++)
+        s += (a->data[idx] - a->mean) * (b->data[idx] - b->mean);
+    return s / ((a->n - 1.0f) * a->sd * b->sd);
 }
 
 /**
