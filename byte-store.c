@@ -298,6 +298,18 @@ bs_delete_lookup(lookup_t** l)
     *l = NULL;
 }
 
+/**
+ * @brief      bs_init_signal(cds)
+ *
+ * @details    Initialize a signal_t pointer with a vector of doubles,
+ *             along with mean and sample standard deviation of the
+ *             vector.
+ *
+ * @param      cds    (char*) pointer to comma-delimited string of numerical values
+ *
+ * @return     (signal_t*) pointer to signal struct populated with signal data
+ */
+
 signal_t*
 bs_init_signal(char* cds)
 {
@@ -307,7 +319,7 @@ bs_init_signal(char* cds)
         fprintf(stderr, "Error: Could not allocate space for signal pointer!\n");
         exit(EXIT_FAILURE);
     }
-    s->n = 0;
+    s->n = 1;
     s->data = NULL;
     s->mean = 0.0f;
     s->sd = 0.0f;
@@ -316,7 +328,6 @@ bs_init_signal(char* cds)
             s->n++;
         }
     }
-    s->n++;
     s->data = malloc(sizeof(double) * s->n);
     if (!s->data) {
         fprintf(stderr, "Error: Could not allocate space for signal data pointer!\n");
@@ -343,6 +354,14 @@ bs_init_signal(char* cds)
     return s;
 }
 
+/**
+ * @brief      bs_print_signal(s)
+ *
+ * @details    Print a signal struct's details to standard error stream
+ *
+ * @param      s      (signal_t*) pointer to signal struct to be printed
+ */
+
 void
 bs_print_signal(signal_t* s)
 {
@@ -359,6 +378,18 @@ bs_print_signal(signal_t* s)
     fprintf(stderr, "sd     -> [%3.6f]\n", s->sd);
 }
 
+/**
+ * @brief      bs_mean_signal(d, len)
+ *
+ * @details    Calculates the arithmetic mean of the 
+ *             provided array of doubles of given length
+ *
+ * @param      d      (double*) pointer to doubles
+ *             len    (uint32_t) length of double array
+ *
+ * @return     (double) mean value of double array
+ */
+
 inline double
 bs_mean_signal(double* d, uint32_t len)
 {
@@ -369,6 +400,19 @@ bs_mean_signal(double* d, uint32_t len)
         s += d[idx];
     return s / len;
 }
+
+/**
+ * @brief      bs_sample_sd_signal(d, len, m)
+ *
+ * @details    Calculates the sample standard deviation of the 
+ *             provided array of doubles of given length and mean
+ *
+ * @param      d      (double*) pointer to doubles
+ *             len    (uint32_t) length of double array
+ *             m      (double) arithmetic mean of double array
+ *
+ * @return     (double) sample standard deviation value of double array
+ */
 
 inline double
 bs_sample_sd_signal(double* d, uint32_t len, double m)
