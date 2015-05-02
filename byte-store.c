@@ -423,6 +423,14 @@ bs_sample_sd_signal(double* d, uint32_t len, double m)
     return sqrt(s / (len - 1));
 }
 
+/**
+ * @brief      bs_delete_signal(s)
+ *
+ * @details    Reset and release memory of provided pointer to signal struct
+ *
+ * @param      s      (signal_t**) pointer to signal struct pointer to be deleted
+ */
+
 void
 bs_delete_signal(signal_t** s)
 {
