@@ -339,16 +339,15 @@ bs_init_signal(char* cds)
     uint32_t entry_idx = 0;
     boolean finished = kFalse;
     do {
-        end = strchr(((entry_idx > 0) ? start + 1 : cds), kSignalDelim);
+        end = strchr(start, kSignalDelim);
         if (!end) {
             end = cds + strlen(cds);
             finished = kTrue;
         }
-        uint32_t offset = (entry_idx > 0) ? 1 : 0;
-        memcpy(entry_buf, start + offset, end - start);
-        entry_buf[end - start - offset] = '\0';
+        memcpy(entry_buf, start, end - start);
+        entry_buf[end - start] = '\0';
         sscanf(entry_buf, "%lf", &s->data[entry_idx++]);
-        start = end;
+        start = end + 1;
     } while (!finished);
     s->mean = bs_mean_signal(s->data, s->n);
     if (s->n >= 2) {
