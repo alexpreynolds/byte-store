@@ -9,10 +9,11 @@ main(int argc, char** argv)
     sut_store_t* sut_store = NULL;
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
+
     lookup = bs_init_lookup(bs_globals.lookup_fn);
 
     switch(bs_globals.store_type) {
-    case kStoreSUT:
+    case kStorePearsonRSUT:
 	fprintf(stderr, "Error: Not yet implemented!\n");
 	bs_print_usage(stderr);
 	exit(EXIT_FAILURE);
@@ -27,7 +28,7 @@ main(int argc, char** argv)
         }
         bs_delete_sut_store(&sut_store);
         break;
-    case kStoreSquareMatrix:
+    case kStorePearsonRSquareMatrix:
 	fprintf(stderr, "Error: Not yet implemented!\n");
 	bs_print_usage(stderr);
 	exit(EXIT_FAILURE);
@@ -51,6 +52,7 @@ main(int argc, char** argv)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
@@ -68,7 +70,7 @@ main(int argc, char** argv)
  * @return     (double) truncated value
  */
 
-inline static double
+inline double
 bs_truncate_double_to_precision(double d, int prec)
 {
     double factor = powf(10, prec);
@@ -102,13 +104,34 @@ bs_truncate_double_to_precision(double d, int prec)
  *             bs_encode_double_to_unsigned_char(+0.142) = 0x73
  */
 
-inline static unsigned char
+inline unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
     return (unsigned char) encode_d;
+}
+
+/**
+ * @brief      bs_decode_unsigned_char_to_double(uc)
+ *
+ * @details    Decodes unsigned char-type byte bin to
+ *             equivalent score bin.
+ *
+ * @param      uc     (unsigned char) value to be decoded
+ *
+ * @return     (double) decoded score bin start value
+ *
+ * @example    bs_decode_unsigned_char_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
+ *             bs_decode_unsigned_char_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
+ *             bs_decode_unsigned_char_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
+ */
+
+static inline double
+bs_decode_unsigned_char_to_double(unsigned char uc)
+{
+    return bs_encode_unsigned_char_to_double_table[uc];
 }
 
 /**
@@ -170,27 +193,6 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
     
     *start = (uint32_t) strtol(start_str, NULL, 10);
     *end = (uint32_t) strtol(end_str, NULL, 10);
-}
-
-/**
- * @brief      bs_decode_unsigned_char_to_double(uc)
- *
- * @details    Decodes unsigned char-type byte bin to
- *             equivalent score bin.
- *
- * @param      uc     (unsigned char) value to be decoded
- *
- * @return     (double) decoded score bin start value
- *
- * @example    bs_decode_unsigned_char_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
- *             bs_decode_unsigned_char_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
- *             bs_decode_unsigned_char_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
- */
-
-inline static double
-bs_decode_unsigned_char_to_double(unsigned char uc)
-{
-    return bs_encode_unsigned_char_to_double_table[uc];
 }
 
 /**
@@ -269,6 +271,7 @@ bs_print_lookup(lookup_t* l)
                 l->elems[idx]->start,
                 l->elems[idx]->stop,
                 l->elems[idx]->id);
+        bs_print_signal(l->elems[idx]->signal);
     }
     fprintf(stdout, "----------------------\n");
 }
@@ -293,6 +296,97 @@ bs_delete_lookup(lookup_t** l)
     (*l)->capacity = 0;
     free(*l);
     *l = NULL;
+}
+
+signal_t*
+bs_init_signal(char* cds)
+{
+    signal_t* s = NULL;
+    s = malloc(sizeof(signal_t));
+    if (!s) {
+        fprintf(stderr, "Error: Could not allocate space for signal pointer!\n");
+        exit(EXIT_FAILURE);
+    }
+    s->n = 0;
+    s->data = NULL;
+    s->mean = 0.0f;
+    s->sd = 0.0f;
+    for (uint32_t idx = 0; idx < strlen(cds); idx++) {
+        if (cds[idx] == kSignalDelim) {
+            s->n++;
+        }
+    }
+    s->n++;
+    s->data = malloc(sizeof(double) * s->n);
+    if (!s->data) {
+        fprintf(stderr, "Error: Could not allocate space for signal data pointer!\n");
+        exit(EXIT_FAILURE);
+    }
+    char* start = cds;
+    char* end = cds;
+    char entry_buf[ENTRY_MAX_LEN];
+    uint32_t entry_idx = 0;
+    boolean finished = kFalse;
+    do {
+        end = (entry_idx > 0) ? strchr(start + 1, kSignalDelim) : strchr(cds, kSignalDelim);
+        if (!end) {
+            end = cds + strlen(cds);
+            finished = kTrue;
+        }
+        memcpy(entry_buf, start + ((entry_idx > 0) ? 1 : 0), end - start);
+        entry_buf[end - start - ((entry_idx > 0) ? 1 : 0)] = '\0';
+        sscanf(entry_buf, "%lf", &s->data[entry_idx++]);
+        start = end;
+    } while (!finished);
+    s->mean = bs_mean_signal(s->data, s->n);
+    s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
+    return s;
+}
+
+void
+bs_print_signal(signal_t* s)
+{
+    fprintf(stderr, "vector -> [");
+    for (uint32_t idx = 0; idx < s->n; idx++) {
+        fprintf(stderr, "%3.6f", s->data[idx]);
+        if (idx != (s->n - 1)) {
+            fprintf(stderr, ", ");
+        }
+    }
+    fprintf(stderr, "]\n");
+    fprintf(stderr, "n      -> [%u]\n", s->n);
+    fprintf(stderr, "mean   -> [%3.6f]\n", s->mean);
+    fprintf(stderr, "sd     -> [%3.6f]\n", s->sd);
+}
+
+inline double
+bs_mean_signal(double* d, uint32_t len)
+{
+    if (len == 0)
+        return 0.0f;
+    double s = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++)
+        s += d[idx];
+    return s / len;
+}
+
+inline double
+bs_sample_sd_signal(double* d, uint32_t len, double m)
+{
+    double s = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++)
+        s += (d[idx] - m) * (d[idx] - m);
+    return sqrt(s / (len - 1));
+}
+
+void
+bs_delete_signal(signal_t** s)
+{
+    (*s)->n = 0;
+    (*s)->mean = 0.0f;
+    (*s)->sd = 0.0f;
+    free((*s)->data);
+    free(*s);
 }
 
 /**
@@ -339,7 +433,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id)
         }
         memcpy(e->id, id, strlen(id) + 1);
     }
-    
+    e->signal = (e->id) ? bs_init_signal(e->id) : NULL;
     return e;
 }
 
@@ -360,6 +454,8 @@ bs_delete_element(element_t** e)
     (*e)->stop = 0;
     free((*e)->id);
     (*e)->id = NULL;
+    bs_delete_signal(&((*e)->signal));
+    (*e)->signal = NULL;
     free(*e);
     *e = NULL;
 }
@@ -461,12 +557,6 @@ bs_init_globals()
 void 
 bs_init_command_line_options(int argc, char** argv)
 {
-    /*
-    fprintf(stderr, "argc:\t\t[%d]\n", argc);
-    for (int argc_idx = 0; argc_idx < argc; argc_idx++)
-        fprintf(stderr, "argv[%02d]:\t[%s]\n", argc_idx, argv[argc_idx]); 
-    */
-
     int bs_client_long_index;
     int bs_client_opt = getopt_long(argc,
                                     argv,
@@ -481,8 +571,8 @@ bs_init_command_line_options(int argc, char** argv)
         case 't':
             memcpy(bs_globals.store_type_str, optarg, strlen(optarg) + 1);
             bs_globals.store_type =
-                (strcmp(bs_globals.store_type_str, kStoreSUTStr) == 0) ? kStoreSUT :
-                (strcmp(bs_globals.store_type_str, kStoreSquareMatrixStr) == 0) ? kStoreSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
@@ -571,15 +661,27 @@ bs_print_usage(FILE* os)
     fprintf(os,
             "\n" \
             " Usage: \n\n" \
-            "\t Create data store:\n" \
-            "\t\t %s --store-create --store-type [sut|sqr] --lookup=fn --store=fn\n\n" \
-            "\t Query data store:\n" \
-            "\t\t %s --store-query  --store-type [sut|sqr] --lookup=fn --store=fn --index-query=str\n\n" \
+            "   Create data store:\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
+            "   Query data store:\n\n" \
+            "     %s --store-query  --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             " Notes:\n\n" \
-            " - Lookup file is a sorted BED3 or BED4 file\n\n" \
+            " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
+            "   and how it is created and populated.\n\n"                           \
+            "   The Pearson's R population method (pearson-r-sut | -sqr) uses the row vector in the\n" \
+            "   fourth column of the lookup BED4 file to generate correlation scores between pairs\n" \
+            "   of elements.\n\n" \
+            "   The random-sut and random-sqr methods populate the data store with random values\n" \
+            "   drawn from the MT19937 RNG. In the case of random-sqr, a second pass is made through\n" \
+            "   the output file to populate the lower triangular section of the matrix.\n\n" \
+            "   The random-buffered-sqr method works identically to the random-sqr method, but only\n" \
+            "   makes one pass to generate the output store file. This can require considerably more\n" \
+            "   memory than the two-pass method.\n\n"                   \
+            " - Lookup file is a sorted BED4 file.\n\n"                  \
+            " - The fourth column of the BED4 file is a comma-delimited string of floating-point values.\n\n" \
             " - Query string is a numeric range specifing indices of interest from lookup\n" \
-            "   table (e.g. \"17-83\" represents indices 17 through 83)\n" \
-            " - Output is in BED7 format (BED3 + BED3 + floating point score)\n\n",
+            "   table (e.g. \"17-83\" represents indices 17 through 83).\n\n" \
+            " - Output is in BED7 format (BED3 + BED3 + floating-point score).\n\n",
             bs_name,
             bs_name);
 }

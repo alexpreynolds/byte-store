@@ -16,6 +16,7 @@
 #define BUF_MAX_LEN 1024
 #define FN_MAX_LEN 1024
 #define QUERY_MAX_LEN 40
+#define ENTRY_MAX_LEN 20
 
 #define swap(x,y) do \
 { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -42,11 +43,22 @@ const double kNoCorrelationScore = +0.0f;
 extern const int kQueryDelim;
 const int kQueryDelim = (int) '-';
 
+extern const int kSignalDelim;
+const int kSignalDelim = (int) ',';
+
+typedef struct signal {
+    uint32_t n;
+    double* data;
+    double mean;
+    double sd;
+} signal_t;
+
 typedef struct element {
     char* chr;
     uint64_t start;
     uint64_t stop;
     char* id;
+    signal_t* signal;
 } element_t;
 
 typedef struct lookup {
@@ -79,10 +91,10 @@ typedef struct store_buf_row_node {
     struct store_buf_node *tail;
 } store_buf_row_node_t;
 
-extern const char* kStoreSUTStr;
-extern const char* kStoreSquareMatrixStr;
-const char* kStoreSUTStr = "sut";
-const char* kStoreSquareMatrixStr = "sqr";
+extern const char* kStorePearsonRSUTStr;
+extern const char* kStorePearsonRSquareMatrixStr;
+const char* kStorePearsonRSUTStr = "pearson-r-sut";
+const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
 extern const char* kStoreRandomSUTStr;
 extern const char* kStoreRandomSquareMatrixStr;
 extern const char* kStoreRandomBufferedSquareMatrixStr;
@@ -91,8 +103,8 @@ const char* kStoreRandomSquareMatrixStr = "random-sqr";
 const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
 
 typedef enum store_type {
-    kStoreSUT = 0,
-    kStoreSquareMatrix,
+    kStorePearsonRSUT = 0,
+    kStorePearsonRSquareMatrix,
     kStoreRandomSUT,
     kStoreRandomSquareMatrix,
     kStoreRandomBufferedSquareMatrix,
@@ -171,14 +183,19 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
      +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
      +0.00, +0.00, +0.00, +0.00};
 
-static inline double         bs_truncate_double_to_precision(double d, int prec);
-static inline unsigned char  bs_encode_double_to_unsigned_char(double d);
+inline double                bs_truncate_double_to_precision(double d, int prec);
+inline unsigned char         bs_encode_double_to_unsigned_char(double d);
 static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
 void                         bs_parse_query_str(lookup_t* l);
 void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 lookup_t*                    bs_init_lookup(char* fn);
 void                         bs_print_lookup(lookup_t* l);
 void                         bs_delete_lookup(lookup_t** l);
+signal_t*                    bs_init_signal(char *cds);
+void                         bs_print_signal(signal_t* s);
+inline double                bs_mean_signal(double* d, uint32_t len);
+inline double                bs_sample_sd_signal(double* d, uint32_t len, double m);
+void                         bs_delete_signal(signal_t** s);
 element_t*                   bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id);
 void                         bs_delete_element(element_t** e);
 void                         bs_push_elem_to_lookup(element_t* e, lookup_t** l);
