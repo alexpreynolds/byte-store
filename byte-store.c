@@ -398,9 +398,6 @@ bs_print_signal(signal_t* s)
 inline double
 bs_mean_signal(double* d, uint32_t len)
 {
-    if (len == 0) {
-        return 0.0f;
-    }
     double s = 0.0f;
     for (uint32_t idx = 0; idx < len; idx++) {
         s += d[idx];
