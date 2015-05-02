@@ -13,6 +13,10 @@ main(int argc, char** argv)
 
     switch(bs_globals.store_type) {
     case kStoreSUT:
+	fprintf(stderr, "Error: Not yet implemented!\n");
+	bs_print_usage(stderr);
+	exit(EXIT_FAILURE);
+    case kStoreRandomSUT:
         sut_store = bs_init_sut_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
             bs_populate_sut_store_with_random_scores(sut_store);
@@ -24,9 +28,17 @@ main(int argc, char** argv)
         bs_delete_sut_store(&sut_store);
         break;
     case kStoreSquareMatrix:
+	fprintf(stderr, "Error: Not yet implemented!\n");
+	bs_print_usage(stderr);
+	exit(EXIT_FAILURE);
+    case kStoreRandomSquareMatrix:
+    case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
+	    if (bs_globals.store_type == kStoreRandomBufferedSquareMatrix)
+		bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
+	    else
+		bs_populate_sqr_store_with_random_scores(sqr_store);
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -471,6 +483,9 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.store_type =
                 (strcmp(bs_globals.store_type_str, kStoreSUTStr) == 0) ? kStoreSUT :
                 (strcmp(bs_globals.store_type_str, kStoreSquareMatrixStr) == 0) ? kStoreSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
+                (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
                 kStoreUndefined;
             break;
         case 'c':

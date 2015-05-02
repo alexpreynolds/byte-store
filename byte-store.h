@@ -83,10 +83,19 @@ extern const char* kStoreSUTStr;
 extern const char* kStoreSquareMatrixStr;
 const char* kStoreSUTStr = "sut";
 const char* kStoreSquareMatrixStr = "sqr";
+extern const char* kStoreRandomSUTStr;
+extern const char* kStoreRandomSquareMatrixStr;
+extern const char* kStoreRandomBufferedSquareMatrixStr;
+const char* kStoreRandomSUTStr = "random-sut";
+const char* kStoreRandomSquareMatrixStr = "random-sqr";
+const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
 
 typedef enum store_type {
     kStoreSUT = 0,
     kStoreSquareMatrix,
+    kStoreRandomSUT,
+    kStoreRandomSquareMatrix,
+    kStoreRandomBufferedSquareMatrix,
     kStoreUndefined
 } store_type_t;
 
