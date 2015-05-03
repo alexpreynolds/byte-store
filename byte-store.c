@@ -530,7 +530,6 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi)
         memcpy(e->id, id, strlen(id) + 1);
     }
     e->signal = (e->id && pi) ? bs_init_signal(e->id) : NULL;
-    //free(e->id), e->id = NULL;
     return e;
 }
 
