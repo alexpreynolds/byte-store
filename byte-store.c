@@ -10,17 +10,19 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
-    lookup = bs_init_lookup(bs_globals.lookup_fn);
+    lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
 
     switch(bs_globals.store_type) {
     case kStorePearsonRSUT:
-	fprintf(stderr, "Error: Not yet implemented!\n");
-	bs_print_usage(stderr);
-	exit(EXIT_FAILURE);
     case kStoreRandomSUT:
         sut_store = bs_init_sut_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            bs_populate_sut_store_with_random_scores(sut_store);
+            if (bs_globals.store_type == kStoreRandomSUT) {
+                bs_populate_sut_store_with_random_scores(sut_store);
+            }
+            else if (bs_globals.store_type == kStorePearsonRSUT) {
+                bs_populate_sut_store_with_pearsonr_scores(sut_store, lookup);
+            }
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -29,17 +31,19 @@ main(int argc, char** argv)
         bs_delete_sut_store(&sut_store);
         break;
     case kStorePearsonRSquareMatrix:
-	fprintf(stderr, "Error: Not yet implemented!\n");
-	bs_print_usage(stderr);
-	exit(EXIT_FAILURE);
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-	    if (bs_globals.store_type == kStoreRandomBufferedSquareMatrix)
+	    if (bs_globals.store_type == kStoreRandomBufferedSquareMatrix) {
 		bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
-	    else
+            }
+	    else if (bs_globals.store_type == kStoreRandomSquareMatrix) {
 		bs_populate_sqr_store_with_random_scores(sqr_store);
+            }
+            else if (bs_globals.store_type == kStorePearsonRSquareMatrix) {
+                bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
+            }
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -196,18 +200,19 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
 }
 
 /**
- * @brief      bs_init_lookup(fn)
+ * @brief      bs_init_lookup(fn, pi)
  *
  * @details    Read BED-formatted coordinates into a "lookup table" pointer.
  *             Function allocates memory to lookup table pointer, as needed.
  *
  * @param      fn     (char*) filename string
+ *             pi     (boolean) flag to decide whether to parse ID string
  *
  * @return     (lookup_t*) lookup table pointer referencing element data
  */
 
 lookup_t*
-bs_init_lookup(char* fn)
+bs_init_lookup(char* fn, boolean pi)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
@@ -240,8 +245,8 @@ bs_init_lookup(char* fn)
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
-        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str);
-        bs_push_elem_to_lookup(e, &l);
+        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str, pi);
+        bs_push_elem_to_lookup(e, &l, pi);
     }
 
     fclose(lf);
@@ -480,7 +485,7 @@ bs_delete_signal(signal_t** s)
 }
 
 /**
- * @brief      bs_init_element(chr, start, stop, id)
+ * @brief      bs_init_element(chr, start, stop, id, pi)
  *
  * @details    Allocates space for element_t* and copies chr, start, stop
  *             and id values to element.
@@ -489,12 +494,13 @@ bs_delete_signal(signal_t** s)
  *             start  (uint64_t) start coordinate position
  *             stop   (uint64_t) stop coordinate position
  *             id     (char*) id string 
+ *             pi     (boolean) parse ID string
  *
  * @return     (element_t*) element pointer
  */
 
 element_t*
-bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id)
+bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi)
 {
     element_t *e = NULL;
 
@@ -523,7 +529,8 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id)
         }
         memcpy(e->id, id, strlen(id) + 1);
     }
-    e->signal = (e->id) ? bs_init_signal(e->id) : NULL;
+    e->signal = (e->id && pi) ? bs_init_signal(e->id) : NULL;
+    //free(e->id), e->id = NULL;
     return e;
 }
 
@@ -544,7 +551,8 @@ bs_delete_element(element_t** e)
     (*e)->stop = 0;
     free((*e)->id);
     (*e)->id = NULL;
-    bs_delete_signal(&((*e)->signal));
+    if ((*e)->signal)
+        bs_delete_signal(&((*e)->signal));
     (*e)->signal = NULL;
     free(*e);
     *e = NULL;
@@ -557,10 +565,11 @@ bs_delete_element(element_t** e)
  *
  * @param      e      (element_t*) element pointer
  *             l      (lookup_t**) pointer to lookup table pointer
+ *             pi     (boolean) parse ID string
  */
 
 void
-bs_push_elem_to_lookup(element_t* e, lookup_t** l)
+bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi)
 {
     if ((*l)->capacity == 0) {
         (*l)->capacity++;
@@ -573,7 +582,8 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l)
             new_elems[idx] = bs_init_element((*l)->elems[idx]->chr,
                                              (*l)->elems[idx]->start,
                                              (*l)->elems[idx]->stop,
-                                             (*l)->elems[idx]->id);
+                                             (*l)->elems[idx]->id,
+                                             pi);
             bs_delete_element(&((*l)->elems[idx]));
         }   
         (*l)->elems = new_elems;     
@@ -864,6 +874,53 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
         if (fputc(score, os) != score) {
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
             exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(os);
+}
+
+/**
+ * @brief      bs_populate_sut_store_with_pearsonr_scores(s, l)
+ *
+ * @details    Write Pearson's R correlation scores as encoded 
+ *             unsigned char bytes to a FILE* handle associated 
+ *             with the specified SUT store filename.
+ *
+ * @param      s      (sut_store_t*) pointer to SUT struct
+ *             l      (lookup_t*) pointer to lookup table
+ */
+
+void
+bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
+{
+    unsigned char score = 0;
+    FILE* os = NULL;
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output SUT store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* write Pearson's R correlation scores to output stream ptr */
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
+        signal_t* row_signal = l->elems[row_idx]->signal;
+        for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[col_idx]->signal;
+            double corr = bs_pearson_r_signal(row_signal, col_signal);
+            score = bs_encode_double_to_unsigned_char(corr);
+            if (fputc(score, os) != score) {
+                fprintf(stderr, "Error: Could not write score to output SUT store!\n");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -1296,6 +1353,59 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 	free(row_node_ptr_buf[elem_idx]);
     }
     free(row_node_ptr_buf);
+
+    fclose(os);
+}
+
+/**
+ * @brief      bs_populate_sqr_store_with_pearsonr_scores(s, l)
+ *
+ * @details    Write Pearson's R correlation scores as encoded
+ *             unsigned char bytes to a FILE* handle associated 
+ *             with the specified square matrix store filename.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ */
+
+void
+bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
+{
+    unsigned char score = 0;
+    FILE* os = NULL;
+    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* write Pearson's R correlation scores to output stream ptr */
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
+        signal_t* row_signal = l->elems[row_idx]->signal;
+        for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[col_idx]->signal;
+            if (row_idx != col_idx) {
+                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score = bs_encode_double_to_unsigned_char(corr);
+            }
+            else if (row_idx == col_idx) {
+                score = self_correlation_score;
+            }
+	    if (fputc(score, os) != score) {
+		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zd, %zd)!\n", row_idx, col_idx);
+		exit(EXIT_FAILURE);
+	    }
+        }
+    }
 
     fclose(os);
 }
