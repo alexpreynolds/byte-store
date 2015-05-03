@@ -91,17 +91,6 @@ typedef struct store_buf_row_node {
     struct store_buf_node *tail;
 } store_buf_row_node_t;
 
-extern const char* kStorePearsonRSUTStr;
-extern const char* kStorePearsonRSquareMatrixStr;
-const char* kStorePearsonRSUTStr = "pearson-r-sut";
-const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
-extern const char* kStoreRandomSUTStr;
-extern const char* kStoreRandomSquareMatrixStr;
-extern const char* kStoreRandomBufferedSquareMatrixStr;
-const char* kStoreRandomSUTStr = "random-sut";
-const char* kStoreRandomSquareMatrixStr = "random-sqr";
-const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
-
 typedef enum store_type {
     kStorePearsonRSUT = 0,
     kStorePearsonRSquareMatrix,
@@ -110,6 +99,17 @@ typedef enum store_type {
     kStoreRandomBufferedSquareMatrix,
     kStoreUndefined
 } store_type_t;
+
+extern const char* kStorePearsonRSUTStr;
+extern const char* kStorePearsonRSquareMatrixStr;
+extern const char* kStoreRandomSUTStr;
+extern const char* kStoreRandomSquareMatrixStr;
+extern const char* kStoreRandomBufferedSquareMatrixStr;
+const char* kStorePearsonRSUTStr = "pearson-r-sut";
+const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
+const char* kStoreRandomSUTStr = "random-sut";
+const char* kStoreRandomSquareMatrixStr = "random-sqr";
+const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
 
 static struct bs_globals_t {
     boolean store_create_flag;
@@ -149,8 +149,8 @@ static const char *bs_name = "byte-store";
  *             0x65 maps to +0.00 or [+0.00, +0.01). 
  *
  *             Note the two bins for -0.00 and +0.00. This allows 
- *             mapping of scores between -0.01 and 0.01 to be mapped
- *             to two seperate bytes.
+ *             mapping of scores between -0.01, 0.00, and 0.01 to 
+ *             be mapped to two seperate bytes.
  */
 
 static const double bs_encode_unsigned_char_to_double_table[256] = 
