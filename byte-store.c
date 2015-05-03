@@ -984,9 +984,9 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
             swap(bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
         }
         for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
+            off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
+            fseek(is, is_offset, SEEK_SET);
             for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
-                off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, col_idx);
-                fseek(is, is_offset, SEEK_SET);
                 int uc = fgetc(is);
                 fprintf(os, 
                         "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
