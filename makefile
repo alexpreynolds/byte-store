@@ -7,17 +7,25 @@ all:
 	$(CC) $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
 	$(CC) $(BLDFLAGS) $(CFLAGS) byte-store.o -o byte-store mt19937.a
 
-test-pearsonr-sut:
+test-pearsonr-sut-1k:
 	./byte-store -t pearson-r-sut -c -l vec_test1000.bed -s vec_test1000.sut.bs
-	./byte-store -t pearson-r-sut -q -l vec_test1000.bed -s vec_test1000.sut.bs -i 0-999 | awk '$$7>=1.00'
+	./byte-store -t pearson-r-sut -q -l vec_test1000.bed -s vec_test1000.sut.bs -i 1-999 | awk '$$7>=1.00'
+
+test-pearsonr-sut-10k:
+	./byte-store -t pearson-r-sut -c -l vec_test10k.bed -s vec_test10k.sut.bs
+	./byte-store -t pearson-r-sut -q -l vec_test10k.bed -s vec_test10k.sut.bs -i 0-9999 | awk '$$7>=1.00'
 
 test-random-sut:
 	./byte-store -t random-sut -c -l test1000.bed -s test1000.sut.bs
 	./byte-store -t random-sut -q -l test1000.bed -s test1000.sut.bs -i 0-999 | awk '$$7>=0.99'
 
-test-pearsonr-sqr:
+test-pearsonr-sqr-1k:
 	./byte-store -t pearson-r-sqr -c -l vec_test1000.bed -s vec_test1000.sqr.bs
 	./byte-store -t pearson-r-sqr -q -l vec_test1000.bed -s vec_test1000.sqr.bs -i 0-999 | awk '$$7>=1.00'
+
+test-pearsonr-sqr-10k:
+	./byte-store -t pearson-r-sqr -c -l vec_test10k.bed -s vec_test10k.sqr.bs
+	./byte-store -t pearson-r-sqr -q -l vec_test10k.bed -s vec_test10k.sqr.bs -i 0-9999 | awk '$$7>=1.00'
 
 test-random-sqr:
 	./byte-store -t random-sqr -c -l test1000.bed -s test1000.sqr.bs

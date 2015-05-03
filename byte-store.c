@@ -1462,9 +1462,10 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     
     if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
         for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
+            /* we move the is_offset calculation to the row loop to minimize the number of byte offset calculations */
+            off_t is_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
+            fseek(is, is_offset, SEEK_SET);
             for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
-                off_t is_offset = (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) ? bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, col_idx) : bs_sqr_byte_offset_for_element_ij(l->nelems, col_idx, row_idx);
-                fseek(is, is_offset, SEEK_SET);
                 int uc = fgetc(is);
                 fprintf(os, 
                         "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
