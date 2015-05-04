@@ -400,7 +400,7 @@ bs_print_signal(signal_t* s)
  * @return     (double) mean value of double array
  */
 
-inline double
+double
 bs_mean_signal(double* d, uint32_t len)
 {
     double s = 0.0f;
@@ -423,7 +423,7 @@ bs_mean_signal(double* d, uint32_t len)
  * @return     (double) sample standard deviation value of double array
  */
 
-inline double
+double
 bs_sample_sd_signal(double* d, uint32_t len, double m)
 {
     double s = 0.0f;
@@ -445,7 +445,7 @@ bs_sample_sd_signal(double* d, uint32_t len, double m)
  * @return     (double) Pearson's r correlation score result
  */
 
-inline double
+double
 bs_pearson_r_signal(signal_t* a, signal_t* b)
 {
     if (a->n != b->n) {
