@@ -11,6 +11,8 @@
 #include <math.h>
 #include <assert.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 1024
