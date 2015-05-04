@@ -2,12 +2,13 @@ PWD     := $(shell pwd)
 TESTDIR  = $(PWD)/test
 BLDFLAGS = -Wall -Wextra -pedantic -std=c99
 CFLAGS   = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+LIBS     = -lm
 
 all:
-	$(CC) $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o $(LIBS)
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
-	$(CC) $(BLDFLAGS) $(CFLAGS) byte-store.o -o byte-store mt19937.a
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o $(LIBS)
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) byte-store.o -o byte-store mt19937.a
 
 test-pearsonr-sut-1k:
 	./byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sut.bs
