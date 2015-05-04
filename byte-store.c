@@ -1139,7 +1139,11 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems - 1; row_idx++) {
         /* copy row of score bytes to a temporary buffer */
         fseek(os, bs_sqr_byte_offset_for_element_ij(s->attr->nelems, row_idx, row_idx + 1), SEEK_SET);
-        fread(row_bytes, sizeof(unsigned char), s->attr->nelems - row_idx - 1, os);
+        size_t bytes_to_read = s->attr->nelems - row_idx - 1;
+        if (fread(row_bytes, sizeof(unsigned char), bytes_to_read, os) != bytes_to_read) {
+            fprintf(stderr, "Error: Could not read row bytes from square matrix store!\n");
+            exit(EXIT_FAILURE);
+        }
         /* copy temporary buffer to equivalent column */
         start_offset =  bs_sqr_byte_offset_for_element_ij(s->attr->nelems, row_idx + 1, row_idx);
         end_offset = bs_sqr_byte_offset_for_element_ij(s->attr->nelems, s->attr->nelems - 1, row_idx);
