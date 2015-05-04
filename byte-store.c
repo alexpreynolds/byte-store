@@ -1108,7 +1108,7 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
                 score = no_correlation_score;
             }
 	    if (fputc(score, os) != score) {
-		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zd, %zd)!\n", row_idx, col_idx);
+		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zu, %zu)!\n", row_idx, col_idx);
 		exit(EXIT_FAILURE);
 	    }
         }
@@ -1400,7 +1400,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
                 score = self_correlation_score;
             }
 	    if (fputc(score, os) != score) {
-		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zd, %zd)!\n", row_idx, col_idx);
+		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%zu, %zu)!\n", row_idx, col_idx);
 		exit(EXIT_FAILURE);
 	    }
         }
