@@ -43,7 +43,7 @@ Creating a SUT byte store is faster than making a square-matrix store: <a href="
 
 ### Querying
 
-Querying a SUT byte store gets faster than lookups of a square-matrix store: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+Querying a SUT byte store gets faster than lookups of a square-matrix store as the number of elements increases: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
 ### Compression
 
