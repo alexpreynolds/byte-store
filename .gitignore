@@ -38,3 +38,6 @@
 *.bz2
 *.gz
 *.starch
+
+# Binary files
+*.pdf
