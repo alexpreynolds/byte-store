@@ -37,8 +37,14 @@ To evaluate long-term storage of a SUT or square-matrix byte-store file, we comp
 
 In preliminary tests on a byte store written to `/tmp`:
 
-* Creating a SUT byte store is faster than making a square-matrix store: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
+### Creation
 
-* Querying a SUT byte store gets faster than lookups of a square-matrix store: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+Creating a SUT byte store is faster than making a square-matrix store: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
 
-* Compressing a SUT or square-matrix byte-store with gzip gives better results than bzip2: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
+### Querying
+
+Querying a SUT byte store gets faster than lookups of a square-matrix store: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+
+### Compression
+
+Compressing a SUT or square-matrix byte-store with gzip gives better results than bzip2: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
