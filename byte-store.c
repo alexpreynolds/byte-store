@@ -767,7 +767,7 @@ bs_print_usage(FILE* os)
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
-            "   The Pearson's R population method (pearson-r-sut | -sqr) uses the row vector in the\n" \
+            "   The Pearson's r population method (pearson-r-sut | -sqr) uses the row vector in the\n" \
             "   fourth column of the lookup BED4 file to generate correlation scores between pairs\n" \
             "   of elements.\n\n" \
             "   The random-sut and random-sqr methods populate the data store with random values\n" \
@@ -882,7 +882,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
 /**
  * @brief      bs_populate_sut_store_with_pearsonr_scores(s, l)
  *
- * @details    Write Pearson's R correlation scores as encoded 
+ * @details    Write Pearson's r correlation scores as encoded 
  *             unsigned char bytes to a FILE* handle associated 
  *             with the specified SUT store filename.
  *
@@ -909,7 +909,7 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         exit(EXIT_FAILURE);
     }
 
-    /* write Pearson's R correlation scores to output stream ptr */
+    /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
@@ -978,30 +978,34 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
-        /* swap indices, if row and column range are in lower triangle */
-        if (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) {
-            swap(bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
-        }
-        for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
-            off_t is_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
-            fseek(is, is_offset, SEEK_SET);
-            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
-                int uc = fgetc(is);
-                fprintf(os, 
-                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                        l->elems[row_idx]->chr,
-                        l->elems[row_idx]->start,
-                        l->elems[row_idx]->stop,
-                        l->elems[col_idx]->chr,
-                        l->elems[col_idx]->start,
-                        l->elems[col_idx]->stop,
-                        bs_decode_unsigned_char_to_double((unsigned char) uc));
+    /* swap indices, if row and column range are in lower triangle */
+    if (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) {
+        swap(bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+    }
+
+    off_t cur_offset = (off_t) ftell(is);
+    for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx <= bs_globals.store_query_idx_end; row_idx++) {
+        for (uint32_t col_idx = 0; col_idx < l->nelems; col_idx++) {
+            if (row_idx == col_idx)
+                continue;
+            /* to minimize fseek calls, we only fseek if we need to move the file ptr backwards */
+            off_t new_offset = bs_sut_byte_offset_for_element_ij(l->nelems, (col_idx > row_idx) ? row_idx : col_idx, (col_idx > row_idx) ? col_idx : row_idx);
+            if (cur_offset != new_offset) {
+                fseek(is, new_offset, SEEK_SET);
+                cur_offset = new_offset;
             }
+            double d = bs_decode_unsigned_char_to_double((unsigned char) fgetc(is));
+            cur_offset++;
+            fprintf(os, 
+                    "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                    l->elems[row_idx]->chr,
+                    l->elems[row_idx]->start,
+                    l->elems[row_idx]->stop,
+                    l->elems[col_idx]->chr,
+                    l->elems[col_idx]->start,
+                    l->elems[col_idx]->stop,
+                    d);
         }
-    } 
-    else {
-        fprintf(stderr, "Warning: Store offset NA for diagonal\n");
     }
 
     fclose(is);
@@ -1363,7 +1367,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 /**
  * @brief      bs_populate_sqr_store_with_pearsonr_scores(s, l)
  *
- * @details    Write Pearson's R correlation scores as encoded
+ * @details    Write Pearson's r correlation scores as encoded
  *             unsigned char bytes to a FILE* handle associated 
  *             with the specified square matrix store filename.
  *
@@ -1391,7 +1395,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         exit(EXIT_FAILURE);
     }
 
-    /* write Pearson's R correlation scores to output stream ptr */
+    /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
@@ -1430,7 +1434,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 off_t
 bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 {
-    return i + i * (n - 1) + j;
+    return i * n + j;
 }
 
 /**
@@ -1450,6 +1454,13 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 void
 bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
+    unsigned char *byte_buf = NULL;
+    byte_buf = malloc(l->nelems);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (!bs_file_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
@@ -1463,10 +1474,42 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    
+
+    /* fseek(is) to the starting offset */
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, bs_globals.store_query_idx_start, 0);
+    fseek(is, start_offset, SEEK_SET);
+
+    uint32_t row_idx = bs_globals.store_query_idx_start;
+    uint32_t col_idx = 0;
+
+    do {
+        if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
+            fprintf(stderr, "Error: Could not read a row of data from sqr input stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        do {
+            if (row_idx != col_idx) {
+                fprintf(os, 
+                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                        l->elems[row_idx]->chr,
+                        l->elems[row_idx]->start,
+                        l->elems[row_idx]->stop,
+                        l->elems[col_idx]->chr,
+                        l->elems[col_idx]->start,
+                        l->elems[col_idx]->stop,
+                        bs_decode_unsigned_char_to_double(byte_buf[col_idx]));
+            }
+            col_idx++;
+        } while (col_idx < l->nelems);
+        row_idx++;
+        col_idx = 0;
+    } while (row_idx <= bs_globals.store_query_idx_end);
+
+    free(byte_buf);
+
+    /*
     if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
         for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
-            /* we move the is_offset calculation to the row loop to minimize the number of byte offset calculations */
             off_t is_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
             fseek(is, is_offset, SEEK_SET);
             for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
@@ -1483,6 +1526,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             }
         }
     }
+    */
 
     fclose(is);
 }

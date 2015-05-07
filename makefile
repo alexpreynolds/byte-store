@@ -1,12 +1,12 @@
 SHELL      := /bin/bash
 PWD        := $(shell pwd)
-TESTDIR     = $(PWD)/test
 BLDFLAGS    = -Wall -Wextra -pedantic -std=c99
 CFLAGS      = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
 LIBS        = -lm
 .PHONY      = test
 SAMPLE     := $(shell `which sample` --help 2> /dev/null)
-SAMPLEDIR   = /tmp/byte-store
+TESTDIR     = $(PWD)/test
+SAMPLEDIR   = /Volumes/Data/byte-store
 
 all: byte-store
 
@@ -34,7 +34,7 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	mkdir -p $(SAMPLEDIR)
 	$(TESTDIR)/generate_samples.sh test/sample_bs_input.bed $(SAMPLEDIR)
 	$(TESTDIR)/time_store_creation.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
-	$(TESTDIR)/time_store_query_all.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/time_store_query_all_sut.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/compress_store.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/measure_compression_ratios.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sut $(SAMPLEDIR)
@@ -55,6 +55,10 @@ test-sample-graphs:
 	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
 	mv $(SAMPLEDIR)/*.pdf $(TESTDIR)
 
+test-pearsonr-sut-4:
+	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs
+	$(PWD)/byte-store -t pearson-r-sut -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs -i 0-3 | sort-bed -
+
 test-pearsonr-sut-1k:
 	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sut.bs
 	$(PWD)/byte-store -t pearson-r-sut -q -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sut.bs -i 1-999 | awk '$$7>=1.00'
@@ -66,6 +70,10 @@ test-pearsonr-sut-10k:
 test-random-sut:
 	$(PWD)/byte-store -t random-sut -c -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sut.bs
 	$(PWD)/byte-store -t random-sut -q -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sut.bs -i 0-999 | awk '$$7>=0.99'
+
+test-pearsonr-sqr-4:
+	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs
+	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs -i 0-3 | sort-bed -
 
 test-pearsonr-sqr-1k:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs
