@@ -1507,27 +1507,6 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 
     free(byte_buf);
 
-    /*
-    if (bs_globals.store_query_idx_start != bs_globals.store_query_idx_end) {
-        for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx < bs_globals.store_query_idx_end; row_idx++) {
-            off_t is_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row_idx, row_idx + 1);
-            fseek(is, is_offset, SEEK_SET);
-            for (uint32_t col_idx = row_idx + 1; col_idx <= bs_globals.store_query_idx_end; col_idx++) {
-                int uc = fgetc(is);
-                fprintf(os, 
-                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                        l->elems[row_idx]->chr,
-                        l->elems[row_idx]->start,
-                        l->elems[row_idx]->stop,
-                        l->elems[col_idx]->chr,
-                        l->elems[col_idx]->start,
-                        l->elems[col_idx]->stop,
-                        bs_decode_unsigned_char_to_double((unsigned char) uc));
-            }
-        }
-    }
-    */
-
     fclose(is);
 }
 
