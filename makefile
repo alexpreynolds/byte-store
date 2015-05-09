@@ -6,7 +6,8 @@ LIBS        = -lm
 .PHONY      = test
 SAMPLE     := $(shell `which sample` --help 2> /dev/null)
 TESTDIR     = $(PWD)/test
-SAMPLEDIR   = /Volumes/Data/byte-store
+#SAMPLEDIR   = /Volumes/Data/byte-store
+SAMPLEDIR   = /tmp/byte-store
 
 all: byte-store
 

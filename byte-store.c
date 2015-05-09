@@ -118,6 +118,29 @@ bs_encode_double_to_unsigned_char(double d)
 }
 
 /**
+ * @brief      bs_encode_double_to_unsigned_char_mqz(d)
+ *
+ * @details    Encodes double-type value between -1 and +1 to 
+ *             unsigned char-type byte "bin". If value is between
+ *             (-0.25, +0.25) then encoding returns +0.00.
+ *
+ * @param      d      (double) value to be encoded
+ *
+ * @return     (unsigned char) encoded score byte value
+ */
+
+inline unsigned char
+bs_encode_double_to_unsigned_char_mqz(double d) 
+{
+    d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
+    d = bs_truncate_double_to_precision(d, 2);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
+    if ((encode_d > 76) && (encode_d < 127))
+        encode_d = 100;
+    return (unsigned char) encode_d;
+}
+
+/**
  * @brief      bs_decode_unsigned_char_to_double(uc)
  *
  * @details    Decodes unsigned char-type byte bin to
@@ -139,7 +162,24 @@ bs_decode_unsigned_char_to_double(unsigned char uc)
 }
 
 /**
- * @brief      bs_parse_query_str()
+ * @brief      bs_decode_unsigned_char_to_double(uc)
+ *
+ * @details    Decodes unsigned char-type byte bin to
+ *             equivalent mid-quarter-zero score bin.
+ *
+ * @param      uc     (unsigned char) value to be decoded
+ *
+ * @return     (double) decoded score bin start value
+ */
+
+static inline double
+bs_decode_unsigned_char_to_double_mqz(unsigned char uc)
+{
+    return bs_encode_unsigned_char_to_double_mqz_table[uc];
+}
+
+/**
+ * @brief      bs_parse_query_str(l)
  *
  * @details    Parses index-query string and performs some validation
  *
@@ -607,18 +647,33 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi)
 void
 bs_test_score_encoding()
 {
-    double d;
+    double d, decode_d;
     int count;
+    unsigned char encode_d;
 
-    for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-	unsigned char encode_d = bs_encode_double_to_unsigned_char(d);
-	double decode_d = bs_decode_unsigned_char_to_double(encode_d);
-        fprintf(stderr, 
-                "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
-		count,
-                d, 
-                encode_d,
-                decode_d);
+    if (bs_globals.encoding_strategy == kEncodingStrategyFull) {
+        for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
+            encode_d = bs_encode_double_to_unsigned_char(d);
+            decode_d = bs_decode_unsigned_char_to_double(encode_d);
+            fprintf(stderr, 
+                    "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
+                    count,
+                    d, 
+                    encode_d,
+                    decode_d);
+        }
+    }
+    else if (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) {
+        for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
+            encode_d = bs_encode_double_to_unsigned_char_mqz(d);
+            decode_d = bs_decode_unsigned_char_to_double_mqz(encode_d);
+            fprintf(stderr, 
+                    "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
+                    count,
+                    d, 
+                    encode_d,
+                    decode_d);
+        }
     }
 }
 
@@ -642,6 +697,7 @@ bs_init_globals()
     bs_globals.store_fn[0] = '\0';
     bs_globals.store_type_str[0] = '\0';
     bs_globals.store_type = kStoreUndefined;
+    bs_globals.encoding_strategy = kEncodingStrategyUndefined;
 }
 
 /**
@@ -697,6 +753,13 @@ bs_init_command_line_options(int argc, char** argv)
         case 's':
             memcpy(bs_globals.store_fn, optarg, strlen(optarg) + 1);
             break;
+        case 'e':
+            memcpy(bs_globals.encoding_strategy_str, optarg, strlen(optarg) + 1);
+            bs_globals.encoding_strategy = 
+                (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyFullStr) == 0) ? kEncodingStrategyFull :
+                (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyMidQuarterZeroStr) == 0) ? kEncodingStrategyMidQuarterZero :
+                kEncodingStrategyUndefined;
+            break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
@@ -744,6 +807,10 @@ bs_init_command_line_options(int argc, char** argv)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
+    if (bs_globals.encoding_strategy == kEncodingStrategyUndefined) {
+        bs_globals.encoding_strategy = kEncodingStrategyFull;
+    }
 }
 
 /**
@@ -761,9 +828,9 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query  --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
+            "     %s --store-query  --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
@@ -780,6 +847,9 @@ bs_print_usage(FILE* os)
             " - The fourth column of the BED4 file is a comma-delimited string of floating-point values.\n\n" \
             " - Query string is a numeric range specifing indices of interest from lookup\n" \
             "   table (e.g. \"17-83\" represents indices 17 through 83).\n\n" \
+            " - The encoding strategy determines how scores map to bytes. The full strategy maps the full\n" \
+            "   range of scores to the interval [-1.00, +1.00], while the mid-quarter-zero strategy maps\n" \
+            "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
             " - Output is in BED7 format (BED3 + BED3 + floating-point score).\n\n",
             bs_name,
             bs_name);
@@ -915,7 +985,7 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
-            score = bs_encode_double_to_unsigned_char(corr);
+            score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : bs_encode_double_to_unsigned_char_mqz(corr);
             if (fputc(score, os) != score) {
                 fprintf(stderr, "Error: Could not write score to output SUT store!\n");
                 exit(EXIT_FAILURE);
@@ -994,7 +1064,7 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
                 fseek(is, new_offset, SEEK_SET);
                 cur_offset = new_offset;
             }
-            double d = bs_decode_unsigned_char_to_double((unsigned char) fgetc(is));
+            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double((unsigned char) fgetc(is)) : bs_decode_unsigned_char_to_double_mqz((unsigned char) fgetc(is));
             cur_offset++;
             fprintf(os, 
                     "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
@@ -1080,8 +1150,8 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
-    unsigned char no_correlation_score = bs_encode_double_to_unsigned_char(kNoCorrelationScore);
+    unsigned char self_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore);
+    unsigned char no_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kNoCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kNoCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1380,7 +1450,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    unsigned char self_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1402,7 +1472,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
-                score = bs_encode_double_to_unsigned_char(corr);
+                score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : bs_encode_double_to_unsigned_char_mqz(corr);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -1497,7 +1567,8 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                         l->elems[col_idx]->chr,
                         l->elems[col_idx]->start,
                         l->elems[col_idx]->stop,
-                        bs_decode_unsigned_char_to_double(byte_buf[col_idx]));
+                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[col_idx]) : bs_decode_unsigned_char_to_double_mqz(byte_buf[col_idx])
+                        );
             }
             col_idx++;
         } while (col_idx < l->nelems);

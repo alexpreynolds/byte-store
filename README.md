@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/alexpreynolds/byte-store.svg)](https://travis-ci.org/alexpreynolds/byte-store)
 
-This utility generates and queries strictly upper triangular (SUT) and square matrices storing 1-byte encoded correlation score values between -1.0 and +1.0, in 0.01 increments (so-called "byte-store" files).
+This utility generates and queries strictly upper triangular (SUT) and square matrices storing 1-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square form. Two encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, and a "mid-quarter-zero" strategy that encodes scores in the interval (-0.25, +0.25) as the +0.00 byte. 
 
 ## Filesizes
 
@@ -18,6 +18,8 @@ chr1    1459000 1459150 17,10,9,42,...
 chr1    2244600 2244750 149,72,71,87,...
 chr1    3568000 3568150 70,34,17,70,...
 ```
+
+Stores are encoded with the "full" or "mid-quarter-zero" strategy. The "full" strategy maps all scores from [-1.0, +1.0] within an ``unsigned char`` in 0.01 increments. The "mid-quarter-zero" strategy is similar, but any scores from (-0.25, +0.25) are directly mapped to the equivalent +0.00 ``unsigned char`` value.
 
 ## Getting started
 
@@ -58,12 +60,12 @@ Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard
 
 ### Creation
 
-Creating a SUT byte store is faster than making a square-matrix store, requiring half as many bytes: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
+Creating a SUT byte store is slightly faster than making a square-matrix store for both encoding strategies: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
 
 ### Querying
 
-Querying elements in a SUT byte store quickly gets slower (more "expensive" per element) than lookups to a square-matrix store, as the number of elements increases: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+Querying elements in a SUT byte store quickly gets slower (more "expensive" per element) than lookups to a square-matrix store, as the number of elements increases. Query times are virtually identical for both encoding strategies: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
 ### Compression
 
-Compressing a SUT or square-matrix byte-store with ``gzip`` (default parameters) gives better results than ``bzip2`` (default parameters). Byte-stores of typical encoded scores can be compressed down to roughly 76-80% of the original size: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
+For the "full" encoding strategy, compressing a SUT or square-matrix byte-store with ``gzip`` (default parameters) gives better results than ``bzip2`` (default parameters). Byte-stores of typical encoded scores can be compressed down to roughly 76-80% of the original size. However, use of the "mid-quarter-zero" encoding strategy improves the compression efficiency to ~20%, with ``bzip2`` offering more optimal results: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
