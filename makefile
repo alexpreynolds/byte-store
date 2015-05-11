@@ -6,6 +6,7 @@ LIBS        = -lm
 .PHONY      = test
 SAMPLE     := $(shell `which sample` --help 2> /dev/null)
 TESTDIR     = $(PWD)/test
+PDFDIR      = $(TESTDIR)/pdf
 #SAMPLEDIR   = /Volumes/Data/byte-store
 SAMPLEDIR   = /tmp/byte-store
 
@@ -38,12 +39,14 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/time_store_query_all_sut.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/compress_store.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/measure_compression_ratios.sh pearson-r-sut $(SAMPLEDIR)
+	$(TESTDIR)/measure_frequency.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/time_store_creation.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/compress_store.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/measure_compression_ratios.sh pearson-r-sqr $(SAMPLEDIR)
+	$(TESTDIR)/measure_frequency.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr $(SAMPLEDIR)
 	cat $(SAMPLEDIR)/*.create_times > $(SAMPLEDIR)/create_times.txt
@@ -54,7 +57,10 @@ test-sample-graphs:
 	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Creation rate (sec/element)"
 	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Query rate (sec/element)"
 	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
-	mv $(SAMPLEDIR)/*.pdf $(TESTDIR)
+	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sut
+	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
+	mkdir -p $(PDFDIR)
+	mv $(SAMPLEDIR)/*.pdf $(PDFDIR)
 
 test-pearsonr-sut-4:
 	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs
@@ -99,6 +105,7 @@ clean:
 	rm -rf *~
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
-	rm -rf test/sample_bs_input.starch
-	rm -rf test/sample_bs_input.bed
+	rm -rf $(PDFDIR)
+	#rm -rf test/sample_bs_input.starch
+	#rm -rf test/sample_bs_input.bed
 	rm -rf $(SAMPLEDIR)

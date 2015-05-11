@@ -28,6 +28,9 @@ main(int argc, char** argv)
             bs_parse_query_str(lookup);
             bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
         }
+        else if (bs_globals.store_frequency_flag) {
+            bs_print_sut_frequency_to_txt(lookup, sut_store, stdout);
+        }
         bs_delete_sut_store(&sut_store);
         break;
     case kStorePearsonRSquareMatrix:
@@ -48,6 +51,9 @@ main(int argc, char** argv)
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
             bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+        }
+        else if (bs_globals.store_frequency_flag) {
+            bs_print_sqr_frequency_to_txt(lookup, sqr_store, stdout);
         }
         bs_delete_sqr_store(&sqr_store);
         break;
@@ -720,6 +726,7 @@ bs_init_command_line_options(int argc, char** argv)
                                     &bs_client_long_index);
 
     opterr = 0;
+    int bs_output_flag_counter = 0;
 
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
@@ -735,9 +742,15 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'c':
             bs_globals.store_create_flag = kTrue;
+            bs_output_flag_counter++;
             break;
         case 'q':
             bs_globals.store_query_flag = kTrue;
+            bs_output_flag_counter++;
+            break;
+        case 'f':
+            bs_globals.store_frequency_flag = kTrue;
+            bs_output_flag_counter++;
             break;
         case 'i':
             memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
@@ -778,14 +791,8 @@ bs_init_command_line_options(int argc, char** argv)
                                     &bs_client_long_index);
     }
 
-    if (bs_globals.store_create_flag && bs_globals.store_query_flag) {
-        fprintf(stderr, "Error: Cannot both create and query data store!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-
-    if (!bs_globals.store_create_flag && !bs_globals.store_query_flag) {
-        fprintf(stderr, "Error: Must either create or query a data store!\n");
+    if (bs_output_flag_counter != 1) {
+        fprintf(stderr, "Error: Must create, query or count bin-frequency of a data store!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -828,9 +835,11 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
+            "     %s --store-create    --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query  --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
+            "     %s --store-query     --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
+            "   Bin-frequency data store:\n\n" \
+            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
@@ -850,7 +859,8 @@ bs_print_usage(FILE* os)
             " - The encoding strategy determines how scores map to bytes. The full strategy maps the full\n" \
             "   range of scores to the interval [-1.00, +1.00], while the mid-quarter-zero strategy maps\n" \
             "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
-            " - Output is in BED7 format (BED3 + BED3 + floating-point score).\n\n",
+            " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n",
+            " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n",
             bs_name,
             bs_name);
 }
@@ -1077,6 +1087,73 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
                     d);
         }
     }
+
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sut_frequency_to_txt(l, s, os)
+ *
+ * @details    Prints bin score, count and frequency of 
+ *             SUT store to specified output stream.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sut_store_t*) pointer to SUT store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
+{
+    if (!bs_file_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    unsigned char* byte_buf = NULL;
+    byte_buf = malloc(l->nelems);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    unsigned char freq_table[256] = {0};
+    uint32_t row_idx = 0;
+    uint32_t col_idx = 1;
+    do {
+        off_t start_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, col_idx);
+        off_t end_offset = bs_sut_byte_offset_for_element_ij(l->nelems, row_idx, l->nelems);
+        size_t nelems = (size_t) (end_offset - start_offset);
+        size_t nbyte = 0;
+        if (fread(byte_buf, sizeof(*byte_buf), nelems, is) != nelems) {
+            fprintf(stderr, "Error: Could not read a row of data from SUT input stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        do {
+            freq_table[byte_buf[nbyte]]++;
+            col_idx++;
+        } while (++nbyte < nelems);
+        col_idx = ++row_idx + 1;
+    } while ((row_idx + 1) < l->nelems);
+
+    for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
+        fprintf(os,
+                "%3.6f\t%d\t%3.6f\n",
+                bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
+                freq_table[freq_idx],
+                (double) freq_table[freq_idx] / s->attr->nbytes);
+    }
+
+    free(byte_buf);
 
     fclose(is);
 }
@@ -1524,7 +1601,7 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 void
 bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
-    unsigned char *byte_buf = NULL;
+    unsigned char* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -1575,6 +1652,67 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         row_idx++;
         col_idx = 0;
     } while (row_idx <= bs_globals.store_query_idx_end);
+
+    free(byte_buf);
+
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_store_to_bed7(l, s, os)
+ *
+ * @details    Prints bin score, count and frequency of 
+ *             square matrix store to specified output stream.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    if (!bs_file_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    unsigned char* byte_buf = NULL;
+    byte_buf = malloc(l->nelems);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t row_idx = 0;
+    unsigned char freq_table[256] = {0};
+    do {
+        uint32_t nbyte = 0;
+        if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
+            fprintf(stderr, "Error: Could not read a row of data from SUT input stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        do {
+            freq_table[byte_buf[nbyte++]]++;
+        } while (nbyte < l->nelems);
+    } while (++row_idx < l->nelems);
+
+    for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
+        fprintf(os,
+                "%3.6f\t%d\t%3.6f\n",
+                bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
+                freq_table[freq_idx],
+                (double) freq_table[freq_idx] / s->attr->nbytes);
+    }
 
     free(byte_buf);
 

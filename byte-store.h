@@ -127,6 +127,7 @@ const char* kEncodingStrategyMidQuarterZeroStr = "mid-quarter-zero";
 static struct bs_globals_t {
     boolean store_create_flag;
     boolean store_query_flag;
+    boolean store_frequency_flag;
     char store_query_str[QUERY_MAX_LEN];
     uint32_t store_query_idx_start;
     uint32_t store_query_idx_end;
@@ -144,6 +145,7 @@ static struct option bs_client_long_options[] = {
     { "store-type",               required_argument, NULL, 't' },
     { "store-create",             no_argument,       NULL, 'c' },
     { "store-query",              no_argument,       NULL, 'q' },
+    { "store-frequency",          no_argument,       NULL, 'f' },
     { "index-query",              required_argument, NULL, 'i' },
     { "lookup",                   required_argument, NULL, 'l' },
     { "store",                    required_argument, NULL, 's' },
@@ -153,7 +155,7 @@ static struct option bs_client_long_options[] = {
     { NULL,                       no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqi:l:s:e:dh?";
+static const char *bs_client_opt_string = "t:cqfi:l:s:e:dh?";
 
 static const char *bs_name = "byte-store";
 
@@ -172,7 +174,7 @@ static const char *bs_name = "byte-store";
 static const double bs_encode_unsigned_char_to_double_table[256] = 
     {-1.00, 
      -0.99, -0.98, -0.97, -0.96, -0.95, -0.94, -0.93, -0.92, -0.91, -0.90,
-     -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80
+     -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80,
      -0.79, -0.78, -0.77, -0.76, -0.75, -0.74, -0.73, -0.72, -0.71, -0.70, 
      -0.69, -0.68, -0.67, -0.66, -0.65, -0.64, -0.63, -0.62, -0.61, -0.60, 
      -0.59, -0.58, -0.57, -0.56, -0.55, -0.54, -0.53, -0.52, -0.51, -0.50, 
@@ -209,7 +211,7 @@ static const double bs_encode_unsigned_char_to_double_table[256] =
 static const double bs_encode_unsigned_char_to_double_mqz_table[256] = 
     {-1.00, 
      -0.99, -0.98, -0.97, -0.96, -0.95, -0.94, -0.93, -0.92, -0.91, -0.90,
-     -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80
+     -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80,
      -0.79, -0.78, -0.77, -0.76, -0.75, -0.74, -0.73, -0.72, -0.71, -0.70, 
      -0.69, -0.68, -0.67, -0.66, -0.65, -0.64, -0.63, -0.62, -0.61, -0.60, 
      -0.59, -0.58, -0.57, -0.56, -0.55, -0.54, -0.53, -0.52, -0.51, -0.50, 
@@ -265,6 +267,7 @@ void                         bs_populate_sut_store_with_random_scores(sut_store_
 void                         bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l);
 off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os);
+void                         bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os);
 void                         bs_delete_sut_store(sut_store_t** s);
 sqr_store_t*                 bs_init_sqr_store(uint32_t n);
 void                         bs_populate_sqr_store_with_random_scores(sqr_store_t* s);
@@ -272,6 +275,7 @@ void                         bs_populate_sqr_store_with_buffered_random_scores(s
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
 void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);
