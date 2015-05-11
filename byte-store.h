@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <float.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 4096
@@ -116,13 +117,19 @@ const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
 typedef enum encoding_strategy {
     kEncodingStrategyFull = 0,
     kEncodingStrategyMidQuarterZero,
+    kEncodingStrategyCustom,
     kEncodingStrategyUndefined
 } encoding_strategy_t;
 
 extern const char* kEncodingStrategyFullStr;
 extern const char* kEncodingStrategyMidQuarterZeroStr;
+extern const char* kEncodingStrategyCustomStr;
 const char* kEncodingStrategyFullStr = "full";
 const char* kEncodingStrategyMidQuarterZeroStr = "mid-quarter-zero";
+const char* kEncodingStrategyCustomStr = "custom";
+
+extern const double kEncodingDefaultCutoff;
+const double kEncodingDefaultCutoff = -DBL_MAX;
 
 static struct bs_globals_t {
     boolean store_create_flag;
@@ -139,6 +146,8 @@ static struct bs_globals_t {
     store_type_t store_type;
     encoding_strategy_t encoding_strategy;
     char encoding_strategy_str[BUF_MAX_LEN];
+    double encoding_cutoff_zero_min;
+    double encoding_cutoff_zero_max;
 } bs_globals;
 
 static struct option bs_client_long_options[] = {
@@ -150,12 +159,14 @@ static struct option bs_client_long_options[] = {
     { "lookup",                   required_argument, NULL, 'l' },
     { "store",                    required_argument, NULL, 's' },
     { "encoding-strategy",        required_argument, NULL, 'e' },
+    { "encoding-cutoff-zero-min", required_argument, NULL, 'n' },
+    { "encoding-cutoff-zero-max", required_argument, NULL, 'x' },
     { "rng-seed",                 required_argument, NULL, 'd' },
     { "help",                     no_argument,       NULL, 'h' },
     { NULL,                       no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfi:l:s:e:dh?";
+static const char *bs_client_opt_string = "t:cqfi:l:s:e:n:x:dh?";
 
 static const char *bs_name = "byte-store";
 
@@ -241,8 +252,10 @@ static const double bs_encode_unsigned_char_to_double_mqz_table[256] =
 inline double                bs_truncate_double_to_precision(double d, int prec);
 inline unsigned char         bs_encode_double_to_unsigned_char(double d);
 inline unsigned char         bs_encode_double_to_unsigned_char_mqz(double d);
+inline unsigned char         bs_encode_double_to_unsigned_char_custom(double d, double min, double max);
 static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
 static inline double         bs_decode_unsigned_char_to_double_mqz(unsigned char uc);
+static inline double         bs_decode_unsigned_char_to_double_custom(unsigned char uc, double min, double max);
 void                         bs_parse_query_str(lookup_t* l);
 void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 lookup_t*                    bs_init_lookup(char* fn, boolean pi);

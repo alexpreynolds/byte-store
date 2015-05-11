@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/alexpreynolds/byte-store.svg)](https://travis-ci.org/alexpreynolds/byte-store)
 
-This utility generates and queries strictly upper triangular (SUT) and square matrices storing 1-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square form. Two encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, and a "mid-quarter-zero" strategy that encodes scores in the interval (-0.25, +0.25) as the +0.00 byte. 
+This utility generates and queries strictly upper triangular (SUT) and square matrices storing 1-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square form. Three encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, a "mid-quarter-zero" strategy that encodes scores in the interval (-0.25, +0.25) as the +0.00 byte, and a "custom" strategy, which allows specification of custom minimum and maximum bounds for encoding zero-score bytes.
 
 ## Filesizes
 
@@ -19,7 +19,7 @@ chr1    2244600 2244750 149,72,71,87,...
 chr1    3568000 3568150 70,34,17,70,...
 ```
 
-Stores are encoded with the "full" or "mid-quarter-zero" strategy. The "full" strategy maps all scores from [-1.0, +1.0] within an ``unsigned char`` in 0.01 increments. The "mid-quarter-zero" strategy is similar, but any scores from (-0.25, +0.25) are directly mapped to the equivalent +0.00 ``unsigned char`` value.
+In tests, byte-stores are encoded with the "full" or "mid-quarter-zero" strategy. The "full" strategy maps all scores from [-1.0, +1.0] within an ``unsigned char`` in 0.01 increments. The "mid-quarter-zero" strategy is similar, but any scores from (-0.25, +0.25) are directly mapped to the equivalent +0.00 ``unsigned char`` value.
 
 ## Getting started
 

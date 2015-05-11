@@ -147,6 +147,37 @@ bs_encode_double_to_unsigned_char_mqz(double d)
 }
 
 /**
+ * @brief      bs_encode_double_to_unsigned_char_custom(d, min, max)
+ *
+ * @details    Encodes double-type value between -1 and +1 to 
+ *             unsigned char-type byte "bin". If value is between
+ *             (min, max) then encoding returns +0.00.
+ *
+ * @param      d      (double) value to be encoded
+ *             min    (double) minimum cutoff value for zero-encoding
+ *             max    (double) maximum cutoff value for zero-encoding
+ *
+ * @return     (unsigned char) encoded score byte value
+ */
+
+inline unsigned char
+bs_encode_double_to_unsigned_char_custom(double d, double min, double max) 
+{
+    d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
+    min += (min < 0) ? -kEpsilon : kEpsilon;
+    max += (max < 0) ? -kEpsilon : kEpsilon;
+    d = bs_truncate_double_to_precision(d, 2);
+    min = bs_truncate_double_to_precision(min, 2);
+    max = bs_truncate_double_to_precision(max, 2);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
+    int encode_min = (int) ((min < 0) ? (ceil(min * 1000.0f)/10.0f + 100) : (floor(min * 1000.0f)/10.0f + 100)) + signbit(-min);
+    int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + signbit(-max);
+    if ((encode_d > encode_min) && (encode_d < encode_max))
+        encode_d = 100;
+    return (unsigned char) encode_d;
+}
+
+/**
  * @brief      bs_decode_unsigned_char_to_double(uc)
  *
  * @details    Decodes unsigned char-type byte bin to
@@ -168,7 +199,7 @@ bs_decode_unsigned_char_to_double(unsigned char uc)
 }
 
 /**
- * @brief      bs_decode_unsigned_char_to_double(uc)
+ * @brief      bs_decode_unsigned_char_to_double_mqz(uc)
  *
  * @details    Decodes unsigned char-type byte bin to
  *             equivalent mid-quarter-zero score bin.
@@ -182,6 +213,26 @@ static inline double
 bs_decode_unsigned_char_to_double_mqz(unsigned char uc)
 {
     return bs_encode_unsigned_char_to_double_mqz_table[uc];
+}
+
+/**
+ * @brief      bs_decode_unsigned_char_to_double_custom(uc)
+ *
+ * @details    Decodes unsigned char-type byte bin to
+ *             equivalent custom zero-ranged score bin.
+ *
+ * @param      uc     (unsigned char) value to be decoded
+ *             min    (double) minimum value to be decoded to zero byte
+ *             max    (double) maximum value to be decoded to zero byte
+ *
+ * @return     (double) decoded score bin start value
+ */
+
+static inline double
+bs_decode_unsigned_char_to_double_custom(unsigned char uc, double min, double max)
+{
+    double test = bs_encode_unsigned_char_to_double_table[uc];
+    return ((min < test) && (test < max)) ? +0.00f : test;        
 }
 
 /**
@@ -681,6 +732,18 @@ bs_test_score_encoding()
                     decode_d);
         }
     }
+    else if (bs_globals.encoding_strategy == kEncodingStrategyCustom) {
+        for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
+            encode_d = bs_encode_double_to_unsigned_char_custom(d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            decode_d = bs_decode_unsigned_char_to_double_custom(encode_d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            fprintf(stderr, 
+                    "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
+                    count,
+                    d, 
+                    encode_d,
+                    decode_d);
+        }
+    }
 }
 
 /**
@@ -704,6 +767,8 @@ bs_init_globals()
     bs_globals.store_type_str[0] = '\0';
     bs_globals.store_type = kStoreUndefined;
     bs_globals.encoding_strategy = kEncodingStrategyUndefined;
+    bs_globals.encoding_cutoff_zero_min = kEncodingDefaultCutoff;
+    bs_globals.encoding_cutoff_zero_max = kEncodingDefaultCutoff;
 }
 
 /**
@@ -771,7 +836,14 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.encoding_strategy = 
                 (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyFullStr) == 0) ? kEncodingStrategyFull :
                 (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyMidQuarterZeroStr) == 0) ? kEncodingStrategyMidQuarterZero :
+                (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyCustomStr) == 0) ? kEncodingStrategyCustom :
                 kEncodingStrategyUndefined;
+            break;
+        case 'n':
+            sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_min);
+            break;
+        case 'x':
+            sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_max);
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
@@ -817,6 +889,11 @@ bs_init_command_line_options(int argc, char** argv)
 
     if (bs_globals.encoding_strategy == kEncodingStrategyUndefined) {
         bs_globals.encoding_strategy = kEncodingStrategyFull;
+    } 
+    else if ((bs_globals.encoding_strategy == kEncodingStrategyCustom) && ((bs_globals.encoding_cutoff_zero_min == kEncodingDefaultCutoff) || (bs_globals.encoding_cutoff_zero_max == kEncodingDefaultCutoff))) {
+        fprintf(stderr, "Error: Must specify --encoding-cutoff-zero-min and -max with custom encoding strategy!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -835,11 +912,11 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
+            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
-            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
+            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
@@ -996,7 +1073,10 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
-            score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : bs_encode_double_to_unsigned_char_mqz(corr);
+            score = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
+                bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (fputc(score, os) != score) {
                 fprintf(stderr, "Error: Could not write score to output SUT store!\n");
                 exit(EXIT_FAILURE);
@@ -1550,7 +1630,10 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
-                score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : bs_encode_double_to_unsigned_char_mqz(corr);
+                score = 
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
+                    bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
