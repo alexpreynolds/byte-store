@@ -1,0 +1,24 @@
+#!/usr/bin/env Rscript
+
+suppressPackageStartupMessages(require(optparse))
+option_list = list(
+    make_option(c("-i", "--inFn"), action="store", default=NA, type='character', help="input filename"),
+    make_option(c("-o", "--outFn"), action="store", default=NA, type='character', help="output filename"),
+    make_option(c("-t", "--title"), action="store", default=NA, type='character', help="graph title"),
+    make_option(c("-x", "--xLab"), action="store", default=NA, type='character', help="graph xaxis label"),
+    make_option(c("-y", "--yLab"), action="store", default=NA, type='character', help="graph yaxis label"),
+    make_option(c("-w", "--binWidth"), action="store", default=NA, type='numeric', help="bin width")
+    )
+opt = parse_args(OptionParser(option_list=option_list))
+
+if (is.na(opt$inFn) || is.na(opt$outFn) || is.na(opt$title) || is.na(opt$xLab) || is.na(opt$yLab) || is.na(opt$binWidth)) {
+    cat("Error: Please specify --inFn, --outFn, --title, --xLab, --yLab and --binWidth parameters\n")
+    q()
+}
+
+input <- read.table(opt$inFn, col.names=c("bin", "count", "frequency"), colClasses=c("numeric", "numeric", "numeric"))
+
+suppressPackageStartupMessages(require(ggplot2))
+pdf(width=10, height=6, paste(opt$outFn, "pdf", sep="."))
+ggplot(data=input, aes(bin, weight=count, y=..count../sum(..count..))) + geom_histogram(binwidth = as.numeric(opt$binWidth)) + ggtitle(paste(opt$title, " (bin group width = ", opt$binWidth, ")", sep="")) + xlab(opt$xLab) + ylab(opt$yLab)
+dev.off()
