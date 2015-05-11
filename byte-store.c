@@ -835,9 +835,9 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create    --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query     --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
+            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ] --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
             "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding_strategy [ full | mid-quarter-zero ]\n\n" \
             " Notes:\n\n" \
@@ -859,8 +859,9 @@ bs_print_usage(FILE* os)
             " - The encoding strategy determines how scores map to bytes. The full strategy maps the full\n" \
             "   range of scores to the interval [-1.00, +1.00], while the mid-quarter-zero strategy maps\n" \
             "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
-            " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n",
+            " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n" \
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n",
+            bs_name,
             bs_name,
             bs_name);
 }
