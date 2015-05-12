@@ -53,14 +53,20 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	cat $(SAMPLEDIR)/*.query_all_times > $(SAMPLEDIR)/query_all_times.txt
 	cat $(SAMPLEDIR)/*.compression_ratios > $(SAMPLEDIR)/compression_ratios.txt
 
-test-sample-graphs:
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Creation rate (sec/element)"
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Query rate (sec/element)"
-	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
-	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sut
-	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
+test-sample-graphs: test-sample-graphs-timing test-sample-graphs-compression test-sample-graphs-frequencies
 	mkdir -p $(PDFDIR)
 	mv $(SAMPLEDIR)/*.pdf $(PDFDIR)
+
+test-sample-graphs-timing:
+	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Creation rate (sec/element)"
+	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Query rate (sec/element)"
+
+test-sample-graphs-compression:
+	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
+
+test-sample-graphs-frequencies:
+	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sut
+	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
 
 test-pearsonr-sut-4:
 	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs
@@ -106,6 +112,6 @@ clean:
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
 	rm -rf $(PDFDIR)
-	rm -rf test/sample_bs_input.starch
-	rm -rf test/sample_bs_input.bed
+	#rm -rf test/sample_bs_input.starch
+	#rm -rf test/sample_bs_input.bed
 	rm -rf $(SAMPLEDIR)

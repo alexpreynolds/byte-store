@@ -57,14 +57,20 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
     return(datac)
 }
 
-input <- read.table(opt$inFn, col.names=c("type", "compression", "elements", "trial", "strategy", "ratio"), colClasses=c("character", "character", "numeric", "numeric", "character", "numeric"))
+input <- read.table(opt$inFn, col.names=c("type", "compression", "elements", "trial", "strategy", "ratio"), colClasses=c("character", "character", "numeric", "numeric", "factor", "numeric"))
 
 # cf. http://www.cookbook-r.com/Graphs/Plotting_means_and_error_bars_(ggplot2)/#Helper functions
 inputsum <- summarySE(input, measurevar="ratio", groupvars=c("type", "compression", "elements", "strategy"))
 
+levels(inputsum$strategy)
+inputsum$strategy_reordered = factor(inputsum$strategy,levels(inputsum$strategy)[c(2,3,1)])
+levels(inputsum$strategy_reordered)
+
 suppressPackageStartupMessages(require(ggplot2))
 pdf(width=10, height=6, paste(opt$outFn, "pdf", sep="."))
 pd <- position_dodge(0.01)
-ggplot(data=inputsum, aes(x=elements, y=ratio, shape=compression, group=type, colour=type)) + geom_errorbar(aes(ymin=ratio-ci, ymax=ratio+ci), position=pd, width=0.1) + geom_line(aes(group=interaction(type, compression)), position=pd) + geom_point(position=pd, size=3) + scale_x_log10() + scale_color_brewer(palette="Set1") + ggtitle(opt$title) + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) + ylab(opt$ylab) + facet_grid(. ~ strategy)
-#ggplot(data=inputsum, aes(x=elements, y=ratio, group=type, colour=type)) + geom_errorbar(aes(ymin=ratio-ci, ymax=ratio+ci), position=pd, width=0.1) + geom_point(position=pd, size=3) + scale_x_log10() + scale_color_brewer(palette="Set1") + ggtitle(opt$title) + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) + stat_smooth() + ylab(opt$ylab) + facet_grid(. ~ strategy)
+
+ggplot(data=inputsum, aes(x=elements, y=ratio, shape=compression, group=type, colour=type)) + geom_errorbar(aes(ymin=ratio-ci, ymax=ratio+ci), position=pd, width=0.1) + geom_line(aes(group=interaction(type, compression)), position=pd) + geom_point(position=pd, size=3) + scale_x_log10() + scale_color_brewer(palette="Set1") + ggtitle(opt$title) + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) + ylab(opt$ylab) + facet_grid(. ~ strategy_reordered)
+
+#ggplot(data=inputsum, aes(x=elements, y=ratio, group=type, colour=type)) + geom_errorbar(aes(ymin=ratio-ci, ymax=ratio+ci), position=pd, width=0.1) + geom_point(position=pd, size=3) + scale_x_log10() + scale_color_brewer(palette="Set1") + ggtitle(opt$title) + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) + stat_smooth() + ylab(opt$ylab) + facet_grid(. ~ inputsum$strategy_reordered)
 dev.off()

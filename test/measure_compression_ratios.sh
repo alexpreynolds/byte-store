@@ -3,7 +3,7 @@
 tests=($(seq 1 3))
 sizes=(562 1000 1779 3162 5623 10000);
 compr=("bzip2" "gzip")
-strategies=("full" "mid-quarter-zero")
+strategies=("full" "mid-quarter-zero" "custom")
 
 for size in "${sizes[@]}"
 do
