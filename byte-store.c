@@ -160,7 +160,7 @@ bs_encode_double_to_unsigned_char_mqz(double d)
  * @return     (unsigned char) encoded score byte value
  */
 
-inline unsigned char
+unsigned char
 bs_encode_double_to_unsigned_char_custom(double d, double min, double max) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */

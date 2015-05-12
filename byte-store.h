@@ -252,7 +252,7 @@ static const double bs_encode_unsigned_char_to_double_mqz_table[256] =
 inline double                bs_truncate_double_to_precision(double d, int prec);
 inline unsigned char         bs_encode_double_to_unsigned_char(double d);
 inline unsigned char         bs_encode_double_to_unsigned_char_mqz(double d);
-inline unsigned char         bs_encode_double_to_unsigned_char_custom(double d, double min, double max);
+unsigned char                bs_encode_double_to_unsigned_char_custom(double d, double min, double max);
 static inline double         bs_decode_unsigned_char_to_double(unsigned char uc);
 static inline double         bs_decode_unsigned_char_to_double_mqz(unsigned char uc);
 static inline double         bs_decode_unsigned_char_to_double_custom(unsigned char uc, double min, double max);
