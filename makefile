@@ -2,21 +2,38 @@ SHELL      := /bin/bash
 PWD        := $(shell pwd)
 BLDFLAGS    = -Wall -Wextra -pedantic -std=c99
 CFLAGS      = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-LIBS        = -lm
+LIBS        = -lm -lbz2
 .PHONY      = test
 SAMPLE     := $(shell `which sample` --help 2> /dev/null)
 TESTDIR     = $(PWD)/test
 PDFDIR      = $(TESTDIR)/pdf
 #SAMPLEDIR   = /Volumes/Data/byte-store
 SAMPLEDIR   = /tmp/byte-store
+BZIP2ARC    = $(PWD)/bzip2-1.0.6.tar.gz
+BZIP2DIR    = $(PWD)/bzip2-1.0.6
+BZIP2SYMDIR = $(PWD)/bzip2
+BZIP2LIBDIR = $(BZIP2SYMDIR)
+UNAME      := $(shell uname -s)
+
+ifeq ($(UNAME),Darwin)
+	CC = clang
+	CXX = clang++
+	FLAGS += -Weverything
+endif
 
 all: byte-store
 
-byte-store:
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o $(LIBS)
+byte-store: bzip2
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o $(LIBS)
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(BZIP2SYMDIR) -L$(BZIP2LIBDIR) byte-store.o -o byte-store mt19937.a $(LIBS)
+
+bzip2:
+	if [ ! -d "$(BZIP2DIR)" ]; then mkdir "$(BZIP2DIR)"; fi
+	tar zxvf "$(BZIP2ARC)" -C "$(PWD)"
+	ln -sf $(BZIP2DIR) $(BZIP2SYMDIR)
+	$(MAKE) -C $(BZIP2SYMDIR) libbz2.a CC=$(CC) 
 
 test-sample:
 ifdef SAMPLE
@@ -115,3 +132,5 @@ clean:
 	rm -rf test/sample_bs_input.starch
 	rm -rf test/sample_bs_input.bed
 	rm -rf $(SAMPLEDIR)
+	rm -rf $(BZIP2DIR)
+	rm -rf $(BZIP2SYMDIR)

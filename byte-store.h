@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <float.h>
 #include "mt19937.h"
+#include "bzip2/bzlib.h"
 
 #define BUF_MAX_LEN 4096
 #define FN_MAX_LEN 1024

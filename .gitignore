@@ -35,8 +35,6 @@
 *.dSYM/
 
 # Compressed files
-*.bz2
-*.gz
 *.starch
 
 # Binary files
