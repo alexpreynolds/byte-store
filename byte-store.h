@@ -29,6 +29,17 @@
     memcpy(&x,swap_temp,sizeof(x)); \
 } while(0)
 
+extern const char* kPearsonRTestVectorA;
+extern const char* kPearsonRTestVectorB;
+extern const double kPearsonRTestCorrelationUnencoded;
+extern const double kPearsonRTestCorrelationEncoded;
+extern const unsigned char kPearsonRTestCorrelationEncodedByte;
+const char* kPearsonRTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
+const char* kPearsonRTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
+const double kPearsonRTestCorrelationUnencoded = 0.4134264f;
+const double kPearsonRTestCorrelationEncoded = 0.41f;
+const unsigned char kPearsonRTestCorrelationEncodedByte = 0x8e;
+
 typedef int boolean;
 extern const boolean kTrue;
 extern const boolean kFalse;
@@ -163,11 +174,12 @@ static struct option bs_client_long_options[] = {
     { "encoding-cutoff-zero-min", required_argument, NULL, 'n' },
     { "encoding-cutoff-zero-max", required_argument, NULL, 'x' },
     { "rng-seed",                 required_argument, NULL, 'd' },
+    { "test-pearson-r",           no_argument,       NULL, '1' },
     { "help",                     no_argument,       NULL, 'h' },
     { NULL,                       no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfi:l:s:e:n:x:dh?";
+static const char *bs_client_opt_string = "t:cqfi:l:s:e:n:x:d:1h?";
 
 static const char *bs_name = "byte-store";
 
@@ -271,6 +283,7 @@ void                         bs_delete_signal(signal_t** s);
 element_t*                   bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi);
 void                         bs_delete_element(element_t** e);
 void                         bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi);
+void                         bs_test_pearsons_r();
 void                         bs_test_score_encoding();
 void                         bs_init_globals();
 void                         bs_init_command_line_options(int argc, char** argv);

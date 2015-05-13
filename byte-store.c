@@ -690,6 +690,57 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi)
 }
 
 /**
+ * @brief      bs_test_pearsons_r()
+ *
+ * @details    Tests calculation and encoding of Pearson's 
+ *             r score from test vectors
+ */
+
+void
+bs_test_pearsons_r()
+{
+    /* instantiate signal_t elements from test vectors */
+    signal_t* a = NULL;
+    a = bs_init_signal((char*) kPearsonRTestVectorA);
+    if (!a) {
+        fprintf(stderr, "Error: Could not allocate space for test (A) Pearson's r vector!\n");
+        exit(EXIT_FAILURE);
+    }
+    signal_t* b = NULL;
+    b = bs_init_signal((char*) kPearsonRTestVectorB);
+    if (!b) {
+        fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* compare expected and observed (unencoded) Pearson's r scores */
+    fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
+    double unencoded_observed_score = bs_pearson_r_signal(a, b);
+    fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_score);
+    double absolute_diff_unencoded_scores = fabs(kPearsonRTestCorrelationUnencoded - unencoded_observed_score);
+    assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
+
+    /* compare expected and observed (encoded) scores */
+    unsigned char encoded_expected_score_byte = bs_encode_double_to_unsigned_char(kPearsonRTestCorrelationUnencoded);
+    unsigned char encoded_observed_score_byte = bs_encode_double_to_unsigned_char(unencoded_observed_score);
+    fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_score_byte);
+    fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_score_byte);
+    assert(kPearsonRTestCorrelationEncodedByte == encoded_expected_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed scores do not differ\n");
+    assert(kPearsonRTestCorrelationEncodedByte == encoded_observed_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed scores do not differ\n");
+    assert(encoded_expected_score_byte == encoded_observed_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed scores do not differ\n");
+
+    /* cleanup */
+    bs_delete_signal(&a);
+    bs_delete_signal(&b);
+}
+
+/**
  * @brief      bs_test_score_encoding()
  *
  * @details    Tests encoding of scores in the interval 
@@ -849,6 +900,9 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.rng_seed_flag = kTrue;
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
             break;
+        case '1':
+            bs_test_pearsons_r();
+            exit(EXIT_SUCCESS);
         case 'h':
         case '?':
             bs_print_usage(stdout);
