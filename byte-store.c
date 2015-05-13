@@ -117,9 +117,9 @@ bs_truncate_double_to_precision(double d, int prec)
 inline unsigned char
 bs_encode_double_to_unsigned_char(double d) 
 {
-    d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
+    d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
     d = bs_truncate_double_to_precision(d, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     return (unsigned char) encode_d;
 }
 
@@ -140,7 +140,7 @@ bs_encode_double_to_unsigned_char_mqz(double d)
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     if ((encode_d > 76) && (encode_d < 127))
         encode_d = 100;
     return (unsigned char) encode_d;
@@ -169,12 +169,28 @@ bs_encode_double_to_unsigned_char_custom(double d, double min, double max)
     d = bs_truncate_double_to_precision(d, 2);
     min = bs_truncate_double_to_precision(min, 2);
     max = bs_truncate_double_to_precision(max, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + signbit(-d);
-    int encode_min = (int) ((min < 0) ? (ceil(min * 1000.0f)/10.0f + 100) : (floor(min * 1000.0f)/10.0f + 100)) + signbit(-min);
-    int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + signbit(-max);
+    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
+    int encode_min = (int) ((min < 0) ? (ceil(min * 1000.0f)/10.0f + 100) : (floor(min * 1000.0f)/10.0f + 100)) + bs_signbit(-min);
+    int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + bs_signbit(-max);
     if ((encode_d > encode_min) && (encode_d < encode_max))
         encode_d = 100;
     return (unsigned char) encode_d;
+}
+
+/**
+ * @brief      bs_signbit(d)
+ *
+ * @details    Calculates compiler-independent signbit shift value
+ *
+ * @param      d      (double) value to have its sign evaluated
+ *
+ * @return     (boolean) true, if sign is negative; false, if sign is positive
+ */
+
+inline boolean
+bs_signbit(double d)
+{
+    return (signbit(d) > 0) ? kTrue : kFalse;
 }
 
 /**
