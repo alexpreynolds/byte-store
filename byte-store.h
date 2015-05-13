@@ -109,6 +109,7 @@ typedef struct store_buf_row_node {
 typedef enum store_type {
     kStorePearsonRSUT = 0,
     kStorePearsonRSquareMatrix,
+    kStorePearsonRSquareMatrixBzip2,
     kStoreRandomSUT,
     kStoreRandomSquareMatrix,
     kStoreRandomBufferedSquareMatrix,
@@ -117,11 +118,13 @@ typedef enum store_type {
 
 extern const char* kStorePearsonRSUTStr;
 extern const char* kStorePearsonRSquareMatrixStr;
+extern const char* kStorePearsonRSquareMatrixBzip2Str;
 extern const char* kStoreRandomSUTStr;
 extern const char* kStoreRandomSquareMatrixStr;
 extern const char* kStoreRandomBufferedSquareMatrixStr;
 const char* kStorePearsonRSUTStr = "pearson-r-sut";
 const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
+const char* kStorePearsonRSquareMatrixBzip2Str = "pearson-r-sqr-bzip2";
 const char* kStoreRandomSUTStr = "random-sut";
 const char* kStoreRandomSquareMatrixStr = "random-sqr";
 const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
@@ -160,26 +163,32 @@ static struct bs_globals_t {
     char encoding_strategy_str[BUF_MAX_LEN];
     double encoding_cutoff_zero_min;
     double encoding_cutoff_zero_max;
+    boolean store_compression_flag;
+    uint32_t store_compression_row_block_size;
 } bs_globals;
 
+extern const uint32_t kCompressionRowBlockDefaultSize;
+const uint32_t kCompressionRowBlockDefaultSize = UINT32_MAX;
+
 static struct option bs_client_long_options[] = {
-    { "store-type",               required_argument, NULL, 't' },
-    { "store-create",             no_argument,       NULL, 'c' },
-    { "store-query",              no_argument,       NULL, 'q' },
-    { "store-frequency",          no_argument,       NULL, 'f' },
-    { "index-query",              required_argument, NULL, 'i' },
-    { "lookup",                   required_argument, NULL, 'l' },
-    { "store",                    required_argument, NULL, 's' },
-    { "encoding-strategy",        required_argument, NULL, 'e' },
-    { "encoding-cutoff-zero-min", required_argument, NULL, 'n' },
-    { "encoding-cutoff-zero-max", required_argument, NULL, 'x' },
-    { "rng-seed",                 required_argument, NULL, 'd' },
-    { "test-pearson-r",           no_argument,       NULL, '1' },
-    { "help",                     no_argument,       NULL, 'h' },
-    { NULL,                       no_argument,       NULL,  0  }
+    { "store-type",                       required_argument, NULL, 't' },
+    { "store-create",                     no_argument,       NULL, 'c' },
+    { "store-query",                      no_argument,       NULL, 'q' },
+    { "store-frequency",                  no_argument,       NULL, 'f' },
+    { "store-compression-row-block-size", required_argument, NULL, 'r' },
+    { "index-query",                      required_argument, NULL, 'i' },
+    { "lookup",                           required_argument, NULL, 'l' },
+    { "store",                            required_argument, NULL, 's' },
+    { "encoding-strategy",                required_argument, NULL, 'e' },
+    { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
+    { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
+    { "rng-seed",                         required_argument, NULL, 'd' },
+    { "test-pearson-r",                   no_argument,       NULL, '1' },
+    { "help",                             no_argument,       NULL, 'h' },
+    { NULL,                               no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfi:l:s:e:n:x:d:1h?";
+static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:d:1h?";
 
 static const char *bs_name = "byte-store";
 

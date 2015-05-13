@@ -12,16 +12,25 @@ main(int argc, char** argv)
 
     lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
 
-    switch(bs_globals.store_type) {
+    switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
         sut_store = bs_init_sut_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-            if (bs_globals.store_type == kStoreRandomSUT) {
+            switch (bs_globals.store_type) {
+            case kStoreRandomSUT:
                 bs_populate_sut_store_with_random_scores(sut_store);
-            }
-            else if (bs_globals.store_type == kStorePearsonRSUT) {
+                break;
+            case kStorePearsonRSUT:
                 bs_populate_sut_store_with_pearsonr_scores(sut_store, lookup);
+                break;
+            case kStoreRandomBufferedSquareMatrix:
+            case kStoreRandomSquareMatrix:
+            case kStorePearsonRSquareMatrix:
+            case kStorePearsonRSquareMatrixBzip2:
+            case kStoreUndefined:
+                fprintf(stderr, "Error: You should never see this error!\n");
+                exit(EXIT_FAILURE);
             }
         }
         else if (bs_globals.store_query_flag) {
@@ -34,19 +43,30 @@ main(int argc, char** argv)
         bs_delete_sut_store(&sut_store);
         break;
     case kStorePearsonRSquareMatrix:
+    case kStorePearsonRSquareMatrixBzip2:
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
         if (bs_globals.store_create_flag) {
-	    if (bs_globals.store_type == kStoreRandomBufferedSquareMatrix) {
-		bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
-            }
-	    else if (bs_globals.store_type == kStoreRandomSquareMatrix) {
-		bs_populate_sqr_store_with_random_scores(sqr_store);
-            }
-            else if (bs_globals.store_type == kStorePearsonRSquareMatrix) {
+            switch (bs_globals.store_type) {
+            case kStoreRandomBufferedSquareMatrix:
+                bs_populate_sqr_store_with_buffered_random_scores(sqr_store);
+                break;
+            case kStoreRandomSquareMatrix:
+                bs_populate_sqr_store_with_random_scores(sqr_store);
+                break;
+            case kStorePearsonRSquareMatrix:
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
-            }
+                break;
+            case kStorePearsonRSquareMatrixBzip2:
+                fprintf(stderr, "Error: This case is not yet implemented!\n");
+                exit(EXIT_FAILURE);
+            case kStorePearsonRSUT:
+            case kStoreRandomSUT:
+            case kStoreUndefined:
+                fprintf(stderr, "Error: You should never see this error!\n");
+                exit(EXIT_FAILURE);
+            }            
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
@@ -180,7 +200,9 @@ bs_encode_double_to_unsigned_char_custom(double d, double min, double max)
 /**
  * @brief      bs_signbit(d)
  *
- * @details    Calculates compiler-independent signbit shift value
+ * @details    Calculates compiler-independent signbit() shift value. To represent
+ *             true and false results, clang signbit() returns either 0 or 1, while 
+ *             GNU gcc appears to return either 0 or 128.
  *
  * @param      d      (double) value to have its sign evaluated
  *
@@ -715,7 +737,6 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi)
 void
 bs_test_pearsons_r()
 {
-    /* instantiate signal_t elements from test vectors */
     signal_t* a = NULL;
     a = bs_init_signal((char*) kPearsonRTestVectorA);
     if (!a) {
@@ -729,7 +750,6 @@ bs_test_pearsons_r()
         exit(EXIT_FAILURE);
     }
 
-    /* compare expected and observed (unencoded) Pearson's r scores */
     fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
     double unencoded_observed_score = bs_pearson_r_signal(a, b);
     fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestCorrelationUnencoded);
@@ -738,7 +758,6 @@ bs_test_pearsons_r()
     assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
 
-    /* compare expected and observed (encoded) scores */
     unsigned char encoded_expected_score_byte = bs_encode_double_to_unsigned_char(kPearsonRTestCorrelationUnencoded);
     unsigned char encoded_observed_score_byte = bs_encode_double_to_unsigned_char(unencoded_observed_score);
     fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
@@ -751,7 +770,6 @@ bs_test_pearsons_r()
     assert(encoded_expected_score_byte == encoded_observed_score_byte);
     fprintf(stderr, "\t-> Expected computed and observed computed scores do not differ\n");
 
-    /* cleanup */
     bs_delete_signal(&a);
     bs_delete_signal(&b);
 }
@@ -827,6 +845,8 @@ bs_init_globals()
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = 0;
     bs_globals.store_query_idx_end = 0;
+    bs_globals.store_compression_row_block_size = kCompressionRowBlockDefaultSize;
+    bs_globals.store_compression_flag = kFalse;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
     bs_globals.lookup_fn[0] = '\0';
@@ -867,6 +887,7 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.store_type =
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
@@ -879,6 +900,10 @@ bs_init_command_line_options(int argc, char** argv)
         case 'q':
             bs_globals.store_query_flag = kTrue;
             bs_output_flag_counter++;
+            break;
+        case 'r':
+            bs_globals.store_compression_flag = kTrue;
+            sscanf(optarg, "%u", &bs_globals.store_compression_row_block_size);
             break;
         case 'f':
             bs_globals.store_frequency_flag = kTrue;
@@ -964,6 +989,10 @@ bs_init_command_line_options(int argc, char** argv)
         fprintf(stderr, "Error: Must specify --encoding-cutoff-zero-min and -max with custom encoding strategy!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.store_compression_flag && bs_globals.store_compression_row_block_size == kCompressionRowBlockDefaultSize) {
+        
     }
 }
 
@@ -1558,19 +1587,19 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 
        We grow and shrink lists as we walk through and populate a symmetric square matrix.
 
-       For an even order value for n, a quarter of the square matrix should need its scores 
-       to be buffered:
+       For an even (0 mod 2) order value for n, a quarter of the square matrix should need its 
+       scores to be buffered:
 
-       (n/2)^2 * sizeof(store_buf_node_t)
+       [(n/2)^2 * sizeof(store_buf_node_t)] bytes
 
-       For an odd order of n, the limit is:
+       For an odd (1 mod 2) order of n, the limit is:
 
-       ((n+1)/2) * ((n+1)/2 - 1) * sizeof(store_buf_node_t)
+       [((n+1)/2) * ((n+1)/2 - 1) * sizeof(store_buf_node_t)] bytes
 
-       We also need to store pointers to each row's linked list of buffered scores, and 
+       We also need to store pointers to each row's linked list of buffered scores, as well as
        the head of that list:
 
-       n * sizeof(store_buf_row_node_t*) bytes
+       [n * sizeof(store_buf_row_node_t*)] bytes
        
        The total storage for the cache is the sum of these two values for a given n.
 
