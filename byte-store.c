@@ -992,7 +992,9 @@ bs_init_command_line_options(int argc, char** argv)
     }
 
     if (bs_globals.store_compression_flag && bs_globals.store_compression_row_block_size == kCompressionRowBlockDefaultSize) {
-        
+        fprintf(stderr, "Error: Must specify --store-compression-row-block-size parameter when used with pearson-r-sqr-bzip2 encoding type!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -1011,11 +1013,11 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-block-size parameter=int]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
+            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
-            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
+            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
@@ -1036,7 +1038,9 @@ bs_print_usage(FILE* os)
             "   range of scores to the interval [-1.00, +1.00], while the mid-quarter-zero strategy maps\n" \
             "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
             " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n" \
-            " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n",
+            " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
+            " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-block-size\n" \
+            "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n", 
             bs_name,
             bs_name,
             bs_name);
