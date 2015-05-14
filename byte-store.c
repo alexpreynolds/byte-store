@@ -59,8 +59,8 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                fprintf(stderr, "Error: This case is not yet implemented!\n");
-                exit(EXIT_FAILURE);
+                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup);
+                break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
@@ -986,7 +986,7 @@ bs_init_command_line_options(int argc, char** argv)
         bs_globals.encoding_strategy = kEncodingStrategyFull;
     } 
     else if ((bs_globals.encoding_strategy == kEncodingStrategyCustom) && ((bs_globals.encoding_cutoff_zero_min == kEncodingDefaultCutoff) || (bs_globals.encoding_cutoff_zero_max == kEncodingDefaultCutoff))) {
-        fprintf(stderr, "Error: Must specify --encoding-cutoff-zero-min and -max with custom encoding strategy!\n");
+        fprintf(stderr, "Error: Must specify --encoding-cutoff-zero-min and --encoding-cutoff-zero-max with custom encoding strategy!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1411,8 +1411,16 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore);
-    unsigned char no_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kNoCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kNoCorrelationScore);
+    unsigned char self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    unsigned char no_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kNoCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kNoCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1511,7 +1519,11 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score = bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    unsigned char self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1711,8 +1723,12 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) : bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore);
-    
+    unsigned char self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
         mt19937_seed_rng(bs_globals.rng_seed_value);
@@ -1749,6 +1765,132 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
     }
 
     fclose(os);
+}
+
+/**
+ * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l)
+ *
+ * @details    Write bzip2-compressed blocks of encoded Pearson's r 
+ *             correlation scores to a FILE* handle associated with the 
+ *             specified square matrix store filename.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ */
+
+void
+bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
+{
+    unsigned char score = 0;
+    FILE* os = NULL;
+    unsigned char self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    /* open handle to output sqr matrix store */
+    os = fopen(bs_globals.store_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* init bzip2 stream */
+    bz_stream *bz_ptr = bs_init_bz_stream_ptr();
+    
+    /* write a block of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
+    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
+        signal_t* row_signal = l->elems[row_idx]->signal;
+        for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[col_idx]->signal;
+            if (row_idx != col_idx) {
+                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score = 
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
+                    bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            }
+            else if (row_idx == col_idx) {
+                score = self_correlation_score;
+            }
+	    if (fputc(score, os) != score) {
+		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
+		exit(EXIT_FAILURE);
+	    }
+        }
+    }
+
+    /* clean up bzip2 machinery */
+    bs_delete_bz_stream_ptr(&bz_ptr);
+
+    fclose(os);
+}
+
+/**
+ * @brief      bs_init_bz_stream_ptr()
+ *
+ * @details    Returns an initialized bz_stream struct ptr
+ *
+ * @return     (bz_stream*) ptr to bz_stream struct
+ */
+
+bz_stream*
+bs_init_bz_stream_ptr()
+{
+    bz_stream *bp = NULL;    
+    bp = malloc(sizeof(bz_stream));
+    if (!bp) {
+        fprintf(stderr, "Error: Insufficient memory to instantiate bz_stream struct!\n");
+        exit(EXIT_FAILURE);
+    }
+    bp->bzalloc = NULL;
+    bp->bzfree = NULL;
+    bp->opaque = NULL;
+    int bz_init_res = BZ2_bzCompressInit(bp, 9, 0, 30);
+    switch (bz_init_res) {
+    case BZ_CONFIG_ERROR:
+        fprintf(stderr, "Error: bzip2 initialization failed - library was miscompiled!\n");
+        exit(EINVAL);
+    case BZ_PARAM_ERROR:
+        fprintf(stderr, "Error: bzip2 initialization failed - incorrect parameters!\n");
+        exit(EINVAL);
+    case BZ_MEM_ERROR:
+        fprintf(stderr, "Error: bzip2 initialization failed - insufficient memory!\n");
+        exit(EINVAL);
+    case BZ_OK:
+        break;
+    }
+    return bp;
+}
+
+/**
+ * @brief      bs_delete_bz_stream_ptr(bp)
+ *
+ * @details    Closes and deletes a bz_stream struct ptr
+ *
+ * @param      bp     (bz_stream**) ptr to bz_stream struct ptr
+ */
+
+void
+bs_delete_bz_stream_ptr(bz_stream** bp)
+{
+    int bz_end_res = BZ2_bzCompressEnd(*bp);
+    switch (bz_end_res) {
+    case BZ_PARAM_ERROR:
+        fprintf(stderr, "Error: Could not release internals of bz_ptr pointer!\n");
+        exit(EINVAL);
+    case BZ_OK:
+        free(*bp);
+        break;
+    }
 }
 
 /**
