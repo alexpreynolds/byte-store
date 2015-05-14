@@ -65,7 +65,7 @@ input <- cbind(input, time_per_element)
 inputsum <- summarySE(input, measurevar="time_per_element", groupvars=c("type", "elements", "strategy"))
 
 levels(inputsum$strategy)
-inputsum$strategy_reordered = factor(inputsum$strategy,levels(inputsum$strategy)[c(2,3,1)])
+inputsum$strategy_reordered = factor(inputsum$strategy,levels(inputsum$strategy)[c(3,1,2)])
 levels(inputsum$strategy_reordered)
 
 suppressPackageStartupMessages(require(ggplot2))

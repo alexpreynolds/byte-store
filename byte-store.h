@@ -165,18 +165,21 @@ static struct bs_globals_t {
     double encoding_cutoff_zero_min;
     double encoding_cutoff_zero_max;
     boolean store_compression_flag;
-    uint32_t store_compression_row_block_size;
+    uint32_t store_compression_row_chunk_size;
 } bs_globals;
 
-extern const uint32_t kCompressionRowBlockDefaultSize;
-const uint32_t kCompressionRowBlockDefaultSize = UINT32_MAX;
+extern const uint32_t kCompressionRowChunkDefaultSize;
+const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
+
+extern const uint32_t kCompressionRowChunkMaximumSize;
+const uint32_t kCompressionRowChunkMaximumSize = 1000;
 
 static struct option bs_client_long_options[] = {
     { "store-type",                       required_argument, NULL, 't' },
     { "store-create",                     no_argument,       NULL, 'c' },
     { "store-query",                      no_argument,       NULL, 'q' },
     { "store-frequency",                  no_argument,       NULL, 'f' },
-    { "store-compression-row-block-size", required_argument, NULL, 'r' },
+    { "store-compression-row-chunk-size", required_argument, NULL, 'r' },
     { "index-query",                      required_argument, NULL, 'i' },
     { "lookup",                           required_argument, NULL, 'l' },
     { "store",                            required_argument, NULL, 's' },
@@ -311,7 +314,7 @@ sqr_store_t*                 bs_init_sqr_store(uint32_t n);
 void                         bs_populate_sqr_store_with_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
-void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
+void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
 bz_stream*                   bs_init_bz_stream_ptr();
 void                         bs_delete_bz_stream_ptr(bz_stream** bp);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);

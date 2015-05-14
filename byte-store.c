@@ -59,7 +59,7 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup);
+                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -845,7 +845,7 @@ bs_init_globals()
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = 0;
     bs_globals.store_query_idx_end = 0;
-    bs_globals.store_compression_row_block_size = kCompressionRowBlockDefaultSize;
+    bs_globals.store_compression_row_chunk_size = kCompressionRowChunkDefaultSize;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
@@ -903,7 +903,7 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'r':
             bs_globals.store_compression_flag = kTrue;
-            sscanf(optarg, "%u", &bs_globals.store_compression_row_block_size);
+            sscanf(optarg, "%u", &bs_globals.store_compression_row_chunk_size);
             break;
         case 'f':
             bs_globals.store_frequency_flag = kTrue;
@@ -991,8 +991,8 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_compression_flag && bs_globals.store_compression_row_block_size == kCompressionRowBlockDefaultSize) {
-        fprintf(stderr, "Error: Must specify --store-compression-row-block-size parameter when used with pearson-r-sqr-bzip2 encoding type!\n");
+    if (bs_globals.store_compression_flag && bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize) {
+        fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 encoding type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1013,7 +1013,7 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-block-size parameter=int]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-chunk-size parameter=int]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
@@ -1039,7 +1039,7 @@ bs_print_usage(FILE* os)
             "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
             " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n" \
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
-            " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-block-size\n" \
+            " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n", 
             bs_name,
             bs_name,
@@ -1768,18 +1768,19 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 }
 
 /**
- * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l)
+ * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l, n)
  *
- * @details    Write bzip2-compressed blocks of encoded Pearson's r 
+ * @details    Write bzip2-compressed chunks of encoded Pearson's r 
  *             correlation scores to a FILE* handle associated with the 
  *             specified square matrix store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
+ *             n      (uint32_t) number of rows within a compressed chunk 
  */
 
 void
-bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
+bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
 {
     unsigned char score = 0;
     FILE* os = NULL;
@@ -1788,6 +1789,13 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
         (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
         bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+
+    /* test bounds of row-chunk size */
+    if ((n > kCompressionRowChunkMaximumSize) || (n > l->nelems)) {
+	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum or the number of rows in the original lookup file!\n");
+	bs_print_usage(stderr);
+	exit(EXIT_FAILURE);
+    }
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1806,7 +1814,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
     /* init bzip2 stream */
     bz_stream *bz_ptr = bs_init_bz_stream_ptr();
     
-    /* write a block of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
+    /* write a chunk of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
