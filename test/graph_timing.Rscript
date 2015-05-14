@@ -57,12 +57,16 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
     return(datac)
 }
 
-input <- read.table(opt$inFn, col.names=c("type", "elements", "trial", "strategy", "time"), colClasses=c("character", "numeric", "numeric", "character", "numeric"))
+input <- read.table(opt$inFn, col.names=c("type", "elements", "trial", "strategy", "time"), colClasses=c("character", "numeric", "numeric", "factor", "numeric"))
 time_per_element <- input$time/input$elements
 input <- cbind(input, time_per_element)
 
 # cf. http://www.cookbook-r.com/Graphs/Plotting_means_and_error_bars_(ggplot2)/#Helper functions
 inputsum <- summarySE(input, measurevar="time_per_element", groupvars=c("type", "elements", "strategy"))
+
+levels(inputsum$strategy)
+inputsum$strategy_reordered = factor(inputsum$strategy,levels(inputsum$strategy)[c(2,3,1)])
+levels(inputsum$strategy_reordered)
 
 suppressPackageStartupMessages(require(ggplot2))
 pdf(width=10, height=6, paste(opt$outFn, "pdf", sep="."))

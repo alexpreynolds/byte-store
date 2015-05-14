@@ -2,11 +2,11 @@
 
 [![Build Status](https://travis-ci.org/alexpreynolds/byte-store.svg)](https://travis-ci.org/alexpreynolds/byte-store)
 
-This utility generates and queries strictly upper triangular (SUT) and square matrices storing 1-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square form. Three encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, a "mid-quarter-zero" strategy that encodes scores in the interval (-0.25, +0.25) as the +0.00 byte, and a "custom" strategy, which allows specification of custom minimum and maximum bounds for encoding zero-score bytes.
+This utility generates and queries strictly upper triangular (SUT) and square matrices storing one-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square matrix form. Three encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, a "mid-quarter-zero" strategy that encodes scores within the interval (-0.25, +0.25) as the +0.00 byte-equivalent, and a "custom" strategy, which allows specification of custom minimum and maximum bounds for encoding zero-score bytes. Compressed square matrix byte-store files store a compressed form of encoded scores, along with metadata to do indexed retrieval of rows.
 
 ## Filesizes
 
-We compare SUT and square matrix byte storage methods because of the significant filesize differences at large scales. SUT byte-store files take up ``n(n-1)/2`` bytes for ``n`` elements, while a square matrix takes up ``n^2`` bytes. 
+We compare SUT and square matrix byte storage methods because of the significant filesize differences at large scales. SUT byte-store files take up ``n(n-1)/2`` bytes for ``n`` elements, while a square matrix takes up ``n^2`` bytes. Compressed square matrix files generally take considerably fewer bytes, depending on the nature of the score data, chosen encoding strategy and efficiency of the selected compression algorithm.
 
 ## Score values
 
@@ -19,20 +19,22 @@ chr1    2244600 2244750 149,72,71,87,...
 chr1    3568000 3568150 70,34,17,70,...
 ```
 
-In tests, byte-stores are encoded with the "full" or "mid-quarter-zero" strategy. The "full" strategy maps all scores from [-1.0, +1.0] within an ``unsigned char`` in 0.01 increments. The "mid-quarter-zero" strategy is similar, but any scores from (-0.25, +0.25) are directly mapped to the equivalent +0.00 ``unsigned char`` value.
+Byte-store files are encoded with the "full", "mid-quarter-zero" or "custom" strategy. The default "full" strategy maps all scores from [-1.0, +1.0] within an ``unsigned char`` in 0.01 increments. The "mid-quarter-zero" strategy is similar, but any scores within (-0.25, +0.25) are directly mapped to the equivalent +0.00 ``unsigned char`` value. Tests of the "custom" strategy encode scores within (-0.50, +0.50) to the +0.00 byte-equivalent.
 
 ## Getting started
 
-To build ``byte-store``, download the source and compile:
+To build `byte-store`, download the source and compile:
 
 ```
 $ git clone https://github.com/alexpreynolds/byte-store.git
 $ make 
 ```
 
+To date, compilation and score tests have passed under GNU `gcc` 4.6.3 and Clang 3.4 under [Ubuntu 12.04 LTS Server (64-bit)](http://docs.travis-ci.com/user/ci-environment/), GNU `gcc` 4.8.2 under RHEL6, and Clang 3.6 under Mac OS X Yosemite 10.10.4.
+
 ## Testing
 
-Some basic tests are included with the ``makefile`` to evaluate byte-store creation and query timing, as well as compression efficiency. BED files are included for basic tests. A more comprehensive test suite uses E. Rynes' master DHS signal dataset to sample and encode inputs at various levels, between ~500 and 10k elements, which can generate up to 6 GB or more of intermediate data. Refer to the ``test-sample-performance`` target in the project ``makefile`` for more details.
+Some basic tests are included with the ``makefile`` to evaluate byte-store creation and query timing, as well as compression efficiency. BED files are included for basic tests. A more comprehensive test suite uses [E. Rynes' master DHS signal dataset (~192 MB)](https://dl.dropboxusercontent.com/u/31495717/byte-store-test.starch) to sample and encode inputs at levels between ~500 and 10k elements, which can generate 6 GB or more of intermediate data. Refer to the ``test-sample-performance`` target in the project ``makefile`` for more details.
 
 ### Inputs
 
@@ -52,20 +54,26 @@ For visualization, we measure the ratio of elapsed time to number of processed e
 
 ### Compression efficiency
 
-To evaluate the potential longer-term archival of a SUT or square-matrix byte-store file, we compress it with open-source ``bzip2`` and ``gzip`` compression methods and measure the efficiency ratio as defined by compressed filesize divided by raw filesize.
+To evaluate the potential longer-term archival of a SUT or square-matrix byte-store file, we compress it with open-source `bzip2` and `gzip` compression methods and measure the efficiency ratio as defined by compressed filesize divided by raw filesize.
 
 ## Results
 
-Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard drive (7200 RPM) connected to a MacBook Pro (2.8 GHz Intel Core i5, 8 GB RAM) over a USB 2 connection.
+Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard drive (7200 RPM) connected to a MacBook Pro (2.8 GHz Intel Core i5, 8 GB RAM) over a USB 2 connection. Test results can be written to an alternative destination by overriding the `SAMPLEDIR` variable setting in the `makefile`.
 
 ### Creation
 
-Creating a SUT byte store is slightly faster than making a square-matrix store for both encoding strategies: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
+With fewer bytes to write, creation of a SUT byte store takes less average time per element than creation of a square-matrix store for all encoding strategies.
+
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
 
 ### Querying
 
-Querying elements in a SUT byte store quickly gets slower (more "expensive" per element) than lookups to a square-matrix store, as the number of elements increases. Query times are virtually identical for both encoding strategies: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+Querying elements in a SUT byte store quickly gets slower (more "expensive" per element) than lookups to a square-matrix store, as the number of elements increases. Query times are virtually identical for all encoding strategies.
+
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
 ### Compression
 
-For the "full" encoding strategy, compressing a SUT or square-matrix byte-store with ``gzip`` (default parameters) gives better results than ``bzip2`` (default parameters). Byte-stores of typical encoded scores can be compressed down to roughly 76-80% of the original size. However, use of the "mid-quarter-zero" encoding strategy improves the compression efficiency to ~20%, with ``bzip2`` offering more optimal results: <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
+For the "full" encoding strategy, compressing a SUT or square-matrix byte-store with `gzip` (default parameters) gives better results than `bzip2` (default parameters). Byte-stores of typical encoded scores can be compressed down to roughly 76-80% of the original size. However, use of the "mid-quarter-zero" encoding strategy improves the compression efficiency to ~20%, with `bzip2` offering more optimal results. The "custom" strategy more broadly encodes correlation values of (-0.50, +0.50) to 0, leading to a compression efficiency of ~4% for `bzip2`.
+
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
