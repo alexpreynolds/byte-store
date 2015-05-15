@@ -15,8 +15,8 @@
 #include <unistd.h>
 #include <float.h>
 #include <errno.h>
+#include <bzlib.h>
 #include "mt19937.h"
-#include "bzip2/bzlib.h"
 
 #define BUF_MAX_LEN 4096
 #define FN_MAX_LEN 1024
@@ -173,12 +173,14 @@ extern const uint32_t kCompressionBzip2BlockSize100k;
 extern const uint32_t kCompressionBzip2BlockSizeFactor;
 extern const uint32_t kCompressionBzip2Verbosity;
 extern const uint32_t kCompressionBzip2WorkFactor;
+extern const uint32_t kCompressionBzip2AbandonPolicy;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 1000;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
 const uint32_t kCompressionBzip2BlockSizeFactor = 100000;
 const uint32_t kCompressionBzip2Verbosity = 0;
 const uint32_t kCompressionBzip2WorkFactor = 30;
+const uint32_t kCompressionBzip2AbandonPolicy = 0;
 
 static struct option bs_client_long_options[] = {
     { "store-type",                       required_argument, NULL, 't' },
@@ -322,8 +324,6 @@ void                         bs_populate_sqr_store_with_buffered_random_scores(s
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
 void                         bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf);
-bz_stream*                   bs_init_bz_stream_ptr();
-void                         bs_delete_bz_stream_ptr(bz_stream** bp);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);

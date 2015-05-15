@@ -184,14 +184,18 @@ unsigned char
 bs_encode_double_to_unsigned_char_custom(double d, double min, double max) 
 {
     /* 
-       Note:
+       Note
+       ----
 
        At some point, it may be useful to set up permutation tests
-       on the Pearson r signals. In other words, shuffle the AB signals 
-       some number of times and calculate a sample of r scores that 
-       determine a 99% confidence interval where there is no correlation. 
-       Once that interval is determined, an encoding strategy can be applied 
-       that "zeroes" out scores in this region. 
+       on the Pearson r signals. In other words, we shuffle the signal
+       within each vector some number of times and then calculate a sample 
+       of r scores that determine a two-sided 99% confidence interval where 
+       there is no correlation. 
+
+       Once that interval is determined, we know what values have "significant"
+       correlation. An encoding strategy can be applied that safely "zeroes" out 
+       scores outside this region of significance for optimal compression.
        
        Cf. http://stats.stackexchange.com/a/5754/13384
     */
@@ -1825,22 +1829,34 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         exit(EXIT_FAILURE);
     }
 
-    /* init bzip2 stream */
-    bz_stream *bz_ptr = bs_init_bz_stream_ptr();
-
-    /* 
-       write compressed bytes, if an end-of-block or -chunk condition is 
-       met within a row, or at the end of a series of rows:
-
-       1) bz_uncompressed_buffer is full (do not close stream)
-       2) row index is a multiple of specified row block size (close 
-          stream -> write offset -> reopen new stream)
-       3) row index is the very last row (close stream -> do not reopen 
-          new stream)
-    */
-    
+    /* init bzip2 machinery */
     uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
-    uint32_t uncomp_buf_idx = 0;
+    uint32_t bz_uncompressed_buffer_size = bz_block_size;
+    char *bz_uncompressed_buffer = NULL;
+    bz_uncompressed_buffer = malloc(bz_uncompressed_buffer_size);
+    if (!bz_uncompressed_buffer) {
+	fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
+	exit(EXIT_FAILURE);
+    }
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+    uint32_t bzf_bytes_read = 0;
+    uint32_t bzf_bytes_written = 0;
+    uint64_t bzf_cumulative_bytes_written = 0;
+    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
+    switch (bzf_error) {
+    case BZ_OK:
+	break;
+    case BZ_CONFIG_ERROR:
+    case BZ_PARAM_ERROR:
+    case BZ_IO_ERROR:
+    case BZ_MEM_ERROR:
+	fprintf(stderr, "Error: Could not set up new bzip2 output stream! (initial)\n");
+	exit(EXIT_FAILURE);
+    }
+
+    /* write compressed bytes, if an end-of-block or -chunk condition is met within a row, or at the end of a series of rows */
+    uint32_t uncompressed_buffer_idx = 0;
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
@@ -1855,155 +1871,90 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
             }
-	    bz_ptr->next_in[uncomp_buf_idx++] = score;
-            if (uncomp_buf_idx % bz_block_size == 0) {
-                bz_ptr->avail_in = uncomp_buf_idx;
-                bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
-                bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kFalse);
-                fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
-                uncomp_buf_idx = 0;
+	    bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
+	    /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
+            if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
+		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+		switch (bzf_error) {
+		case BZ_OK:
+		    break;
+		case BZ_PARAM_ERROR:
+		case BZ_IO_ERROR:
+		case BZ_SEQUENCE_ERROR:
+		    fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (full, within row)\n");
+		    exit(EXIT_FAILURE);
+		}
+		uncompressed_buffer_idx = 0;
             }            
         }
-	if ((row_idx % n == 0) && (row_idx != 0)) { 
-	    bz_ptr->avail_in = uncomp_buf_idx;
-            bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
-	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue);
-            fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
-	    uncomp_buf_idx = 0;
+	/* if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
+	if ((row_idx % n == 0) && (row_idx != 0)) {
+	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
+	    uncompressed_buffer_idx = 0;
+	    BZ2_bzWriteClose(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read, &bzf_bytes_written);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		bzf_cumulative_bytes_written += bzf_bytes_written;
+		fprintf(stderr, "Wrote chunk at offset %" PRIu64 "\n", bzf_cumulative_bytes_written);
+		break;
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
+	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		break;
+	    case BZ_CONFIG_ERROR:
+	    case BZ_PARAM_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not set up new bzip2 output stream! (post-row block)\n");
+		exit(EXIT_FAILURE);
+	    }
 	}
+	/* if row index is last index in matrix, compress bytes, write to output stream, and close bz stream */
 	else if (row_idx == (s->attr->nelems - 1)) {
-	    bz_ptr->avail_in = uncomp_buf_idx;
-            bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
-	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue);
-            fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
+	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
+	    uncompressed_buffer_idx = 0;
+	    BZ2_bzWriteClose(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read, &bzf_bytes_written);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		bzf_cumulative_bytes_written += bzf_bytes_written;
+		fprintf(stderr, "Wrote chunk at offset %" PRIu64 "\n", bzf_cumulative_bytes_written);
+		break;
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
 	}
     }
 
     /* clean up bzip2 machinery */
-    bs_delete_bz_stream_ptr(&bz_ptr);
+    free(bz_uncompressed_buffer), bz_uncompressed_buffer = NULL;
+    
 
     fclose(os);
-}
-
-void
-bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf)
-{
-    int bz_compr_res = BZ_RUN_OK;
-    fprintf(stderr,
-            "bs_write_uncompressed_bytes_to_bz_stream_ptr() - %s\nnext_in: %p\navail_in: %d\n",
-            (csf ? "closing stream" : "not closing stream"),
-            (*bp)->next_in,
-            (*bp)->avail_in);
-    char *starting_next_in = (*bp)->next_in;
-    do {
-        bz_compr_res = BZ2_bzCompress(*bp, (csf ? BZ_FINISH : BZ_RUN));
-        fprintf(stderr,
-                "bs_write_uncompressed_bytes_to_bz_stream_ptr()\nbz_compr_res: %s\nnext_out: %p\navail_out: %d\n",
-                ((bz_compr_res == BZ_RUN_OK) ? "BZ_RUN_OK" :
-                 (bz_compr_res == BZ_FLUSH_OK) ? "BZ_FLUSH_OK" :
-                 (bz_compr_res == BZ_FINISH_OK) ? "BZ_FINISH_OK" :
-                 "BZ_SEQUENCE_ERROR or BZ_PARAM_ERROR"),
-                (*bp)->next_out,
-                (*bp)->avail_out);
-        switch (bz_compr_res) {
-        case BZ_RUN_OK:
-        case BZ_FLUSH_OK:
-        case BZ_FINISH_OK:
-            break;
-        case BZ_SEQUENCE_ERROR:
-            fprintf(stderr, "Error: Ran into bzip2 compression sequence error!\n");
-            exit(EXIT_FAILURE);
-        case BZ_PARAM_ERROR:
-            fprintf(stderr, "Error: Ran into bzip2 compression parameter error (bz_ptr or bz_ptr->s is NULL [%p])!\n", (*bp));
-            exit(EXIT_FAILURE);
-        }
-    } while (bz_compr_res != BZ_STREAM_END);
-
-    (*bp)->next_in = starting_next_in;
-    (*bp)->avail_in = 0;
-}
-
-/**
- * @brief      bs_init_bz_stream_ptr()
- *
- * @details    Returns an initialized bz_stream struct ptr
- *
- * @return     (bz_stream*) ptr to bz_stream struct
- */
-
-bz_stream*
-bs_init_bz_stream_ptr()
-{
-    bz_stream *bp = NULL;    
-    bp = malloc(sizeof(bz_stream));
-    if (!bp) {
-        fprintf(stderr, "Error: Insufficient memory to instantiate bz_stream struct!\n");
-        exit(EXIT_FAILURE);
-    }
-    bp->bzalloc = NULL;
-    bp->bzfree = NULL;
-    bp->opaque = NULL;
-    int bz_init_res = BZ2_bzCompressInit(bp, 
-					 kCompressionBzip2BlockSize100k, 
-					 kCompressionBzip2Verbosity, 
-					 kCompressionBzip2WorkFactor);
-    switch (bz_init_res) {
-    case BZ_CONFIG_ERROR:
-        fprintf(stderr, "Error: bzip2 initialization failed - library was miscompiled!\n");
-        exit(EINVAL);
-    case BZ_PARAM_ERROR:
-        fprintf(stderr, "Error: bzip2 initialization failed - incorrect parameters!\n");
-        exit(EINVAL);
-    case BZ_MEM_ERROR:
-        fprintf(stderr, "Error: bzip2 initialization failed - insufficient memory!\n");
-        exit(EINVAL);
-    case BZ_OK:
-        break;
-    }
-
-    /* init bzip2 block buffers */
-    uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
-    char *bz_uncompressed_buffer = NULL;
-    bz_uncompressed_buffer = malloc(bz_block_size);
-    if (!bz_uncompressed_buffer) {
-	fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
-	exit(EXIT_FAILURE);
-    }
-    char *bz_compressed_buffer = NULL;
-    bz_compressed_buffer = malloc(bz_block_size * 2);
-    if (!bz_compressed_buffer) {
-	fprintf(stderr, "Error: Could not allocate space to bzip2 compressed byte buffer!\n");
-	exit(EXIT_FAILURE);
-    }
-    bp->next_in = bz_uncompressed_buffer;
-    bp->next_out = bz_compressed_buffer;
-
-    return bp;
-}
-
-/**
- * @brief      bs_delete_bz_stream_ptr(bp)
- *
- * @details    Closes and deletes a bz_stream struct ptr
- *
- * @param      bp     (bz_stream**) ptr to bz_stream struct ptr
- */
-
-void
-bs_delete_bz_stream_ptr(bz_stream** bp)
-{
-    free((*bp)->next_in), (*bp)->next_in = NULL;
-    free((*bp)->next_out), (*bp)->next_out = NULL;
-
-    int bz_end_res = BZ2_bzCompressEnd(*bp);
-    switch (bz_end_res) {
-    case BZ_PARAM_ERROR:
-        fprintf(stderr, "Error: Could not release internals of bz_ptr pointer!\n");
-        exit(EINVAL);
-    case BZ_OK:
-        free(*bp);
-        break;
-    }
 }
 
 /**

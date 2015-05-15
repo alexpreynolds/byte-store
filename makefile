@@ -9,11 +9,8 @@ TESTDIR     = $(PWD)/test
 PDFDIR      = $(TESTDIR)/pdf
 #SAMPLEDIR   = /Volumes/Data/byte-store
 SAMPLEDIR   = /tmp/byte-store
-BZIP2ARC    = $(PWD)/bzip2-1.0.6.tar.gz
-BZIP2DIR    = $(PWD)/bzip2-1.0.6
-BZIP2SYMDIR = $(PWD)/bzip2
-BZIP2LIBDIR = $(BZIP2SYMDIR)
 UNAME      := $(shell uname -s)
+INCLUDES    = /usr/include
 
 ifeq ($(UNAME),Darwin)
 	CC = clang
@@ -23,17 +20,11 @@ endif
 
 all: byte-store
 
-byte-store: bzip2
+byte-store:
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(BZIP2SYMDIR) -L$(BZIP2LIBDIR) byte-store.o -o byte-store mt19937.a $(LIBS)
-
-bzip2:
-	if [ ! -d "$(BZIP2DIR)" ]; then mkdir "$(BZIP2DIR)"; fi
-	tar zxvf "$(BZIP2ARC)" -C "$(PWD)"
-	ln -sf $(BZIP2DIR) $(BZIP2SYMDIR)
-	$(MAKE) -C $(BZIP2SYMDIR) libbz2.a CC=$(CC) 
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) byte-store.o -o byte-store mt19937.a $(LIBS)
 
 test-sample:
 ifdef SAMPLE
@@ -105,13 +96,41 @@ test-pearsonr-sqr-4:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs
 	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs -i 0-3 | sort-bed -
 
+test-pearsonr-sqr-bzip2-4: test-pearsonr-sqr-bzip2-4-create test-pearsonr-sqr-bzip2-4-query
+
+test-pearsonr-sqr-bzip2-4-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -r 4
+
+test-pearsonr-sqr-bzip2-4-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -i 0-3 | sort-bed -
+
 test-pearsonr-sqr-1k:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs
 	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs -i 0-999 | awk '$$7>=1.00'
 
-test-pearsonr-sqr-10k:
+test-pearsonr-sqr-10k: test-pearsonr-sqr-10k-create test-pearsonr-sqr-10k-query
+
+test-pearsonr-sqr-10k-create:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.bs
+
+test-pearsonr-sqr-10k-query:
 	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.bs -i 0-9999 | awk '$$7>=1.00'
+
+test-pearsonr-sqr-bzip2-10k: test-pearsonr-sqr-bzip2-10k-create test-pearsonr-sqr-bzip2-10k-query
+
+test-pearsonr-sqr-bzip2-10k-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.cbs -r 1000
+
+test-pearsonr-sqr-bzip2-10k-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.cbs -i 0-9999 | awk '$$7>=1.00'
+
+test-pearsonr-sqr-bzip2-10k-custom: test-pearsonr-sqr-bzip2-10k-custom-create test-pearsonr-sqr-bzip2-10k-custom-query
+
+test-pearsonr-sqr-bzip2-10k-custom-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.custom.cbs -r 1000 -e custom -n -0.5 -x 0.5
+
+test-pearsonr-sqr-bzip2-10k-custom-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.custom.cbs -i 0-9999 | awk '$$7>=1.00'
 
 test-random-sqr:
 	$(PWD)/byte-store -t random-sqr -c -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sqr.bs
@@ -133,5 +152,3 @@ clean:
 	rm -rf test/sample_bs_input.starch
 	rm -rf test/sample_bs_input.bed
 	rm -rf $(SAMPLEDIR)
-	rm -rf $(BZIP2DIR)
-	rm -rf $(BZIP2SYMDIR)
