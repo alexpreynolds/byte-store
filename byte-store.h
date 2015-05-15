@@ -140,12 +140,11 @@ typedef enum encoding_strategy {
 extern const char* kEncodingStrategyFullStr;
 extern const char* kEncodingStrategyMidQuarterZeroStr;
 extern const char* kEncodingStrategyCustomStr;
+extern const double kEncodingStrategyDefaultCutoff;
 const char* kEncodingStrategyFullStr = "full";
 const char* kEncodingStrategyMidQuarterZeroStr = "mid-quarter-zero";
 const char* kEncodingStrategyCustomStr = "custom";
-
-extern const double kEncodingDefaultCutoff;
-const double kEncodingDefaultCutoff = -DBL_MAX;
+const double kEncodingStrategyDefaultCutoff = -DBL_MAX;
 
 static struct bs_globals_t {
     boolean store_create_flag;
@@ -169,10 +168,17 @@ static struct bs_globals_t {
 } bs_globals;
 
 extern const uint32_t kCompressionRowChunkDefaultSize;
-const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
-
 extern const uint32_t kCompressionRowChunkMaximumSize;
+extern const uint32_t kCompressionBzip2BlockSize100k;
+extern const uint32_t kCompressionBzip2BlockSizeFactor;
+extern const uint32_t kCompressionBzip2Verbosity;
+extern const uint32_t kCompressionBzip2WorkFactor;
+const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 1000;
+const uint32_t kCompressionBzip2BlockSize100k = 9;
+const uint32_t kCompressionBzip2BlockSizeFactor = 100000;
+const uint32_t kCompressionBzip2Verbosity = 0;
+const uint32_t kCompressionBzip2WorkFactor = 30;
 
 static struct option bs_client_long_options[] = {
     { "store-type",                       required_argument, NULL, 't' },
@@ -315,6 +321,7 @@ void                         bs_populate_sqr_store_with_random_scores(sqr_store_
 void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
+void                         bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf, boolean nsf);
 bz_stream*                   bs_init_bz_stream_ptr();
 void                         bs_delete_bz_stream_ptr(bz_stream** bp);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);

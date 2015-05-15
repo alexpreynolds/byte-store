@@ -183,6 +183,18 @@ bs_encode_double_to_unsigned_char_mqz(double d)
 unsigned char
 bs_encode_double_to_unsigned_char_custom(double d, double min, double max) 
 {
+    /* 
+       Note:
+
+       At some point, it may be useful to set up permutation tests
+       on the Pearson r signals. In other words, shuffle the AB signals 
+       some number of times and calculate a sample of r scores that 
+       determine a 99% confidence interval where there is no correlation. 
+       Once that interval is determined, an encoding strategy can be applied 
+       that "zeroes" out scores in this region. 
+       
+       Cf. http://stats.stackexchange.com/a/5754/13384
+    */
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     min += (min < 0) ? -kEpsilon : kEpsilon;
     max += (max < 0) ? -kEpsilon : kEpsilon;
@@ -854,8 +866,8 @@ bs_init_globals()
     bs_globals.store_type_str[0] = '\0';
     bs_globals.store_type = kStoreUndefined;
     bs_globals.encoding_strategy = kEncodingStrategyUndefined;
-    bs_globals.encoding_cutoff_zero_min = kEncodingDefaultCutoff;
-    bs_globals.encoding_cutoff_zero_max = kEncodingDefaultCutoff;
+    bs_globals.encoding_cutoff_zero_min = kEncodingStrategyDefaultCutoff;
+    bs_globals.encoding_cutoff_zero_max = kEncodingStrategyDefaultCutoff;
 }
 
 /**
@@ -985,7 +997,7 @@ bs_init_command_line_options(int argc, char** argv)
     if (bs_globals.encoding_strategy == kEncodingStrategyUndefined) {
         bs_globals.encoding_strategy = kEncodingStrategyFull;
     } 
-    else if ((bs_globals.encoding_strategy == kEncodingStrategyCustom) && ((bs_globals.encoding_cutoff_zero_min == kEncodingDefaultCutoff) || (bs_globals.encoding_cutoff_zero_max == kEncodingDefaultCutoff))) {
+    else if ((bs_globals.encoding_strategy == kEncodingStrategyCustom) && ((bs_globals.encoding_cutoff_zero_min == kEncodingStrategyDefaultCutoff) || (bs_globals.encoding_cutoff_zero_max == kEncodingStrategyDefaultCutoff))) {
         fprintf(stderr, "Error: Must specify --encoding-cutoff-zero-min and --encoding-cutoff-zero-max with custom encoding strategy!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1813,8 +1825,10 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* init bzip2 stream */
     bz_stream *bz_ptr = bs_init_bz_stream_ptr();
-    
-    /* write a chunk of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
+
+    /* write a block or chunk of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
+    uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
+    uint32_t uncomp_buf_idx = 0;
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
@@ -1829,17 +1843,39 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
             }
-	    if (fputc(score, os) != score) {
-		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
-		exit(EXIT_FAILURE);
-	    }
+	    bz_ptr->next_in[uncomp_buf_idx++] = score;
         }
+	/* 
+	   write compressed bytes, if an end-of-block or -chunk condition is met:
+	     1) bz_uncompressed_buffer is full (do not close stream)
+	     2) row index is a multiple of specified row block size (close stream -> write offset and reopen new stream)
+	     3) row index is the very last row (close stream -> do not reopen new stream)
+	*/
+	if (uncomp_buf_idx % bz_block_size) {
+	    bz_ptr->avail_in = uncomp_buf_idx;
+	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kFalse, kFalse);
+	    uncomp_buf_idx = 0;
+	}
+	else if ((row_idx % n == 0) && (row_idx != 0)) { 
+	    bz_ptr->avail_in = uncomp_buf_idx;
+	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue, kTrue);
+	    uncomp_buf_idx = 0;
+	}
+	else if (row_idx == (s->attr->nelems - 1)) {
+	    bz_ptr->avail_in = uncomp_buf_idx;
+	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue, kFalse);
+	}
     }
 
     /* clean up bzip2 machinery */
     bs_delete_bz_stream_ptr(&bz_ptr);
 
     fclose(os);
+}
+
+void
+bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf, boolean nsf)
+{
 }
 
 /**
@@ -1862,7 +1898,10 @@ bs_init_bz_stream_ptr()
     bp->bzalloc = NULL;
     bp->bzfree = NULL;
     bp->opaque = NULL;
-    int bz_init_res = BZ2_bzCompressInit(bp, 9, 0, 30);
+    int bz_init_res = BZ2_bzCompressInit(bp, 
+					 kCompressionBzip2BlockSize100k, 
+					 kCompressionBzip2Verbosity, 
+					 kCompressionBzip2WorkFactor);
     switch (bz_init_res) {
     case BZ_CONFIG_ERROR:
         fprintf(stderr, "Error: bzip2 initialization failed - library was miscompiled!\n");
@@ -1876,6 +1915,24 @@ bs_init_bz_stream_ptr()
     case BZ_OK:
         break;
     }
+
+    /* init bzip2 block buffers */
+    uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
+    char *bz_uncompressed_buffer = NULL;
+    bz_uncompressed_buffer = malloc(bz_block_size);
+    if (!bz_uncompressed_buffer) {
+	fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
+	exit(EXIT_FAILURE);
+    }
+    char *bz_compressed_buffer = NULL;
+    bz_compressed_buffer = malloc(bz_block_size * 2);
+    if (!bz_compressed_buffer) {
+	fprintf(stderr, "Error: Could not allocate space to bzip2 compressed byte buffer!\n");
+	exit(EXIT_FAILURE);
+    }
+    bp->next_in = bz_uncompressed_buffer;
+    bp->next_out = bz_compressed_buffer;
+
     return bp;
 }
 
@@ -1890,6 +1947,9 @@ bs_init_bz_stream_ptr()
 void
 bs_delete_bz_stream_ptr(bz_stream** bp)
 {
+    free((*bp)->next_in), (*bp)->next_in = NULL;
+    free((*bp)->next_out), (*bp)->next_out = NULL;
+
     int bz_end_res = BZ2_bzCompressEnd(*bp);
     switch (bz_end_res) {
     case BZ_PARAM_ERROR:
