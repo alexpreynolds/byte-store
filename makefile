@@ -128,6 +128,7 @@ clean:
 	rm -rf *~
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
+	rm -rf $(TESTDIR)/*.cbs
 	rm -rf $(PDFDIR)
 	rm -rf test/sample_bs_input.starch
 	rm -rf test/sample_bs_input.bed
