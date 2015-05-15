@@ -904,6 +904,8 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
                 kStoreUndefined;
+            if (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2)
+                bs_globals.store_compression_flag = kTrue;
             break;
         case 'c':
             bs_globals.store_create_flag = kTrue;
@@ -1025,7 +1027,7 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-chunk-size parameter=int]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-chunk-size=int]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
@@ -1803,8 +1805,8 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
-    if ((n > kCompressionRowChunkMaximumSize) || (n > l->nelems)) {
-	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum or the number of rows in the original lookup file!\n");
+    if (n > kCompressionRowChunkMaximumSize) {
+	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
 	bs_print_usage(stderr);
 	exit(EXIT_FAILURE);
     }
@@ -1826,7 +1828,17 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     /* init bzip2 stream */
     bz_stream *bz_ptr = bs_init_bz_stream_ptr();
 
-    /* write a block or chunk of Pearson's r correlation scores to bzip2 stream and thence to FILE* stream */
+    /* 
+       write compressed bytes, if an end-of-block or -chunk condition is 
+       met within a row, or at the end of a series of rows:
+
+       1) bz_uncompressed_buffer is full (do not close stream)
+       2) row index is a multiple of specified row block size (close 
+          stream -> write offset -> reopen new stream)
+       3) row index is the very last row (close stream -> do not reopen 
+          new stream)
+    */
+    
     uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
     uint32_t uncomp_buf_idx = 0;
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
@@ -1844,26 +1856,26 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 score = self_correlation_score;
             }
 	    bz_ptr->next_in[uncomp_buf_idx++] = score;
+            if (uncomp_buf_idx % bz_block_size == 0) {
+                bz_ptr->avail_in = uncomp_buf_idx;
+                bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
+                bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kFalse);
+                fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
+                uncomp_buf_idx = 0;
+            }            
         }
-	/* 
-	   write compressed bytes, if an end-of-block or -chunk condition is met:
-	     1) bz_uncompressed_buffer is full (do not close stream)
-	     2) row index is a multiple of specified row block size (close stream -> write offset and reopen new stream)
-	     3) row index is the very last row (close stream -> do not reopen new stream)
-	*/
-	if (uncomp_buf_idx % bz_block_size) {
+	if ((row_idx % n == 0) && (row_idx != 0)) { 
 	    bz_ptr->avail_in = uncomp_buf_idx;
-	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kFalse, kFalse);
-	    uncomp_buf_idx = 0;
-	}
-	else if ((row_idx % n == 0) && (row_idx != 0)) { 
-	    bz_ptr->avail_in = uncomp_buf_idx;
-	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue, kTrue);
+            bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
+	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue);
+            fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
 	    uncomp_buf_idx = 0;
 	}
 	else if (row_idx == (s->attr->nelems - 1)) {
 	    bz_ptr->avail_in = uncomp_buf_idx;
-	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue, kFalse);
+            bz_ptr->avail_out = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2;
+	    bs_write_uncompressed_bytes_to_bz_stream_ptr(&bz_ptr, kTrue);
+            fwrite(bz_ptr->next_out, sizeof(char), kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor * 2 - bz_ptr->avail_out, os);
 	}
     }
 
@@ -1874,8 +1886,41 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 }
 
 void
-bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf, boolean nsf)
+bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf)
 {
+    int bz_compr_res = BZ_RUN_OK;
+    fprintf(stderr,
+            "bs_write_uncompressed_bytes_to_bz_stream_ptr() - %s\nnext_in: %p\navail_in: %d\n",
+            (csf ? "closing stream" : "not closing stream"),
+            (*bp)->next_in,
+            (*bp)->avail_in);
+    char *starting_next_in = (*bp)->next_in;
+    do {
+        bz_compr_res = BZ2_bzCompress(*bp, (csf ? BZ_FINISH : BZ_RUN));
+        fprintf(stderr,
+                "bs_write_uncompressed_bytes_to_bz_stream_ptr()\nbz_compr_res: %s\nnext_out: %p\navail_out: %d\n",
+                ((bz_compr_res == BZ_RUN_OK) ? "BZ_RUN_OK" :
+                 (bz_compr_res == BZ_FLUSH_OK) ? "BZ_FLUSH_OK" :
+                 (bz_compr_res == BZ_FINISH_OK) ? "BZ_FINISH_OK" :
+                 "BZ_SEQUENCE_ERROR or BZ_PARAM_ERROR"),
+                (*bp)->next_out,
+                (*bp)->avail_out);
+        switch (bz_compr_res) {
+        case BZ_RUN_OK:
+        case BZ_FLUSH_OK:
+        case BZ_FINISH_OK:
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Ran into bzip2 compression sequence error!\n");
+            exit(EXIT_FAILURE);
+        case BZ_PARAM_ERROR:
+            fprintf(stderr, "Error: Ran into bzip2 compression parameter error (bz_ptr or bz_ptr->s is NULL [%p])!\n", (*bp));
+            exit(EXIT_FAILURE);
+        }
+    } while (bz_compr_res != BZ_STREAM_END);
+
+    (*bp)->next_in = starting_next_in;
+    (*bp)->avail_in = 0;
 }
 
 /**

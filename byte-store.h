@@ -321,7 +321,7 @@ void                         bs_populate_sqr_store_with_random_scores(sqr_store_
 void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
-void                         bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf, boolean nsf);
+void                         bs_write_uncompressed_bytes_to_bz_stream_ptr(bz_stream** bp, boolean csf);
 bz_stream*                   bs_init_bz_stream_ptr();
 void                         bs_delete_bz_stream_ptr(bz_stream** bp);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
