@@ -1829,6 +1829,16 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         exit(EXIT_FAILURE);
     }
 
+    /* init offset array */
+    off_t* offsets = NULL;
+    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    offsets = malloc(num_offsets * sizeof(off_t));
+    if (!offsets) {
+        fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t offset_idx = 0;
+    
     /* init bzip2 machinery */
     uint32_t bz_block_size = kCompressionBzip2BlockSize100k * kCompressionBzip2BlockSizeFactor;
     uint32_t bz_uncompressed_buffer_size = bz_block_size;
@@ -1840,12 +1850,15 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     }
     BZFILE* bzf = NULL;
     int bzf_error = BZ_OK;
-    uint32_t bzf_bytes_read = 0;
-    uint32_t bzf_bytes_written = 0;
+    uint32_t bzf_bytes_read_lo32 = 0;
+    uint32_t bzf_bytes_read_hi32 = 0;
+    uint32_t bzf_bytes_written_lo32 = 0;
+    uint32_t bzf_bytes_written_hi32 = 0;
     uint64_t bzf_cumulative_bytes_written = 0;
     bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
     switch (bzf_error) {
     case BZ_OK:
+        offsets[offset_idx++] = bzf_cumulative_bytes_written;
 	break;
     case BZ_CONFIG_ERROR:
     case BZ_PARAM_ERROR:
@@ -1900,11 +1913,11 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		exit(EXIT_FAILURE);
 	    }
 	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read, &bzf_bytes_written);
+	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
 	    switch (bzf_error) {
 	    case BZ_OK:
-		bzf_cumulative_bytes_written += bzf_bytes_written;
-		fprintf(stderr, "Wrote chunk at offset %" PRIu64 "\n", bzf_cumulative_bytes_written);
+		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
+		//fprintf(stderr, "Wrote chunk at offset %" PRIu64 " (row block)\n", bzf_cumulative_bytes_written);
 		break;
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
@@ -1914,6 +1927,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
 	    switch (bzf_error) {
 	    case BZ_OK:
+                offsets[offset_idx++] = bzf_cumulative_bytes_written;
 		break;
 	    case BZ_CONFIG_ERROR:
 	    case BZ_PARAM_ERROR:
@@ -1932,29 +1946,71 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    case BZ_PARAM_ERROR:
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (last row)\n");
 		exit(EXIT_FAILURE);
 	    }
 	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read, &bzf_bytes_written);
+	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
 	    switch (bzf_error) {
 	    case BZ_OK:
-		bzf_cumulative_bytes_written += bzf_bytes_written;
-		fprintf(stderr, "Wrote chunk at offset %" PRIu64 "\n", bzf_cumulative_bytes_written);
+                bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
+		//fprintf(stderr, "Wrote chunk at offset %" PRIu64 " (last row)\n", bzf_cumulative_bytes_written);
+                offsets[offset_idx++] = bzf_cumulative_bytes_written;
 		break;
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+		fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
 		exit(EXIT_FAILURE);
 	    }
 	}
     }
 
-    /* clean up bzip2 machinery */
-    free(bz_uncompressed_buffer), bz_uncompressed_buffer = NULL;
-    
+    /* convert offsets to formatted metadata string and write to output stream */
+    char* md_str = NULL;
+    md_str = bs_print_block_offsets_to_metadata(offsets, offset_idx);
+    if (!md_str) {
+        fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
+        exit(EXIT_FAILURE);
+    }
+    //fprintf(stderr, "%s\n", md_str);
+    fwrite(md_str, 1, strlen(md_str), os);
 
+    /* clean up */
+    free(bz_uncompressed_buffer), bz_uncompressed_buffer = NULL;
+    free(offsets), offsets = NULL;
+    free(md_str), md_str = NULL;
+    
     fclose(os);
+}
+
+/**
+ * @brief      bs_print_block_offsets_to_metadata(o, n)
+ *
+ * @details    Prints formatted metadata string from block
+ *             offset array and array length.
+ *
+ * @param      o      (off_t*) array of block offsets
+ *             n      (uint32_t) number of offsets in array
+ *
+ * @return     (char*) formatted metadata string 
+ */
+
+char*
+bs_print_block_offsets_to_metadata(off_t* o, uint32_t n)
+{
+    size_t m_size = 0;
+    size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; /* "a|b|c|...|n\0" */
+    char* m_str = NULL;
+    m_str = calloc(m_len + 1, 1);
+    if (!m_str) {
+        fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
+        m_size += sprintf(m_str + m_size, "%" PRIu64 "|", o[o_idx]);
+    }
+    m_size += sprintf(m_str + m_size, "%016zu", strlen(m_str));
+    return m_str;
 }
 
 /**
