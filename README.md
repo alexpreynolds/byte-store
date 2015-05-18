@@ -62,13 +62,13 @@ Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard
 
 ### Creation
 
-With fewer bytes to write, creation of a SUT byte store takes less average time per element than creation of a square-matrix store for all encoding strategies.
+With fewer bytes to write, creation of an uncompressed, "raw" SUT byte store takes less average time per element than creation of an uncompressed square-matrix store for all encoding strategies.
 
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
 
 ### Querying
 
-Querying elements in an uncompressed ("raw") SUT byte store quickly gets slower (more "expensive" per element) than lookups to an uncompressed, raw square-matrix store, as the number of elements increases. Query times are virtually identical for all three encoding strategies.
+Querying elements from an uncompressed, "raw" SUT byte store quickly gets slower (more "expensive" per element) than lookups to an uncompressed, raw square-matrix store, as the number of elements increases. Query times are virtually identical for all three encoding strategies.
 
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
