@@ -1981,7 +1981,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_print_block_offsets_to_metadata(offsets, offset_idx, n);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -1998,7 +1998,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 }
 
 /**
- * @brief      bs_print_block_offsets_to_metadata(o, n, s)
+ * @brief      bs_init_metadata_str(o, n, s)
  *
  * @details    Prints formatted metadata string from block
  *             offset array and array length.
@@ -2011,16 +2011,24 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
  */
 
 char*
-bs_print_block_offsets_to_metadata(off_t* o, uint32_t n, uint32_t s)
+bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s)
 {
+    /* 
+       md format v1.0
+       --------------
+       "version|row_block_size|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|\0"
+    */
+
     size_t m_size = 0;
-    size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; /* "a|b|c|...|n\0" */
+    size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; 
     char* m_str = NULL;
+
     m_str = malloc(m_len);
     if (!m_str) {
         fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
         exit(EXIT_FAILURE);
     }
+    m_size += sprintf(m_str + m_size, "%lf%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
     for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
@@ -2028,6 +2036,7 @@ bs_print_block_offsets_to_metadata(off_t* o, uint32_t n, uint32_t s)
     }
     m_str[m_size] = '\0';
     m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
+
     return m_str;
 }
 
@@ -2125,6 +2134,18 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     fclose(is);
 }
 
+/**
+ * @brief      bs_print_sqr_bzip2_store_to_bed7(l, s, os)
+ *
+ * @details    Queries bzip2-compressed square matrix store for 
+ *             provided index range globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
 void
 bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
@@ -2146,10 +2167,32 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    offset_t* offsets = NULL;
-    offsets = bs_extract_metadata_offsets(is, fn_size);
-    if (!offsets) {
-        fprintf(stderr, "Error: Could not extract offset metadata from archive!\n");
+    /* metadata string */
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* metadata struct */
+    metadata_t* metadata = NULL;
+    metadata = bs_parse_metadata_str(md_string);
+    if (!metadata) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -2164,89 +2207,120 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
        well as the exact blocks we need to search through, in order to 
        retrieve the rows we are interested in.       
     */
+
     uint32_t query_start = bs_globals.store_query_idx_start;
     uint32_t query_end = bs_globals.store_query_idx_end;
-    size_t block_row_size = offsets->block_row_size;
 
-    fprintf(stderr, "query_start | query_end | block_row_size - [ %u | %u | %zu ]\n", query_start, query_end, block_row_size);
+    fprintf(stderr, 
+	    "version | query_start | query_end | block_row_size | number_of_offsets - [ %2.1f | %u | %u | %zu | %zu ]\n", 
+	    metadata->version, 
+	    query_start, 
+	    query_end, 
+	    metadata->block_row_size,
+	    metadata->count);
     
     /* cleanup */
-    bs_delete_offsets(&offsets);
+    bs_delete_metadata(&metadata);
+    free(md_string);
     fclose(is);
 }
 
-void
-bs_delete_offsets(offset_t** o)
+/**
+ * @brief      bs_parse_metadata_str(ms)
+ *
+ * @details    Returns new metadata struct ptr populated
+ *             with member values from input string
+ *
+ * @param      ms     (char*) formatted metadata string
+ *
+ * @return     (metadata_t*) pointer to metadata struct ptr
+ */
+
+metadata_t*
+bs_parse_metadata_str(char* ms)
 {
-    free((*o)->data), (*o)->data = NULL;
-    (*o)->count = 0;
-    (*o)->block_row_size = 0;
-    free(*o), *o = NULL;
+    char md_token[OFFSET_MAX_LEN] = {0};
+    char* md_delim_pos_ptr = NULL;
+    size_t md_delim_length = 0;
+    char* md_string_tok_start = NULL;
+    metadata_t* metadata = NULL;
+    double md_version = 0.0f;
+    size_t md_block_row_size = 0;
+    size_t md_num_offsets = 0;
+    off_t* md_offsets = NULL;
+    
+    /* metadata version */
+    md_delim_pos_ptr = strchr(ms, (int) kCompressionMetadataDelimiter);
+    md_delim_length = md_delim_pos_ptr - ms;    
+    memcpy(md_token, ms, md_delim_length);
+    md_token[md_delim_length] = '\0';
+    if (sscanf(md_token, "%lf", &md_version) == EOF) {
+	fprintf(stderr, "Error: Could not parse metadata version key!\n");
+	exit(EXIT_FAILURE);
+    }
+
+    if (md_version == kCompressionMetadataVersion) {
+	/* row block size */
+	md_string_tok_start = ms + md_delim_length + 1;
+	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+	md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+	memcpy(md_token, md_string_tok_start, md_delim_length);
+	md_token[md_delim_length] = '\0';
+	sscanf(md_token, "%zu", &md_block_row_size);
+	/* number of offsets */
+	md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+	md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+	memcpy(md_token, md_string_tok_start, md_delim_length);
+	md_token[md_delim_length] = '\0';
+	sscanf(md_token, "%zu", &md_num_offsets);
+	/* offsets */
+	md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
+	if (!md_offsets) {
+	    fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+	    exit(EXIT_FAILURE);
+	}
+	for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+	    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+	    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+	    memcpy(md_token, md_string_tok_start, md_delim_length);
+	    md_token[md_delim_length] = '\0';
+	    sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+	    md_string_tok_start += md_delim_length + 1; 
+	}
+	metadata = malloc(sizeof(metadata_t));
+	if (!metadata) {
+	    fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
+	    exit(EXIT_FAILURE);
+	}
+	metadata->offsets = md_offsets;
+	metadata->count = md_num_offsets;
+	metadata->block_row_size = md_block_row_size;
+	metadata->version = md_version;
+    }
+    else {
+	fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
+	exit(EXIT_FAILURE);
+    }
+
+    return metadata;
 }
 
-offset_t*
-bs_extract_metadata_offsets(FILE* is, size_t fs)
+/**
+ * @brief      bs_delete_metadata(m)
+ *
+ * @details    Releases memory for metadata struct
+ *
+ * @param      m      (metadata_t**) pointer to metadata struct ptr
+ */
+
+void
+bs_delete_metadata(metadata_t** m)
 {
-    fseek(is, fs - MD_OFFSET_MAX_LEN, SEEK_SET);
-    char md_length[MD_OFFSET_MAX_LEN] = {0};
-    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
-        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
-        exit(EXIT_FAILURE);
-    }
-    uint32_t md_string_length = 0;
-    sscanf(md_length, "%u", &md_string_length);
-    /* read in number of offsets and all offsets */
-    char *md_string = NULL;
-    md_string = malloc(md_string_length);
-    if (!md_string) {
-        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, fs - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
-    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
-        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
-        exit(EXIT_FAILURE);
-    }
-    char md_token[OFFSET_MAX_LEN] = {0};
-    char* md_delim_pos_ptr = strchr(md_string, (int) kCompressionMetadataDelimiter);
-    size_t md_delim_length = md_delim_pos_ptr - md_string;    
-    memcpy(md_token, md_string, md_delim_length);
-    md_token[md_delim_length] = '\0';
-    size_t block_row_size = 0;
-    sscanf(md_token, "%zu", &block_row_size);
-    char* md_string_tok_start = md_string + md_delim_length + 1;
-    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
-    memcpy(md_token, md_string_tok_start, md_delim_length);
-    md_token[md_delim_length] = '\0';
-    size_t num_offsets = 0;
-    sscanf(md_token, "%zu", &num_offsets);
-    off_t* offsets_data = NULL;
-    offsets_data = malloc(num_offsets * sizeof(*offsets_data));
-    if (!offsets_data) {
-        fprintf(stderr, "Error: Could not allocate space for offset data!\n");
-        exit(EXIT_FAILURE);
-    }
-    for (size_t offset_idx = 0; offset_idx < num_offsets; offset_idx++) {
-        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
-        memcpy(md_token, md_string_tok_start, md_delim_length);
-        md_token[md_delim_length] = '\0';
-        sscanf(md_token, "%zd", &offsets_data[offset_idx]);
-        md_string_tok_start += md_delim_length + 1; 
-    }
-    offset_t* offsets = NULL;
-    offsets = malloc(sizeof(offset_t));
-    if (!offsets) {
-        fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
-        exit(EXIT_FAILURE);
-    }
-    offsets->data = offsets_data;
-    offsets->count = num_offsets;
-    offsets->block_row_size = block_row_size;
-    /* cleanup */
-    free(md_string);
-    return offsets;
+    free((*m)->offsets), (*m)->offsets = NULL;
+    (*m)->count = 0;
+    (*m)->block_row_size = 0;
+    free(*m), *m = NULL;
 }
 
 /**

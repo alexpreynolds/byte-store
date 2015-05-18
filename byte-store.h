@@ -156,6 +156,7 @@ extern const uint32_t kCompressionBzip2Verbosity;
 extern const uint32_t kCompressionBzip2WorkFactor;
 extern const uint32_t kCompressionBzip2AbandonPolicy;
 extern const char kCompressionMetadataDelimiter;
+extern const double kCompressionMetadataVersion;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 1000;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
@@ -164,12 +165,14 @@ const uint32_t kCompressionBzip2Verbosity = 0;
 const uint32_t kCompressionBzip2WorkFactor = 30;
 const uint32_t kCompressionBzip2AbandonPolicy = 0;
 const char kCompressionMetadataDelimiter = '|';
+const double kCompressionMetadataVersion = 1.0f;
 
-typedef struct offset {
-    off_t* data;
+typedef struct metadata {
+    off_t* offsets;
     size_t count;
     size_t block_row_size;
-} offset_t;
+    double version;
+} metadata_t;
 
 static struct bs_globals_t {
     boolean store_create_flag;
@@ -333,12 +336,12 @@ void                         bs_populate_sqr_store_with_random_scores(sqr_store_
 void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
-char*                        bs_print_block_offsets_to_metadata(off_t* o, uint32_t n, uint32_t s);
+char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-void                         bs_delete_offsets(offset_t** o);
-offset_t*                    bs_extract_metadata_offsets(FILE* is, size_t fs);
+metadata_t*                  bs_parse_metadata_str(char* ms);
+void                         bs_delete_metadata(metadata_t** m);
 void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
