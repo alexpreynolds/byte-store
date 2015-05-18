@@ -23,6 +23,7 @@
 #define QUERY_MAX_LEN 40
 #define ENTRY_MAX_LEN 20
 #define OFFSET_MAX_LEN 20
+#define MD_OFFSET_MAX_LEN 20
 
 #define swap(x,y) do \
 { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -154,6 +155,7 @@ extern const uint32_t kCompressionBzip2BlockSizeFactor;
 extern const uint32_t kCompressionBzip2Verbosity;
 extern const uint32_t kCompressionBzip2WorkFactor;
 extern const uint32_t kCompressionBzip2AbandonPolicy;
+extern const char kCompressionMetadataDelimiter;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 1000;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
@@ -161,6 +163,7 @@ const uint32_t kCompressionBzip2BlockSizeFactor = 100000;
 const uint32_t kCompressionBzip2Verbosity = 0;
 const uint32_t kCompressionBzip2WorkFactor = 30;
 const uint32_t kCompressionBzip2AbandonPolicy = 0;
+const char kCompressionMetadataDelimiter = '|';
 
 static struct bs_globals_t {
     boolean store_create_flag;
@@ -327,6 +330,8 @@ void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sq
 char*                        bs_print_block_offsets_to_metadata(off_t* o, uint32_t n);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+off_t*                       bs_extract_offset_metadata(char* fn);
 void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);

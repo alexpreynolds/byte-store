@@ -70,7 +70,21 @@ main(int argc, char** argv)
         }
         else if (bs_globals.store_query_flag) {
             bs_parse_query_str(lookup);
-            bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+            switch (bs_globals.store_type) {
+            case kStoreRandomBufferedSquareMatrix:
+            case kStoreRandomSquareMatrix:
+            case kStorePearsonRSquareMatrix:
+                bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSquareMatrixBzip2:
+                bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSUT:
+            case kStoreRandomSUT:
+            case kStoreUndefined:
+                fprintf(stderr, "Error: You should never see this error!\n");
+                exit(EXIT_FAILURE);
+            }
         }
         else if (bs_globals.store_frequency_flag) {
             bs_print_sqr_frequency_to_txt(lookup, sqr_store, stdout);
@@ -1009,7 +1023,7 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_compression_flag && bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize) {
+    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize) {
         fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 encoding type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -2001,15 +2015,17 @@ bs_print_block_offsets_to_metadata(off_t* o, uint32_t n)
     size_t m_size = 0;
     size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; /* "a|b|c|...|n\0" */
     char* m_str = NULL;
-    m_str = calloc(m_len + 1, 1);
+    m_str = malloc(m_len);
     if (!m_str) {
         fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
         exit(EXIT_FAILURE);
     }
+    m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
     for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
-        m_size += sprintf(m_str + m_size, "%" PRIu64 "|", o[o_idx]);
+        m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
     }
-    m_size += sprintf(m_str + m_size, "%016zu", strlen(m_str));
+    m_str[m_size] = '\0';
+    m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
     return m_str;
 }
 
@@ -2105,6 +2121,93 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     free(byte_buf);
 
     fclose(is);
+}
+
+void
+bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    off_t* offsets = NULL;
+    offsets = bs_extract_offset_metadata(s->attr->fn);
+    if (!offsets) {
+        fprintf(stderr, "Error: Could not extract offset metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* 
+       We know:
+
+       1) Start and end query indices (via bs_globals).
+       2) The number of offsets to row blocks (via metadata).
+       3) The total number of rows (via lookup nelems value).
+
+       Therefore, we can calculate the maximum number of rows per block, as
+       well as the exact blocks we need to search through, in order to 
+       retrieve the rows we are interested in.       
+    */
+    
+    /* cleanup */
+    free(offsets);
+}
+
+off_t*
+bs_extract_offset_metadata(char* fn)
+{
+    if (!bs_file_exists(fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    FILE* is = NULL;
+    is = fopen(fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    struct stat st;
+    stat(fn, &st);
+    size_t fn_size = st.st_size;
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    /* read in number of offsets and all offsets */
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    char md_token[OFFSET_MAX_LEN] = {0};
+    char* md_delim_pos_ptr = strchr(md_string, (int) kCompressionMetadataDelimiter);
+    size_t md_delim_length = md_delim_pos_ptr - md_string;    
+    memcpy(md_token, md_string, md_delim_length);
+    char* md_string_tok_start = md_string + md_delim_length + 1;
+    off_t* offsets = NULL;
+    size_t num_offsets = 0;
+    sscanf(md_token, "%zu", &num_offsets);
+    offsets = malloc(num_offsets * sizeof(*offsets));
+    for (size_t offset_idx = 0; offset_idx < num_offsets; offset_idx++) {
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zd", &offsets[offset_idx]);
+        md_string_tok_start += md_delim_length + 1; 
+    }
+    /* cleanup */
+    free(md_string);
+    fclose(is);
+    return offsets;
 }
 
 /**
