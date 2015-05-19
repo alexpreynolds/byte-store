@@ -2038,7 +2038,7 @@ bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s)
         exit(EXIT_FAILURE);
     }
 
-    m_size += sprintf(m_str + m_size, "%s%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
+    m_size += sprintf(m_str + m_size, "%3.1f%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
 
@@ -2344,7 +2344,7 @@ bs_parse_metadata_str(char* ms)
 	exit(EXIT_FAILURE);
     }
 
-    if (strcmp(kCompressionMetadataVersion, "1.0") == 0) {
+    if (md_version == kCompressionMetadataVersion) { /* v1.0 */
 	/* row block size */
 	md_string_tok_start = ms + md_delim_length + 1;
 	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);

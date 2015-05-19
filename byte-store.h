@@ -157,7 +157,7 @@ extern const uint32_t kCompressionBzip2WorkFactor;
 extern const uint32_t kCompressionBzip2AbandonPolicy;
 extern const uint32_t kCompressionBzip2SmallPolicy;
 extern const char kCompressionMetadataDelimiter;
-extern const char* kCompressionMetadataVersion;
+extern const double kCompressionMetadataVersion;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 1000;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
@@ -167,7 +167,7 @@ const uint32_t kCompressionBzip2WorkFactor = 30;
 const uint32_t kCompressionBzip2AbandonPolicy = 0;
 const uint32_t kCompressionBzip2SmallPolicy = 0;
 const char kCompressionMetadataDelimiter = '|';
-const char* kCompressionMetadataVersion = "1.0";
+const double kCompressionMetadataVersion = 1.0f;
 
 typedef struct metadata {
     off_t* offsets;
