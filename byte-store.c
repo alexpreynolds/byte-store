@@ -1870,6 +1870,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     uint32_t bzf_bytes_written_hi32 = 0;
     uint64_t bzf_cumulative_bytes_written = 0;
     bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
+    /* fprintf(stderr, "opened bzf\n"); */
     switch (bzf_error) {
     case BZ_OK:
         offsets[offset_idx++] = bzf_cumulative_bytes_written;
@@ -1884,10 +1885,11 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* write compressed bytes, if an end-of-block or -chunk condition is met within a row, or at the end of a series of rows */
     uint32_t uncompressed_buffer_idx = 0;
-    for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
-        signal_t* row_signal = l->elems[row_idx]->signal;
-        for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
-            signal_t* col_signal = l->elems[col_idx]->signal;
+    for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
+        signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
+        for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
+            /* fprintf(stderr, "%3.2f ", bs_pearson_r_signal(row_signal, col_signal)); */
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
@@ -1901,6 +1903,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
 	    /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
+                /* fprintf(stderr, "bz_uncompressed_buffer is full\n"); */
 		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 		switch (bzf_error) {
 		case BZ_OK:
@@ -1912,47 +1915,12 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		    exit(EXIT_FAILURE);
 		}
 		uncompressed_buffer_idx = 0;
-            }            
+            }
         }
-	/* if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
-	if ((row_idx % n == 0) && (row_idx != 0)) {
-	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		//fprintf(stderr, "Wrote chunk at offset %" PRIu64 " (row block)\n", bzf_cumulative_bytes_written);
-		break;
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
-	    switch (bzf_error) {
-	    case BZ_OK:
-                offsets[offset_idx++] = bzf_cumulative_bytes_written;
-		break;
-	    case BZ_CONFIG_ERROR:
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not set up new bzip2 output stream! (post-row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	}
+        /* fprintf(stderr, "\n"); */
 	/* if row index is last index in matrix, compress bytes, write to output stream, and close bz stream */
-	else if (row_idx == (s->attr->nelems - 1)) {
+	if (row_idx == s->attr->nelems) {
+            /* fprintf(stderr, "row index is last index in matrix\n"); */
 	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 	    switch (bzf_error) {
 	    case BZ_OK:
@@ -1968,12 +1936,53 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    switch (bzf_error) {
 	    case BZ_OK:
                 bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		//fprintf(stderr, "Wrote chunk at offset %" PRIu64 " (last row)\n", bzf_cumulative_bytes_written);
+		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (last row)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
+                /* fprintf(stderr, "closed bzf\n--\n"); */
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
 		break;
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
 		fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
+		exit(EXIT_FAILURE);
+	    }
+	}
+	/* else if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
+	else if (row_idx % n == 0) {
+            /* fprintf(stderr, "row index is multiple of row block\n"); */
+	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
+	    uncompressed_buffer_idx = 0;
+	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
+	    switch (bzf_error) {
+	    case BZ_OK:
+		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
+		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (row block)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
+                /* fprintf(stderr, "closed bzf\n--\n"); */
+		break;
+	    case BZ_IO_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+		exit(EXIT_FAILURE);
+	    }
+	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
+            /* fprintf(stderr, "opened bzf\n"); */
+	    switch (bzf_error) {
+	    case BZ_OK:
+                offsets[offset_idx++] = bzf_cumulative_bytes_written;
+		break;
+	    case BZ_CONFIG_ERROR:
+	    case BZ_PARAM_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not set up new bzip2 output stream! (post-row block)\n");
 		exit(EXIT_FAILURE);
 	    }
 	}
@@ -1986,7 +1995,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
     }
-    //fprintf(stderr, "%s\n", md_str);
+    /* fprintf(stderr, "%s\n", md_str); */
     fwrite(md_str, 1, strlen(md_str), os);
 
     /* clean up */
@@ -2023,14 +2032,16 @@ bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s)
     size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; 
     char* m_str = NULL;
 
-    m_str = malloc(m_len);
+    m_str = calloc(m_len, sizeof(*m_str));
     if (!m_str) {
         fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
         exit(EXIT_FAILURE);
     }
-    m_size += sprintf(m_str + m_size, "%lf%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
+
+    m_size += sprintf(m_str + m_size, "%s%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
     m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
+
     for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
         m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
     }
@@ -2196,32 +2207,106 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    /* 
-       We know:
+    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
+    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
 
-       1) Start and end query indices (via bs_globals).
-       2) The number of offsets to row blocks (via metadata).
-       3) The total number of rows (via lookup nelems value).
+    uint32_t query_start_block = 0;
+    while (query_start >= (int32_t) metadata->block_row_size) {
+        query_start_block++;
+        query_start -= metadata->block_row_size;
+    } 
+    uint32_t query_end_block = 0;
+    while (query_end >= (int32_t) metadata->block_row_size) {
+        query_end_block++;
+        query_end -= metadata->block_row_size;
+    }
 
-       Therefore, we can calculate the maximum number of rows per block, as
-       well as the exact blocks we need to search through, in order to 
-       retrieve the rows we are interested in.       
-    */
+    /* block buffer */
+    unsigned char* byte_buf = NULL;
+    byte_buf = malloc(metadata->block_row_size * l->nelems);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
 
-    uint32_t query_start = bs_globals.store_query_idx_start;
-    uint32_t query_end = bs_globals.store_query_idx_end;
+    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
+        ssize_t end_row_idx = ((block_idx + 1) * metadata->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * metadata->block_row_size - 1 : bs_globals.store_query_idx_end;
+        off_t start_offset = metadata->offsets[block_idx];
+        fseek(is, start_offset, SEEK_SET);
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
 
-    fprintf(stderr, 
-	    "version | query_start | query_end | block_row_size | number_of_offsets - [ %2.1f | %u | %u | %zu | %zu ]\n", 
-	    metadata->version, 
-	    query_start, 
-	    query_end, 
-	    metadata->block_row_size,
-	    metadata->count);
+        /* read a block of rows (or as much as possible, from a partial block) */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, metadata->block_row_size * l->nelems);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+            break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+            exit(EXIT_FAILURE);                
+        }
+        
+        uint32_t row_idx = block_idx * metadata->block_row_size;
+        uint32_t col_idx = 0;
+
+        do {
+            uint32_t within_block_row_idx = row_idx % metadata->block_row_size;
+            do {
+                uint32_t within_block_col_idx = col_idx % l->nelems + within_block_row_idx * l->nelems;
+                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                    fprintf(os, 
+                            "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                            l->elems[row_idx]->chr,
+                            l->elems[row_idx]->start,
+                            l->elems[row_idx]->stop,
+                            l->elems[col_idx]->chr,
+                            l->elems[col_idx]->start,
+                            l->elems[col_idx]->stop,
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ?
+                            bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
+                            bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx])
+                            );
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+            col_idx = 0;
+            row_idx++;
+        } while (row_idx <= end_row_idx);
+                 
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
     
     /* cleanup */
     bs_delete_metadata(&metadata);
     free(md_string);
+    free(byte_buf);
     fclose(is);
 }
 
@@ -2259,7 +2344,7 @@ bs_parse_metadata_str(char* ms)
 	exit(EXIT_FAILURE);
     }
 
-    if (md_version == kCompressionMetadataVersion) {
+    if (strcmp(kCompressionMetadataVersion, "1.0") == 0) {
 	/* row block size */
 	md_string_tok_start = ms + md_delim_length + 1;
 	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
@@ -2281,12 +2366,12 @@ bs_parse_metadata_str(char* ms)
 	    exit(EXIT_FAILURE);
 	}
 	for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+            md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
 	    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
 	    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
 	    memcpy(md_token, md_string_tok_start, md_delim_length);
 	    md_token[md_delim_length] = '\0';
 	    sscanf(md_token, "%zd", &md_offsets[offset_idx]);
-	    md_string_tok_start += md_delim_length + 1; 
 	}
 	metadata = malloc(sizeof(metadata_t));
 	if (!metadata) {
