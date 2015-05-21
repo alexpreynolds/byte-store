@@ -88,7 +88,7 @@ typedef struct lookup {
 typedef struct store_attr {
     uint32_t nelems;
     uint64_t nbytes;
-    char fn[FN_MAX_LEN];
+    char *fn;
 } store_attr_t;
 
 typedef struct sut_store {
@@ -159,7 +159,7 @@ extern const uint32_t kCompressionBzip2SmallPolicy;
 extern const char kCompressionMetadataDelimiter;
 extern const double kCompressionMetadataVersion;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
-const uint32_t kCompressionRowChunkMaximumSize = 1000;
+const uint32_t kCompressionRowChunkMaximumSize = 512;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
 const uint32_t kCompressionBzip2BlockSizeFactor = 100000;
 const uint32_t kCompressionBzip2Verbosity = 0;

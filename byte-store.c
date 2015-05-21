@@ -460,12 +460,8 @@ bs_delete_lookup(lookup_t** l)
     for (uint32_t idx = 0; idx < (*l)->nelems; idx++) {
         bs_delete_element(&(*l)->elems[idx]);
     }
-    free((*l)->elems);
-    (*l)->elems = NULL;
-    (*l)->nelems = 0;
-    (*l)->capacity = 0;
-    free(*l);
-    *l = NULL;
+    free((*l)->elems), (*l)->elems = NULL;
+    free(*l), *l = NULL;
 }
 
 /**
@@ -642,11 +638,8 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
 void
 bs_delete_signal(signal_t** s)
 {
-    (*s)->n = 0;
-    (*s)->mean = 0.0f;
-    (*s)->sd = 0.0f;
-    free((*s)->data);
-    free(*s);
+    free((*s)->data), (*s)->data = NULL;
+    free(*s), *s = NULL;
 }
 
 /**
@@ -709,17 +702,13 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi)
 void
 bs_delete_element(element_t** e)
 {
-    free((*e)->chr);
-    (*e)->chr = NULL;
-    (*e)->start = 0;
-    (*e)->stop = 0;
-    free((*e)->id);
-    (*e)->id = NULL;
-    if ((*e)->signal)
+    free((*e)->chr), (*e)->chr = NULL;
+    free((*e)->id), (*e)->id = NULL;
+    if ((*e)->signal) {
         bs_delete_signal(&((*e)->signal));
-    (*e)->signal = NULL;
-    free(*e);
-    *e = NULL;
+        (*e)->signal = NULL;
+    }
+    free(*e), *e = NULL;
 }
 
 /**
@@ -1385,12 +1374,8 @@ bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
 void
 bs_delete_sut_store(sut_store_t** s)
 {
-    (*s)->attr->nbytes = 0;
-    (*s)->attr->nelems = 0;
-    free((*s)->attr);
-    (*s)->attr = NULL;
-    free(*s);
-    *s = NULL;
+    free((*s)->attr), (*s)->attr = NULL;
+    free(*s), *s = NULL;
 }
 
 /**
@@ -1421,6 +1406,12 @@ bs_init_sqr_store(uint32_t n)
     }
     a->nelems = n;
     a->nbytes = n * n;
+    a->fn = NULL;
+    a->fn = malloc(strlen(bs_globals.store_fn) + 1);
+    if (!a->fn) {
+        fprintf(stderr, "Error: Could not allocate space for square matrix store filename attribute!\n");
+        exit(EXIT_FAILURE);
+    }
     memcpy(a->fn, bs_globals.store_fn, strlen(bs_globals.store_fn) + 1);
 
     s->attr = a;
@@ -2223,7 +2214,8 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 
     /* block buffer */
     unsigned char* byte_buf = NULL;
-    byte_buf = malloc(metadata->block_row_size * l->nelems);
+    ssize_t n_byte_buf = metadata->block_row_size * l->nelems;
+    byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
         exit(EXIT_FAILURE);
@@ -2250,7 +2242,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         }
 
         /* read a block of rows (or as much as possible, from a partial block) */
-        BZ2_bzRead(&bzf_error, bzf, byte_buf, metadata->block_row_size * l->nelems);
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
         switch (bzf_error) {
         case BZ_OK:
         case BZ_STREAM_END:
@@ -2403,8 +2395,6 @@ void
 bs_delete_metadata(metadata_t** m)
 {
     free((*m)->offsets), (*m)->offsets = NULL;
-    (*m)->count = 0;
-    (*m)->block_row_size = 0;
     free(*m), *m = NULL;
 }
 
@@ -2480,12 +2470,9 @@ bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
 void
 bs_delete_sqr_store(sqr_store_t** s)
 {
-    (*s)->attr->nbytes = 0;
-    (*s)->attr->nelems = 0;
-    free((*s)->attr);
-    (*s)->attr = NULL;
-    free(*s);
-    *s = NULL;
+    free((*s)->attr->fn), (*s)->attr->fn = NULL;
+    free((*s)->attr), (*s)->attr = NULL;
+    free(*s), *s = NULL;
 }
 
 /**
@@ -2503,6 +2490,10 @@ bs_init_store_buf_node(unsigned char uc)
 {
     store_buf_node_t* b = NULL;
     b = malloc(sizeof(store_buf_node_t));
+    if (!b) {
+        fprintf(stderr, "Error: Could not allocate space for store buf node!\n");
+        exit(EXIT_FAILURE);
+    }
     b->data = uc;
     b->next = NULL;
     return b;
