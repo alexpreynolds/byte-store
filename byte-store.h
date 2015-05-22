@@ -160,6 +160,7 @@ extern const uint32_t kCompressionBzip2SmallPolicy;
 extern const char kCompressionMetadataDelimiter;
 extern const double kCompressionMetadataVersion;
 extern const char* kCompressionMetadataSplitFn;
+extern const char* kCompressionMetadataSplitDirSuffix;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 512;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
@@ -171,6 +172,7 @@ const uint32_t kCompressionBzip2SmallPolicy = 0;
 const char kCompressionMetadataDelimiter = '|';
 const double kCompressionMetadataVersion = 1.0f;
 const char* kCompressionMetadataSplitFn = "blocks.md";
+const char* kCompressionMetadataSplitDirSuffix = "blocks";
 
 typedef struct metadata {
     off_t* offsets;
@@ -344,6 +346,9 @@ void                         bs_populate_sqr_store_with_buffered_random_scores(s
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
 void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
+char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
+char*                        bs_init_sqr_bzip2_split_store_fn_str(char* p, uint32_t i);
+char*                        bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d);
 char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);

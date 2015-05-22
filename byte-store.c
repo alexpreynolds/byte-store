@@ -2036,13 +2036,12 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 
     /* make directory to contain blocks */
     char* block_dest_dir = NULL;
-    block_dest_dir = malloc(strlen(s->attr->fn) + 8);
-    snprintf(block_dest_dir, strlen(s->attr->fn) + 8, "%s.blocks", s->attr->fn);
+    block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
     if (bs_file_exists(block_dest_dir)) {
         fprintf(stderr, "Error: Store per-block destination [%s] exists!\n", block_dest_dir);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
-    }
+    }    
     mkdir(block_dest_dir, S_IRUSR | S_IWUSR | S_IXUSR);
 
     /* init offset array */
@@ -2079,20 +2078,14 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
         if ((row_idx - 1) % n == 0) {
             /* open handle to output sqr matrix store */
-            block_dest_fn = malloc(strlen(block_dest_dir) + BLOCK_STR_MAX_LEN + 7);
-            if (!block_dest_fn) {
-                fprintf(stderr, "Error: Could not allocate space for block destination filename string!\n");
-                exit(EXIT_FAILURE);
-            }
-            snprintf(block_dest_fn, strlen(block_dest_dir) + BLOCK_STR_MAX_LEN + 6, "%s/%0*u.cbs", block_dest_dir, (int) BLOCK_STR_MAX_LEN, block_idx++);
+            block_dest_fn = bs_init_sqr_bzip2_split_store_fn_str(block_dest_dir, block_idx++);
             os = fopen(block_dest_fn, "wb");
             if (ferror(os)) {
                 fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            free(block_dest_fn);
-            block_dest_fn = NULL;
+            free(block_dest_fn), block_dest_fn = NULL;
             bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
             switch (bzf_error) {
             case BZ_OK:
@@ -2192,13 +2185,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
     }
-    char* md_dest_fn = NULL;
-    md_dest_fn = malloc(strlen(block_dest_dir) + strlen(kCompressionMetadataSplitFn) + 2);
-    if (!md_dest_fn) {
-        fprintf(stderr, "Error: Could not allocate space for metadata destination filename string!\n");
-        exit(EXIT_FAILURE);
-    }
-    snprintf(md_dest_fn, strlen(block_dest_dir) + strlen(kCompressionMetadataSplitFn) + 2, "%s/%s", block_dest_dir, kCompressionMetadataSplitFn);
+    char* md_dest_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_dest_dir);
     /* fprintf(stderr, "Debug: Opening metadata file [%s]\n", md_dest_fn); */
     os = fopen(md_dest_fn, "wb");
     if (ferror(os)) {
@@ -2206,17 +2193,90 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    free(md_dest_fn);
-    md_dest_fn = NULL;
     /* fprintf(stderr, "%s\n", md_str); */
     fwrite(md_str, 1, strlen(md_str), os);
     fclose(os);
     
     /* cleanup */
-    free(bz_uncompressed_buffer);
-    free(offsets);
-    free(block_dest_dir);
-}    
+    free(bz_uncompressed_buffer), bz_uncompressed_buffer = NULL;
+    free(offsets), offsets = NULL;
+    free(block_dest_dir), block_dest_dir = NULL;
+    free(md_dest_fn), md_dest_fn = NULL;
+    free(md_str), md_str = NULL;
+}
+
+/**
+ * @brief      bs_init_sqr_bzip2_split_store_dir_str(p)
+ *
+ * @details    Prints formatted string for directory name
+ *             storing per-block compressed blocks given prefix
+ *
+ * @param      p      (char*) prefix for directory name
+ *
+ * @return     (char*) formatted directory string 
+ */
+
+char*
+bs_init_sqr_bzip2_split_store_dir_str(char* p)
+{
+    char* block_dest_dir = NULL;
+    block_dest_dir = malloc(strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2);
+    if (!block_dest_dir) {
+        fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(block_dest_dir, strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2, "%s.%s", p, kCompressionMetadataSplitDirSuffix);
+    return block_dest_dir;
+}
+
+/**
+ * @brief      bs_init_sqr_bzip2_split_store_fn_str(d, i)
+ *
+ * @details    Prints formatted string for per-block compressed
+ *             file name, given parent directory name
+ *
+ * @param      d      (char*) directory name
+ *             i      (uint32_t) block index
+ *
+ * @return     (char*) formatted per-block filename string 
+ */
+
+char*
+bs_init_sqr_bzip2_split_store_fn_str(char* d, uint32_t i)
+{
+    char* block_dest_fn = NULL;
+    block_dest_fn = malloc(strlen(d) + BLOCK_STR_MAX_LEN + 6);
+    if (!block_dest_fn) {
+        fprintf(stderr, "Error: Could not allocate space for block destination filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(block_dest_fn, strlen(d) + BLOCK_STR_MAX_LEN + 6, "%s/%0*u.cbs", d, (int) BLOCK_STR_MAX_LEN, i);
+    return block_dest_fn;
+}
+
+/**
+ * @brief      bs_init_sqr_bzip2_split_store_metadata_fn_str(d)
+ *
+ * @details    Prints formatted string for metadata filename
+ *             given parent directory name
+ *
+ * @param      d      (char*) directory name
+ *
+ * @return     (char*) formatted metadata filename string 
+ */
+
+char*
+bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d)
+{
+    char* md_dest_fn = NULL;
+    md_dest_fn = malloc(strlen(d) + strlen(kCompressionMetadataSplitFn) + 2);
+    if (!md_dest_fn) {
+        fprintf(stderr, "Error: Could not allocate space for metadata destination filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(md_dest_fn, strlen(d) + strlen(kCompressionMetadataSplitFn) + 2, "%s/%s", d, kCompressionMetadataSplitFn);
+    return md_dest_fn;
+}
 
 /**
  * @brief      bs_init_metadata_str(o, n, s)
@@ -2538,6 +2598,14 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 void
 bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
+    /* get parent folder name for split blocks */
+    /* test if folder exists */
+    /* get metadata string */
+    /* build query_start and query_end parameters */
+    /* allocate block buffer */
+    /* set up bzip2 machinery */
+    /* iterate through query_start -> query_end blocks */
+    /* clean up */
 }
 
 /**
