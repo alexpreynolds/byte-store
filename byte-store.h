@@ -24,6 +24,7 @@
 #define ENTRY_MAX_LEN 20
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
+#define BLOCK_STR_MAX_LEN 13
 
 #define swap(x,y) do \
 { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -158,6 +159,7 @@ extern const uint32_t kCompressionBzip2AbandonPolicy;
 extern const uint32_t kCompressionBzip2SmallPolicy;
 extern const char kCompressionMetadataDelimiter;
 extern const double kCompressionMetadataVersion;
+extern const char* kCompressionMetadataSplitFn;
 const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
 const uint32_t kCompressionRowChunkMaximumSize = 512;
 const uint32_t kCompressionBzip2BlockSize100k = 9;
@@ -168,6 +170,7 @@ const uint32_t kCompressionBzip2AbandonPolicy = 0;
 const uint32_t kCompressionBzip2SmallPolicy = 0;
 const char kCompressionMetadataDelimiter = '|';
 const double kCompressionMetadataVersion = 1.0f;
+const char* kCompressionMetadataSplitFn = "blocks.md";
 
 typedef struct metadata {
     off_t* offsets;
@@ -189,6 +192,7 @@ static struct bs_globals_t {
     char store_fn[FN_MAX_LEN];
     char store_type_str[BUF_MAX_LEN];
     store_type_t store_type;
+    boolean store_split_flag;
     encoding_strategy_t encoding_strategy;
     char encoding_strategy_str[BUF_MAX_LEN];
     double encoding_cutoff_zero_min;
@@ -206,6 +210,7 @@ static struct option bs_client_long_options[] = {
     { "index-query",                      required_argument, NULL, 'i' },
     { "lookup",                           required_argument, NULL, 'l' },
     { "store",                            required_argument, NULL, 's' },
+    { "store-split",                      required_argument, NULL, 'p' },    
     { "encoding-strategy",                required_argument, NULL, 'e' },
     { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
     { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
@@ -215,7 +220,7 @@ static struct option bs_client_long_options[] = {
     { NULL,                               no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:d:1h?";
+static const char *bs_client_opt_string = "t:cqfr:i:l:s:pe:n:x:d:1h?";
 
 static const char *bs_name = "byte-store";
 
@@ -338,6 +343,7 @@ void                         bs_populate_sqr_store_with_random_scores(sqr_store_
 void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
 void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
 void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
+void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
 char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);

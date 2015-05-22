@@ -148,6 +148,7 @@ clean:
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
 	rm -rf $(TESTDIR)/*.cbs
+	rm -rf $(TESTDIR)/*.cbs.blocks
 	rm -rf $(PDFDIR)
 	rm -rf test/sample_bs_input.starch
 	rm -rf test/sample_bs_input.bed
