@@ -942,7 +942,7 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'l':
             memcpy(bs_globals.lookup_fn, optarg, strlen(optarg) + 1);
-            if (!bs_file_exists(bs_globals.lookup_fn)) {
+            if (!bs_path_exists(bs_globals.lookup_fn)) {
                 fprintf(stderr, "Error: Lookup file [%s] does not exist!\n", bs_globals.lookup_fn);
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
@@ -1086,19 +1086,35 @@ bs_print_usage(FILE* os)
 }
 
 /**
- * @brief      bs_file_exists(fn)
+ * @brief      bs_path_exists(p)
  *
- * @details    Returns kTrue or kFalse depending on whether filename 
- *             refers to an existing file.
+ * @details    Returns kTrue or kFalse depending on whether path 
+ *             refers to an existing file or directory.
  *
- * @param      fn      (const char*) filename to test existence
+ * @param      p       (const char*) path to test existence
  */ 
 
 inline boolean 
-bs_file_exists(const char* fn)
+bs_path_exists(const char* p)
 {
-    struct stat buf;
-    return (boolean) (stat(fn, &buf) == 0);
+    struct stat st;
+    return (boolean) (stat(p, &st) == 0);
+}
+
+/**
+ * @brief      bs_file_size(fn)
+ *
+ * @details    Returns file size parameter
+ *
+ * @param      fn     (const char*) file from which to retrieve file size
+ */ 
+
+inline ssize_t
+bs_file_size(const char* fn)
+{
+    struct stat st;
+    stat(fn, &st);
+    return (ssize_t) st.st_size;
 }
 
 /**
@@ -1267,7 +1283,7 @@ bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 void
 bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
 {
-    if (!bs_file_exists(s->attr->fn)) {
+    if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1328,7 +1344,7 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
 void
 bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
 {
-    if (!bs_file_exists(s->attr->fn)) {
+    if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1827,7 +1843,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
-	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
+	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum (%u)!\n", kCompressionRowChunkMaximumSize);
 	bs_print_usage(stderr);
 	exit(EXIT_FAILURE);
     }
@@ -2037,7 +2053,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     /* make directory to contain blocks */
     char* block_dest_dir = NULL;
     block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
-    if (bs_file_exists(block_dest_dir)) {
+    if (bs_path_exists(block_dest_dir)) {
         fprintf(stderr, "Error: Store per-block destination [%s] exists!\n", block_dest_dir);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -2367,7 +2383,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    if (!bs_file_exists(s->attr->fn)) {
+    if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -2432,15 +2448,12 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 void
 bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
-    if (!bs_file_exists(s->attr->fn)) {
+    if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-
-    struct stat st;
-    stat(s->attr->fn, &st);
-    size_t fn_size = st.st_size;
+    ssize_t fn_size = bs_file_size(s->attr->fn);
 
     FILE* is = NULL;
     is = fopen(s->attr->fn, "rb");
@@ -2472,9 +2485,9 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     /* metadata struct */
-    metadata_t* metadata = NULL;
-    metadata = bs_parse_metadata_str(md_string);
-    if (!metadata) {
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
         fprintf(stderr, "Error: Could not extract metadata from archive!\n");
         exit(EXIT_FAILURE);
     }
@@ -2483,19 +2496,19 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
 
     uint32_t query_start_block = 0;
-    while (query_start >= (int32_t) metadata->block_row_size) {
+    while (query_start >= (int32_t) md->block_row_size) {
         query_start_block++;
-        query_start -= metadata->block_row_size;
+        query_start -= md->block_row_size;
     } 
     uint32_t query_end_block = 0;
-    while (query_end >= (int32_t) metadata->block_row_size) {
+    while (query_end >= (int32_t) md->block_row_size) {
         query_end_block++;
-        query_end -= metadata->block_row_size;
+        query_end -= md->block_row_size;
     }
 
     /* block buffer */
     unsigned char* byte_buf = NULL;
-    ssize_t n_byte_buf = metadata->block_row_size * l->nelems;
+    ssize_t n_byte_buf = md->block_row_size * l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -2507,8 +2520,8 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     int bzf_error = BZ_OK;
 
     for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
-        ssize_t end_row_idx = ((block_idx + 1) * metadata->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * metadata->block_row_size - 1 : bs_globals.store_query_idx_end;
-        off_t start_offset = metadata->offsets[block_idx];
+        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        off_t start_offset = md->offsets[block_idx];
         fseek(is, start_offset, SEEK_SET);
         bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
         switch (bzf_error) {
@@ -2539,11 +2552,11 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             exit(EXIT_FAILURE);                
         }
         
-        uint32_t row_idx = block_idx * metadata->block_row_size;
+        uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
 
         do {
-            uint32_t within_block_row_idx = row_idx % metadata->block_row_size;
+            uint32_t within_block_row_idx = row_idx % md->block_row_size;
             do {
                 uint32_t within_block_col_idx = col_idx % l->nelems + within_block_row_idx * l->nelems;
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
@@ -2565,7 +2578,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             col_idx = 0;
             row_idx++;
         } while (row_idx <= end_row_idx);
-                 
+        
         BZ2_bzReadClose(&bzf_error, bzf);
         switch (bzf_error) {
         case BZ_OK:
@@ -2577,7 +2590,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }
     
     /* cleanup */
-    bs_delete_metadata(&metadata);
+    bs_delete_metadata(&md);
     free(md_string);
     free(byte_buf);
     fclose(is);
@@ -2598,14 +2611,170 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 void
 bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
-    /* get parent folder name for split blocks */
-    /* test if folder exists */
-    /* get metadata string */
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(s->attr->fn);
+    FILE *is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is);
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }    
+    
     /* build query_start and query_end parameters */
+    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
+    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+
+    uint32_t query_start_block = 0;
+    while (query_start >= (int32_t) md->block_row_size) {
+        query_start_block++;
+        query_start -= md->block_row_size;
+    } 
+    uint32_t query_end_block = 0;
+    while (query_end >= (int32_t) md->block_row_size) {
+        query_end_block++;
+        query_end -= md->block_row_size;
+    }
+    
     /* allocate block buffer */
+    unsigned char* byte_buf = NULL;
+    ssize_t n_byte_buf = md->block_row_size * l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
     /* set up bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+    
     /* iterate through query_start -> query_end blocks */
+    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
+        /* at start of block, open new bzf ptr */
+        is = fopen(bs_init_sqr_bzip2_split_store_fn_str(block_src_dir, block_idx), "rb");
+        if (ferror(is)) {
+            fprintf(stderr, "Error: Could not open handle to input store!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        /* read in full or partial block */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+            break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+            exit(EXIT_FAILURE);                
+        }
+
+        uint32_t row_idx = block_idx * md->block_row_size;
+        uint32_t col_idx = 0;
+        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;        
+
+        do {
+            uint32_t within_block_row_idx = row_idx % md->block_row_size;
+            do {
+                uint32_t within_block_col_idx = col_idx % l->nelems + within_block_row_idx * l->nelems;
+                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                    fprintf(os, 
+                            "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+                            l->elems[row_idx]->chr,
+                            l->elems[row_idx]->start,
+                            l->elems[row_idx]->stop,
+                            l->elems[col_idx]->chr,
+                            l->elems[col_idx]->start,
+                            l->elems[col_idx]->stop,
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ?
+                            bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
+                            bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx])
+                            );
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+            col_idx = 0;
+            row_idx++;
+        } while (row_idx <= end_row_idx);        
+        
+        /* at end of block, close bzf ptr */
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            fclose(is);
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }        
+    }
+    
+    
     /* clean up */
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
+    free(byte_buf), byte_buf = NULL;
 }
 
 /**
@@ -2718,7 +2887,7 @@ bs_delete_metadata(metadata_t** m)
 void
 bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
 {
-    if (!bs_file_exists(s->attr->fn)) {
+    if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);

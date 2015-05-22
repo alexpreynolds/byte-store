@@ -119,7 +119,7 @@ test-pearsonr-sqr-10k-query:
 test-pearsonr-sqr-bzip2-10k: test-pearsonr-sqr-bzip2-10k-create test-pearsonr-sqr-bzip2-10k-query
 
 test-pearsonr-sqr-bzip2-10k-create:
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.cbs -r 1000
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.cbs -r 512
 
 test-pearsonr-sqr-bzip2-10k-query:
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.cbs -i 0-9999 | awk '$$7>=1.00'
@@ -127,7 +127,7 @@ test-pearsonr-sqr-bzip2-10k-query:
 test-pearsonr-sqr-bzip2-10k-custom: test-pearsonr-sqr-bzip2-10k-custom-create test-pearsonr-sqr-bzip2-10k-custom-query
 
 test-pearsonr-sqr-bzip2-10k-custom-create:
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.custom.cbs -r 1000 -e custom -n -0.5 -x 0.5
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.custom.cbs -r 512 -e custom -n -0.5 -x 0.5
 
 test-pearsonr-sqr-bzip2-10k-custom-query:
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test10k.bed -s $(TESTDIR)/vec_test10k.sqr.custom.cbs -i 0-9999 | awk '$$7>=1.00'
