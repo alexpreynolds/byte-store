@@ -80,7 +80,10 @@ main(int argc, char** argv)
                 bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                if (bs_globals.store_split_flag)
+                    bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
+                else
+                    bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -1047,7 +1050,7 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float] [--store-compression-row-chunk-size=int]\n\n" \
+            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ] [ --store-split ]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
@@ -1074,7 +1077,9 @@ bs_print_usage(FILE* os)
             " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n" \
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
             " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
-            "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n", 
+            "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
+            " - When compressing row blocks, adding the --store-split option writes the compressed data store to a\n" \
+            "   separate folder containing one file per block, and a blocks.md file containing archive metadata.\n\n",
             bs_name,
             bs_name,
             bs_name);
@@ -1997,6 +2002,20 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     fclose(os);
 }
 
+/**
+ * @brief      bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(s, l, n)
+ *
+ * @details    Write each bzip2-compressed block of encoded Pearson's r 
+ *             correlation scores to a FILE* handle associated with the 
+ *             specified square matrix store filename. Each block and a metadata
+ *             file are stored in a folder, its name determined by the store
+ *             filename.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ *             n      (uint32_t) number of rows within a compressed chunk 
+ */
+
 void
 bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
 {
@@ -2066,7 +2085,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
                 exit(EXIT_FAILURE);
             }
             snprintf(block_dest_fn, strlen(block_dest_dir) + BLOCK_STR_MAX_LEN + 6, "%s/%0*u.cbs", block_dest_dir, (int) BLOCK_STR_MAX_LEN, block_idx++);
-            /* fprintf(stderr, "Debug: Opening new block file [%s]\n", block_dest_fn); */
             os = fopen(block_dest_fn, "wb");
             if (ferror(os)) {
                 fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
@@ -2076,7 +2094,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             free(block_dest_fn);
             block_dest_fn = NULL;
             bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
-            /* fprintf(stderr, "opened bzf\n"); */
             switch (bzf_error) {
             case BZ_OK:
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
@@ -2092,7 +2109,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            /* fprintf(stderr, "%3.2f ", bs_pearson_r_signal(row_signal, col_signal)); */
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
@@ -2105,7 +2121,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             }            
             bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
-                /* fprintf(stderr, "\nDebug: Writing full buffer to block file\n"); */
 		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 		switch (bzf_error) {
 		case BZ_OK:
@@ -2120,7 +2135,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             }
         }
         if (row_idx == s->attr->nelems) {
-            /* fprintf(stderr, "\nDebug: Writing buffer to block file, closing final block file\n"); */
 	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 	    switch (bzf_error) {
 	    case BZ_OK:
@@ -2136,8 +2150,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 	    switch (bzf_error) {
 	    case BZ_OK:
                 bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (last row)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
-                /* fprintf(stderr, "closed bzf\n--\n"); */
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
 		break;
 	    case BZ_IO_ERROR:
@@ -2148,7 +2160,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             fclose(os);
         }
         else if (row_idx % n == 0) {
-            /* fprintf(stderr, "\nDebug: Writing buffer to block file, closing intermediate block file, opening new block file\n"); */
 	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 	    switch (bzf_error) {
 	    case BZ_OK:
@@ -2164,8 +2175,6 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 	    switch (bzf_error) {
 	    case BZ_OK:
 		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (row block)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
-                /* fprintf(stderr, "closed bzf\n--\n"); */
 		break;
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
@@ -2512,6 +2521,23 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     free(md_string);
     free(byte_buf);
     fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_bzip2_split_store_to_bed7(l, s, os)
+ *
+ * @details    Queries bzip2-compressed square matrix store folder 
+ *             for provided index range globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+{
 }
 
 /**

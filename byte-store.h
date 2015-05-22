@@ -348,6 +348,7 @@ char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t
 off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
 void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 metadata_t*                  bs_parse_metadata_str(char* ms);
 void                         bs_delete_metadata(metadata_t** m);
 void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
