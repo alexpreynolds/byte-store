@@ -1215,7 +1215,6 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
 void
 bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
 {
-    unsigned char score = 0;
     FILE* os = NULL;
 
     os = fopen(bs_globals.store_fn, "wb");
@@ -1225,7 +1224,11 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         exit(EXIT_FAILURE);
     }
 
-    /* potential improvement: write out a buffer of scores to output stream, instead of one character at a time */
+    /* write out a buffer of scores to output stream */
+    size_t s_buf = 0;
+    size_t n_buf = BUF_MAX_LEN;
+    unsigned char* buf = NULL;
+    buf = malloc(n_buf * sizeof(*buf));    
 
     /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
@@ -1233,17 +1236,28 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
-            score = 
+            buf[s_buf++] = 
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
                 bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-            if (fputc(score, os) != score) {
-                fprintf(stderr, "Error: Could not write score to output SUT store!\n");
-                exit(EXIT_FAILURE);
-            }
+            if (s_buf == n_buf) {
+                if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
+                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
+                    exit(EXIT_FAILURE);
+                }
+                s_buf = 0;
+            }            
         }
     }
+    if (s_buf > 0) {
+        if (fwrite(buf, sizeof(*buf), s_buf, os) != s_buf) {
+            fprintf(stderr, "Error: Could not write final score buffer to output square matrix store!\n");
+            exit(EXIT_FAILURE);
+        }        
+    }    
 
+    /* clean up */
+    free(buf), buf = NULL;
     fclose(os);
 }
 
@@ -1781,7 +1795,6 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 void
 bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 {
-    unsigned char score = 0;
     FILE* os = NULL;
     unsigned char self_correlation_score =
         (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
@@ -1796,7 +1809,11 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         exit(EXIT_FAILURE);
     }
 
-    /* potential improvement: write out a buffer of scores to output stream, instead of one character at a time */
+    /* write out a buffer of scores to output stream */
+    size_t s_buf = 0;
+    size_t n_buf = BUF_MAX_LEN;
+    unsigned char* buf = NULL;
+    buf = malloc(n_buf * sizeof(*buf));
     
     /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
@@ -1805,21 +1822,32 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
-                score = 
+                buf[s_buf++] = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
                     bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
-                score = self_correlation_score;
+                buf[s_buf++] = self_correlation_score;
             }
-	    if (fputc(score, os) != score) {
-		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
-		exit(EXIT_FAILURE);
-	    }
+            if (s_buf == n_buf) {
+                if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
+                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
+                    exit(EXIT_FAILURE);
+                }
+                s_buf = 0;
+            }
         }
     }
+    if (s_buf > 0) {
+        if (fwrite(buf, sizeof(*buf), s_buf, os) != s_buf) {
+            fprintf(stderr, "Error: Could not write final score buffer to output square matrix store!\n");
+            exit(EXIT_FAILURE);
+        }        
+    }
 
+    /* clean up */
+    free(buf), buf = NULL;
     fclose(os);
 }
 

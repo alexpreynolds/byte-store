@@ -16,7 +16,6 @@ do
             bs_cmd="$3 -t $1 -c -l $2/sample.${size}.${test_idx}.bed -s $2/sample.${size}.${test_idx}.${strategy}.$1.bs -e ${strategy}"
             if [[ "${strategy}" == "custom" ]]
             then
-                echo "custom strategy..."
                 bs_cmd="$bs_cmd --encoding-cutoff-zero-min ${cutoff_min} --encoding-cutoff-zero-max ${cutoff_max}"
             fi
             { time -p $bs_cmd; } 2> $2/sample.${size}.${test_idx}.${strategy}.$1.bs.create_time
