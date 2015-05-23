@@ -1242,7 +1242,7 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
                 bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
-                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
+                    fprintf(stderr, "Error: Could not write score buffer to output SUT store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
                     exit(EXIT_FAILURE);
                 }
                 s_buf = 0;
@@ -1251,7 +1251,7 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
     }
     if (s_buf > 0) {
         if (fwrite(buf, sizeof(*buf), s_buf, os) != s_buf) {
-            fprintf(stderr, "Error: Could not write final score buffer to output square matrix store!\n");
+            fprintf(stderr, "Error: Could not write final score buffer to output SUT store!\n");
             exit(EXIT_FAILURE);
         }        
     }    
