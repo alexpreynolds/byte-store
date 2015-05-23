@@ -57,6 +57,10 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/measure_frequency.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr $(SAMPLEDIR)
+	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/time_store_query_all.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
+	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
 	cat $(SAMPLEDIR)/*.create_times > $(SAMPLEDIR)/create_times.txt
 	cat $(SAMPLEDIR)/*.query_all_times > $(SAMPLEDIR)/query_all_times.txt
 	cat $(SAMPLEDIR)/*.compression_ratios > $(SAMPLEDIR)/compression_ratios.txt

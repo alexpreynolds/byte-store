@@ -1145,6 +1145,12 @@ bs_init_sut_store(uint32_t n)
     }
     a->nelems = n;
     a->nbytes = n * (n - 1) / 2; /* strictly upper triangular (SUT) matrix */
+    a->fn = NULL;
+    a->fn = malloc(strlen(bs_globals.store_fn) + 1);
+    if (!a->fn) {
+        fprintf(stderr, "Error: Could not allocate space for SUT attribute filename!\n");
+        exit(EXIT_FAILURE);
+    }
     memcpy(a->fn, bs_globals.store_fn, strlen(bs_globals.store_fn) + 1);
 
     s->attr = a;
@@ -1211,12 +1217,6 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
 {
     unsigned char score = 0;
     FILE* os = NULL;
-    
-    /* seed RNG */
-    if (bs_globals.rng_seed_flag)
-        mt19937_seed_rng(bs_globals.rng_seed_value);
-    else
-        mt19937_seed_rng(time(NULL));
 
     os = fopen(bs_globals.store_fn, "wb");
     if (ferror(os)) {
@@ -1224,6 +1224,8 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
+    /* potential improvement: write out a buffer of scores to output stream, instead of one character at a time */
 
     /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
@@ -1408,6 +1410,7 @@ bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
 void
 bs_delete_sut_store(sut_store_t** s)
 {
+    free((*s)->attr->fn), (*s)->attr->fn = NULL;
     free((*s)->attr), (*s)->attr = NULL;
     free(*s), *s = NULL;
 }
@@ -1793,6 +1796,8 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         exit(EXIT_FAILURE);
     }
 
+    /* potential improvement: write out a buffer of scores to output stream, instead of one character at a time */
+    
     /* write Pearson's r correlation scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
