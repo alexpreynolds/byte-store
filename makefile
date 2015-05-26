@@ -20,11 +20,19 @@ endif
 
 all: byte-store
 
+# -----------
+# Application
+# -----------
+
 byte-store:
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) byte-store.o -o byte-store mt19937.a $(LIBS)
+
+# -----------------
+# Performance tests
+# -----------------
 
 test-sample:
 ifdef SAMPLE
@@ -58,9 +66,13 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
-	$(TESTDIR)/time_store_query_all.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/time_store_query_all_compressed.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
+	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/time_store_query_all_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
+	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
+	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
 	cat $(SAMPLEDIR)/*.create_times > $(SAMPLEDIR)/create_times.txt
 	cat $(SAMPLEDIR)/*.query_all_times > $(SAMPLEDIR)/query_all_times.txt
 	cat $(SAMPLEDIR)/*.compression_ratios > $(SAMPLEDIR)/compression_ratios.txt
@@ -70,8 +82,8 @@ test-sample-graphs: test-sample-graphs-timing test-sample-graphs-compression tes
 	mv $(SAMPLEDIR)/*.pdf $(PDFDIR)
 
 test-sample-graphs-timing:
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Creation rate (sec/element)"
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Query rate (sec/element)"
+	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Avg. creation rate (sec/element)"
+	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Avg. query rate (sec/element)"
 
 test-sample-graphs-compression:
 	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
@@ -80,9 +92,13 @@ test-sample-graphs-frequencies:
 	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sut
 	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
 
+# -------------
+# General tests
+# -------------
+
 test-pearsonr-sut-4:
 	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs
-	$(PWD)/byte-store -t pearson-r-sut -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs -i 0-3 | sort-bed -
+	$(PWD)/byte-store -t pearson-r-sut -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sut.bs -i 0-3
 
 test-pearsonr-sut-1k:
 	$(PWD)/byte-store -t pearson-r-sut -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sut.bs
@@ -98,7 +114,7 @@ test-random-sut:
 
 test-pearsonr-sqr-4:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs
-	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs -i 0-3 | sort-bed -
+	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.bs -i 0-3
 
 test-pearsonr-sqr-bzip2-4: test-pearsonr-sqr-bzip2-4-create test-pearsonr-sqr-bzip2-4-query
 
@@ -106,7 +122,21 @@ test-pearsonr-sqr-bzip2-4-create:
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -r 1
 
 test-pearsonr-sqr-bzip2-4-query:
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -i 0-3 | sort-bed -
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -i 0-3
+
+test-pearsonr-sqr-bzip2-4-frequency:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -f -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs
+
+test-pearsonr-sqr-bzip2-split-4: test-pearsonr-sqr-bzip2-split-4-create test-pearsonr-sqr-bzip2-split-4-query
+
+test-pearsonr-sqr-bzip2-split-4-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -c -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -r 1
+
+test-pearsonr-sqr-bzip2-split-4-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -q -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs -i 0-3
+
+test-pearsonr-sqr-bzip2-split-4-frequency:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -f -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs
 
 test-pearsonr-sqr-1k:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs

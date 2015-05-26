@@ -114,6 +114,7 @@ typedef enum store_type {
     kStorePearsonRSUT = 0,
     kStorePearsonRSquareMatrix,
     kStorePearsonRSquareMatrixBzip2,
+    kStorePearsonRSquareMatrixBzip2Split,
     kStoreRandomSUT,
     kStoreRandomSquareMatrix,
     kStoreRandomBufferedSquareMatrix,
@@ -123,12 +124,14 @@ typedef enum store_type {
 extern const char* kStorePearsonRSUTStr;
 extern const char* kStorePearsonRSquareMatrixStr;
 extern const char* kStorePearsonRSquareMatrixBzip2Str;
+extern const char* kStorePearsonRSquareMatrixBzip2SplitStr;
 extern const char* kStoreRandomSUTStr;
 extern const char* kStoreRandomSquareMatrixStr;
 extern const char* kStoreRandomBufferedSquareMatrixStr;
 const char* kStorePearsonRSUTStr = "pearson-r-sut";
 const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
 const char* kStorePearsonRSquareMatrixBzip2Str = "pearson-r-sqr-bzip2";
+const char* kStorePearsonRSquareMatrixBzip2SplitStr = "pearson-r-sqr-bzip2-split";
 const char* kStoreRandomSUTStr = "random-sut";
 const char* kStoreRandomSquareMatrixStr = "random-sqr";
 const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
@@ -194,7 +197,6 @@ static struct bs_globals_t {
     char store_fn[FN_MAX_LEN];
     char store_type_str[BUF_MAX_LEN];
     store_type_t store_type;
-    boolean store_split_flag;
     encoding_strategy_t encoding_strategy;
     char encoding_strategy_str[BUF_MAX_LEN];
     double encoding_cutoff_zero_min;
@@ -212,7 +214,6 @@ static struct option bs_client_long_options[] = {
     { "index-query",                      required_argument, NULL, 'i' },
     { "lookup",                           required_argument, NULL, 'l' },
     { "store",                            required_argument, NULL, 's' },
-    { "store-split",                      required_argument, NULL, 'p' },    
     { "encoding-strategy",                required_argument, NULL, 'e' },
     { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
     { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
@@ -222,7 +223,7 @@ static struct option bs_client_long_options[] = {
     { NULL,                               no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfr:i:l:s:pe:n:x:d:1h?";
+static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:d:1h?";
 
 static const char *bs_name = "byte-store";
 
@@ -357,7 +358,10 @@ void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_s
 void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
 metadata_t*                  bs_parse_metadata_str(char* ms);
 void                         bs_delete_metadata(metadata_t** m);
-void                         bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
+void                         bs_print_frequency_buffer(unsigned char* t, uint64_t n, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
 void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);

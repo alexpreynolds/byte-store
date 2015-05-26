@@ -28,6 +28,7 @@ main(int argc, char** argv)
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
             case kStorePearsonRSquareMatrixBzip2:
+            case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error!\n");
                 exit(EXIT_FAILURE);
@@ -44,6 +45,7 @@ main(int argc, char** argv)
         break;
     case kStorePearsonRSquareMatrix:
     case kStorePearsonRSquareMatrixBzip2:
+    case kStorePearsonRSquareMatrixBzip2Split:
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
@@ -59,10 +61,10 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                if (bs_globals.store_split_flag)
-                    bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
-                else
-                    bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
+                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
+                break;
+            case kStorePearsonRSquareMatrixBzip2Split:
+                bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -80,10 +82,10 @@ main(int argc, char** argv)
                 bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                if (bs_globals.store_split_flag)
-                    bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
-                else
-                    bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSquareMatrixBzip2Split:                
+                bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -93,7 +95,24 @@ main(int argc, char** argv)
             }
         }
         else if (bs_globals.store_frequency_flag) {
-            bs_print_sqr_frequency_to_txt(lookup, sqr_store, stdout);
+            switch (bs_globals.store_type) {
+            case kStoreRandomBufferedSquareMatrix:
+            case kStoreRandomSquareMatrix:
+            case kStorePearsonRSquareMatrix:
+                bs_print_sqr_store_frequency_to_txt(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSquareMatrixBzip2:
+                bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSquareMatrixBzip2Split:
+                bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, sqr_store, stdout);                
+                break;
+            case kStorePearsonRSUT:
+            case kStoreRandomSUT:
+            case kStoreUndefined:
+                fprintf(stderr, "Error: You should never see this error!\n");
+                exit(EXIT_FAILURE);
+            }
         }
         bs_delete_sqr_store(&sqr_store);
         break;
@@ -693,7 +712,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi)
         }
         memcpy(e->id, id, strlen(id) + 1);
     }
-    e->signal = (e->id && pi) ? bs_init_signal(e->id) : NULL;
+    e->signal = (e->id && pi) ? bs_init_signal(e->id) : NULL;    
     return e;
 }
 
@@ -878,7 +897,6 @@ bs_init_globals()
     bs_globals.store_fn[0] = '\0';
     bs_globals.store_type_str[0] = '\0';
     bs_globals.store_type = kStoreUndefined;
-    bs_globals.store_split_flag = kFalse;
     bs_globals.encoding_strategy = kEncodingStrategyUndefined;
     bs_globals.encoding_cutoff_zero_min = kEncodingStrategyDefaultCutoff;
     bs_globals.encoding_cutoff_zero_max = kEncodingStrategyDefaultCutoff;
@@ -914,6 +932,7 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :                
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
@@ -950,9 +969,6 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 's':
             memcpy(bs_globals.store_fn, optarg, strlen(optarg) + 1);
-            break;
-        case 'p':
-            bs_globals.store_split_flag = kTrue;
             break;
         case 'e':
             memcpy(bs_globals.encoding_strategy_str, optarg, strlen(optarg) + 1);
@@ -1027,12 +1043,6 @@ bs_init_command_line_options(int argc, char** argv)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-
-    if (!bs_globals.store_compression_flag && bs_globals.store_split_flag) {
-        fprintf(stderr, "Error: Can only specify --store-split when used with compression store type!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
 }
 
 /**
@@ -1050,11 +1060,19 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ] [ --store-split ]\n\n" \
+            "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn --index-query=str\n\n" \
+            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn --index-query=str\n\n" \
             "   Bin-frequency data store:\n\n" \
-            "     %s --store-frequency --store-type [ pearson-r-sut | pearson-r-sqr | pearson-r-sqr-bzip2 | random-sut | random-sqr | random-buffered-sqr ] --lookup=fn --store=fn\n\n" \
+            "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
+            " Store types:\n\n" \
+            " - pearson-r-sut\n" \
+            " - pearson-r-sqr\n" \
+            " - pearson-r-sqr-bzip2\n" \
+            " - pearson-r-sqr-bzip2-split\n" \
+            " - random-sut\n" \
+            " - random-sqr\n" \
+            " - random-buffered-sqr\n\n" \
             " Notes:\n\n" \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"                           \
@@ -1078,8 +1096,8 @@ bs_print_usage(FILE* os)
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
             " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
-            " - When compressing row blocks, adding the --store-split option writes the compressed data store to a\n" \
-            "   separate folder containing one file per block, and a blocks.md file containing archive metadata.\n\n",
+            " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed data store to a\n" \
+            "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n",
             bs_name,
             bs_name,
             bs_name);
@@ -1400,16 +1418,10 @@ bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
         col_idx = ++row_idx + 1;
     } while ((row_idx + 1) < l->nelems);
 
-    for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
-        fprintf(os,
-                "%3.6f\t%d\t%3.6f\n",
-                bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
-                freq_table[freq_idx],
-                (double) freq_table[freq_idx] / s->attr->nbytes);
-    }
+    bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
 
+    /* clean up */
     free(byte_buf);
-
     fclose(is);
 }
 
@@ -1675,7 +1687,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
        Storage
        -------
 
-       We grow and shrink lists as we walk through and populate a symmetric square matrix.
+       We grow and shrink linked lists as we walk through and populate a symmetric square matrix.
 
        For an even (0 mod 2) order value for n, a quarter of the square matrix should need its 
        scores to be buffered:
@@ -1916,7 +1928,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     uint32_t bzf_bytes_written_hi32 = 0;
     uint64_t bzf_cumulative_bytes_written = 0;
     bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
-    /* fprintf(stderr, "opened bzf\n"); */
     switch (bzf_error) {
     case BZ_OK:
         offsets[offset_idx++] = bzf_cumulative_bytes_written;
@@ -1935,7 +1946,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            /* fprintf(stderr, "%3.2f ", bs_pearson_r_signal(row_signal, col_signal)); */
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
@@ -1949,7 +1959,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
 	    /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
-                /* fprintf(stderr, "bz_uncompressed_buffer is full\n"); */
 		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 		switch (bzf_error) {
 		case BZ_OK:
@@ -1963,10 +1972,8 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		uncompressed_buffer_idx = 0;
             }
         }
-        /* fprintf(stderr, "\n"); */
 	/* if row index is last index in matrix, compress bytes, write to output stream, and close bz stream */
 	if (row_idx == s->attr->nelems) {
-            /* fprintf(stderr, "row index is last index in matrix\n"); */
 	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 	    switch (bzf_error) {
 	    case BZ_OK:
@@ -1982,8 +1989,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    switch (bzf_error) {
 	    case BZ_OK:
                 bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (last row)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
-                /* fprintf(stderr, "closed bzf\n--\n"); */
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
 		break;
 	    case BZ_IO_ERROR:
@@ -1994,7 +1999,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	}
 	/* else if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
 	else if (row_idx % n == 0) {
-            /* fprintf(stderr, "row index is multiple of row block\n"); */
 	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
 	    switch (bzf_error) {
 	    case BZ_OK:
@@ -2010,8 +2014,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    switch (bzf_error) {
 	    case BZ_OK:
 		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		/* fprintf(stderr, "Wrote chunk %d at offset %" PRIu64 " (row block)\n", (int) offset_idx, bzf_cumulative_bytes_written); */
-                /* fprintf(stderr, "closed bzf\n--\n"); */
 		break;
 	    case BZ_IO_ERROR:
 	    case BZ_SEQUENCE_ERROR:
@@ -2019,7 +2021,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		exit(EXIT_FAILURE);
 	    }
 	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
-            /* fprintf(stderr, "opened bzf\n"); */
 	    switch (bzf_error) {
 	    case BZ_OK:
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
@@ -2041,7 +2042,6 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
     }
-    /* fprintf(stderr, "%s\n", md_str); */
     fwrite(md_str, 1, strlen(md_str), os);
 
     /* clean up */
@@ -2083,7 +2083,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 	exit(EXIT_FAILURE);
     }
 
-    /* make directory to contain blocks */
+    /* create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
     block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
     if (bs_path_exists(block_dest_dir)) {
@@ -2235,14 +2235,12 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         exit(EXIT_FAILURE);
     }
     char* md_dest_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_dest_dir);
-    /* fprintf(stderr, "Debug: Opening metadata file [%s]\n", md_dest_fn); */
     os = fopen(md_dest_fn, "wb");
     if (ferror(os)) {
         fprintf(stderr, "Error: Could not open handle to output metadata!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    /* fprintf(stderr, "%s\n", md_str); */
     fwrite(md_str, 1, strlen(md_str), os);
     fclose(os);
     
@@ -2344,8 +2342,8 @@ char*
 bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s)
 {
     /* 
-       md format v1.0
-       --------------
+       byte store metadata format (v1.0)
+       ---------------------------------
        "version|row_block_size|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|\0"
     */
 
@@ -2452,7 +2450,9 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                         l->elems[col_idx]->chr,
                         l->elems[col_idx]->start,
                         l->elems[col_idx]->stop,
-                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[col_idx]) : bs_decode_unsigned_char_to_double_mqz(byte_buf[col_idx])
+                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[col_idx]) :
+                        bs_decode_unsigned_char_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                         );
             }
             col_idx++;
@@ -2601,9 +2601,9 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ?
-                            bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
-                            bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx])
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx]) :
+                            bs_decode_unsigned_char_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
@@ -2763,7 +2763,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
-        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;        
+        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
         do {
             uint32_t within_block_row_idx = row_idx % md->block_row_size;
@@ -2778,16 +2778,16 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ?
-                            bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
-                            bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx])
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx]) :
+                            bs_decode_unsigned_char_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
             col_idx = 0;
             row_idx++;
-        } while (row_idx <= end_row_idx);        
+        } while (row_idx <= end_row_idx);
         
         /* at end of block, close bzf ptr */
         BZ2_bzReadClose(&bzf_error, bzf);
@@ -2907,7 +2907,7 @@ bs_delete_metadata(metadata_t** m)
 }
 
 /**
- * @brief      bs_print_sqr_store_to_bed7(l, s, os)
+ * @brief      bs_print_sqr_store_frequency_to_txt(l, s, os)
  *
  * @details    Prints bin score, count and frequency of 
  *             square matrix store to specified output stream.
@@ -2918,7 +2918,7 @@ bs_delete_metadata(metadata_t** m)
  */
 
 void
-bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
+bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
 {
     if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
@@ -2954,17 +2954,300 @@ bs_print_sqr_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
         } while (nbyte < l->nelems);
     } while (++row_idx < l->nelems);
 
+    bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
+    
+    /* clean up */
+    free(byte_buf);
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_bzip2_store_frequency_to_txt(l, s, os)
+ *
+ * @details    Prints bin score, count and frequency of 
+ *             square matrix store to specified output stream.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    if (!bs_path_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t fn_size = bs_file_size(s->attr->fn);
+
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* metadata string */
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* metadata struct */
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* block buffer */
+    unsigned char* byte_buf = NULL;
+    ssize_t n_byte_buf = md->block_row_size * l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+
+    uint32_t block_idx = 0;
+    uint64_t total_bytes = 0;
+    unsigned char freq_table[256] = {0};
+    do {
+        uint32_t buf_byte = 0;
+        off_t start_offset = md->offsets[block_idx++];
+        fseek(is, start_offset, SEEK_SET);
+
+        /* open bzip2 stream */
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        
+        /* read a block of data */
+        uint32_t buf_byte_read = (uint32_t) BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+            break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+            exit(EXIT_FAILURE);                
+        }
+        do {
+            freq_table[byte_buf[buf_byte++]]++;
+        } while (buf_byte < buf_byte_read);
+
+        /* close bzip2 stream */
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        total_bytes += buf_byte;
+    } while (total_bytes < s->attr->nbytes);
+
+    bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
+    
+    /* clean up */
+    free(byte_buf), byte_buf = NULL;
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_bzip2_split_store_frequency_to_txt(l, s, os)
+ *
+ * @details    Prints bin score, count and frequency of 
+ *             square matrix store to specified output stream.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(s->attr->fn);
+    FILE *is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is);
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }    
+    
+    /* allocate block buffer */
+    unsigned char* byte_buf = NULL;
+    ssize_t n_byte_buf = md->block_row_size * l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+
+    uint32_t block_idx = 0;
+    uint64_t total_bytes = 0;
+    unsigned char freq_table[256] = {0};
+    do {
+        uint32_t buf_byte = 0;
+        is = fopen(bs_init_sqr_bzip2_split_store_fn_str(block_src_dir, block_idx++), "rb");
+        if (ferror(is)) {
+            fprintf(stderr, "Error: Could not open handle to input store!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        uint32_t buf_byte_read = (uint32_t) BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+            break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+            exit(EXIT_FAILURE);                
+        }
+        do {
+            freq_table[byte_buf[buf_byte++]]++;
+        } while (buf_byte < buf_byte_read);
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        fclose(is);
+        total_bytes += buf_byte;
+    } while (total_bytes < s->attr->nbytes);
+
+    bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
+
+    /* clean up */
+    free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_frequency_buffer(t, n, os)
+ *
+ * @details    Print formatted frequency table to output stream
+ *
+ * @param      t      (unsigned char*) pointer to frequency table
+ *             n      (uint64_t) total number of elements in store
+ *             os     (FILE*) pointer to output stream (stdout, stderr, etc.)
+ */
+
+void
+bs_print_frequency_buffer(unsigned char* t, uint64_t n, FILE* os)
+{
     for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
         fprintf(os,
                 "%3.6f\t%d\t%3.6f\n",
                 bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
-                freq_table[freq_idx],
-                (double) freq_table[freq_idx] / s->attr->nbytes);
-    }
-
-    free(byte_buf);
-
-    fclose(is);
+                t[freq_idx],
+                (double) t[freq_idx] / n);
+    }    
 }
 
 /**

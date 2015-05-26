@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 tests=($(seq 1 3))
 sizes=(562 1000 1779 3162 5623 10000)

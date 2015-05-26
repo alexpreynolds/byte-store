@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 binwidth=0.25
 tests=($(seq 1 3))

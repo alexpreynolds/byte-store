@@ -12,7 +12,7 @@ do
         for strategy in "${strategies[@]}"
         do
             echo "query all store ${size}-${test_idx}-${strategy} $1"
-            bs_cmd="$3 -t $1 -q -l $2/sample.${size}.${test_idx}.bed -s $2/sample.${size}.${test_idx}.${strategy}.$1.bs -i 0-$ub"
+            bs_cmd="$3 -t $1 -q -l $2/sample.${size}.${test_idx}.bed -s $2/sample.${size}.${test_idx}.${strategy}.$1.cbs -i 0-$ub"
             { time -p $bs_cmd > /dev/null; } 2> $2/sample.${size}.${test_idx}.${strategy}.$1.bs.query_all_time
         done
     done
