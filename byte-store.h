@@ -203,6 +203,7 @@ static struct bs_globals_t {
     double encoding_cutoff_zero_max;
     boolean store_compression_flag;
     uint32_t store_compression_row_chunk_size;
+    boolean lookup_frequency_flag;
 } bs_globals;
 
 static struct option bs_client_long_options[] = {
@@ -217,13 +218,14 @@ static struct option bs_client_long_options[] = {
     { "encoding-strategy",                required_argument, NULL, 'e' },
     { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
     { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
+    { "lookup-frequency",                 no_argument,       NULL, 'u' },
     { "rng-seed",                         required_argument, NULL, 'd' },
     { "test-pearson-r",                   no_argument,       NULL, '1' },
     { "help",                             no_argument,       NULL, 'h' },
     { NULL,                               no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:d:1h?";
+static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:ud:1h?";
 
 static const char *bs_name = "byte-store";
 
@@ -317,10 +319,11 @@ static inline double         bs_decode_unsigned_char_to_double_custom(unsigned c
 void                         bs_parse_query_str(lookup_t* l);
 void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 lookup_t*                    bs_init_lookup(char* fn, boolean pi);
-void                         bs_print_lookup(lookup_t* l);
+void                         bs_print_lookup(lookup_t* l, FILE* os);
+void                         bs_print_lookup_frequency(lookup_t* l, FILE* os);
 void                         bs_delete_lookup(lookup_t** l);
 signal_t*                    bs_init_signal(char *cds);
-void                         bs_print_signal(signal_t* s);
+void                         bs_print_signal(signal_t* s, FILE* os);
 double                       bs_mean_signal(double* d, uint32_t len);
 double                       bs_sample_sd_signal(double* d, uint32_t len, double m);
 double                       bs_pearson_r_signal(signal_t* a, signal_t* b);

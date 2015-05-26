@@ -117,9 +117,14 @@ main(int argc, char** argv)
         bs_delete_sqr_store(&sqr_store);
         break;
     case kStoreUndefined:
-        fprintf(stderr, "Error: You should never see this error!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
+        if (bs_globals.lookup_frequency_flag) {
+            bs_print_lookup_frequency(lookup, stdout);
+        }
+        else {
+            fprintf(stderr, "Error: You should never see this error!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
     }
 
     bs_delete_lookup(&lookup);
@@ -445,30 +450,68 @@ bs_init_lookup(char* fn, boolean pi)
 }
 
 /**
- * @brief      bs_print_lookup(l)
+ * @brief      bs_print_lookup(l, os)
  *
- * @details    Print contents of lookup_t* to standard output (for debugging).
+ * @details    Print contents of lookup_t* to output stream for debugging.
  *
  * @param      l      (lookup_t*) lookup table pointer
+ *             os     (FILE*) output stream pointer
  */
 
 void
-bs_print_lookup(lookup_t* l)
+bs_print_lookup(lookup_t* l, FILE* os)
 {
-    fprintf(stdout, "----------------------\n");
-    fprintf(stdout, "Lookup\n");
-    fprintf(stdout, "----------------------\n");
+    fprintf(os, "----------------------\n");
+    fprintf(os, "Lookup\n");
+    fprintf(os, "----------------------\n");
     for (uint32_t idx = 0; idx < l->nelems; idx++) {
-        fprintf(stdout, 
+        fprintf(os, 
                 "Element [%09d] [%s | %" PRIu64 " | %" PRIu64 " | %s]\n", 
                 idx, 
                 l->elems[idx]->chr,
                 l->elems[idx]->start,
                 l->elems[idx]->stop,
                 l->elems[idx]->id);
-        bs_print_signal(l->elems[idx]->signal);
+        bs_print_signal(l->elems[idx]->signal, os);
     }
-    fprintf(stdout, "----------------------\n");
+    fprintf(os, "----------------------\n");
+}
+
+/**
+ * @brief      bs_print_lookup_frequency(l, os)
+ *
+ * @details    Print bin frequency of lookup_t* to output stream for debugging.
+ *
+ * @param      l      (lookup_t*) lookup table pointer
+ *             os     (FILE*) output stream pointer
+ */
+
+void
+bs_print_lookup_frequency(lookup_t* l, FILE* os)
+{
+    unsigned char freq_table[256] = {0};    
+    unsigned char self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+
+    for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
+        signal_t* row_signal = l->elems[row_idx]->signal;
+        freq_table[self_correlation_score]++;
+        for (uint32_t col_idx = row_idx + 1; col_idx < l->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[col_idx]->signal;
+            double corr = bs_pearson_r_signal(row_signal, col_signal);
+            unsigned char corr_uc =
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
+                bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            freq_table[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
+        }
+    }
+
+    uint64_t n_bytes = (uint64_t) l->nelems * l->nelems;
+    bs_print_frequency_buffer(freq_table, n_bytes, os);
 }
 
 /**
@@ -551,27 +594,28 @@ bs_init_signal(char* cds)
 }
 
 /**
- * @brief      bs_print_signal(s)
+ * @brief      bs_print_signal(s, os)
  *
- * @details    Print a signal struct's details to standard error stream
+ * @details    Print a signal struct's details to output stream
  *
  * @param      s      (signal_t*) pointer to signal struct to be printed
+ *             os     (FILE*) pointer to output stream
  */
 
 void
-bs_print_signal(signal_t* s)
+bs_print_signal(signal_t* s, FILE* os)
 {
-    fprintf(stderr, "vector -> [");
+    fprintf(os, "vector -> [");
     for (uint32_t idx = 0; idx < s->n; idx++) {
-        fprintf(stderr, "%3.6f", s->data[idx]);
+        fprintf(os, "%3.6f", s->data[idx]);
         if (idx != (s->n - 1)) {
-            fprintf(stderr, ", ");
+            fprintf(os, ", ");
         }
     }
-    fprintf(stderr, "]\n");
-    fprintf(stderr, "n      -> [%u]\n", s->n);
-    fprintf(stderr, "mean   -> [%3.6f]\n", s->mean);
-    fprintf(stderr, "sd     -> [%3.6f]\n", s->sd);
+    fprintf(os, "]\n");
+    fprintf(os, "n      -> [%u]\n", s->n);
+    fprintf(os, "mean   -> [%3.6f]\n", s->mean);
+    fprintf(os, "sd     -> [%3.6f]\n", s->sd);
 }
 
 /**
@@ -636,14 +680,14 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
 {
     if (a->n != b->n) {
         fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-        bs_print_signal(a);
-        bs_print_signal(b);
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
         exit(EXIT_FAILURE);
     }
     if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
         fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
-        bs_print_signal(a);
-        bs_print_signal(b);
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
         exit(EXIT_FAILURE);
     }
     double s = 0.0f;
@@ -900,6 +944,7 @@ bs_init_globals()
     bs_globals.encoding_strategy = kEncodingStrategyUndefined;
     bs_globals.encoding_cutoff_zero_min = kEncodingStrategyDefaultCutoff;
     bs_globals.encoding_cutoff_zero_max = kEncodingStrategyDefaultCutoff;
+    bs_globals.lookup_frequency_flag = kFalse;
 }
 
 /**
@@ -937,7 +982,7 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
                 kStoreUndefined;
-            if (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2)
+            if ((bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) || (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split))
                 bs_globals.store_compression_flag = kTrue;
             break;
         case 'c':
@@ -946,6 +991,10 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'q':
             bs_globals.store_query_flag = kTrue;
+            bs_output_flag_counter++;
+            break;
+        case 'u':
+            bs_globals.lookup_frequency_flag = kTrue;
             bs_output_flag_counter++;
             break;
         case 'r':
@@ -1006,7 +1055,7 @@ bs_init_command_line_options(int argc, char** argv)
     }
 
     if (bs_output_flag_counter != 1) {
-        fprintf(stderr, "Error: Must create, query or count bin-frequency of a data store!\n");
+        fprintf(stderr, "Error: Must create or query a data store, or count bin-frequency of data store or lookup table!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1017,13 +1066,13 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (strlen(bs_globals.store_fn) == 0) {
+    if ((strlen(bs_globals.store_fn) == 0) && (!bs_globals.lookup_frequency_flag)) {
         fprintf(stderr, "Error: Must specify store filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_type == kStoreUndefined) {
+    if ((bs_globals.store_type == kStoreUndefined) && (!bs_globals.lookup_frequency_flag)) {
         fprintf(stderr, "Error: Must specify store type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1039,7 +1088,7 @@ bs_init_command_line_options(int argc, char** argv)
     }
 
     if (bs_globals.store_create_flag && bs_globals.store_compression_flag && bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize) {
-        fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 encoding type!\n");
+        fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 or pearson-r-sqr-bzip2-split encoding type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1063,41 +1112,44 @@ bs_print_usage(FILE* os)
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn --index-query=str\n\n" \
-            "   Bin-frequency data store:\n\n" \
+            "   Bin-frequency data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
-            " Store types:\n\n" \
-            " - pearson-r-sut\n" \
-            " - pearson-r-sqr\n" \
-            " - pearson-r-sqr-bzip2\n" \
-            " - pearson-r-sqr-bzip2-split\n" \
+            "   Bin-frequency lookup table:\n\n"                        \
+            "     %s --lookup-frequency --lookup=fn\n\n"                \
+            " Available store types:\n\n"                               \
+            " - pearson-r-sut\n"                                        \
+            " - pearson-r-sqr\n"                                        \
+            " - pearson-r-sqr-bzip2\n"                                  \
+            " - pearson-r-sqr-bzip2-split\n"                            \
             " - random-sut\n" \
-            " - random-sqr\n" \
+            " - random-sqr\n"            \
             " - random-buffered-sqr\n\n" \
-            " Notes:\n\n" \
+            " Notes:\n\n"                                               \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
-            "   and how it is created and populated.\n\n"                           \
+            "   and how it is created and populated.\n\n"               \
             "   The Pearson's r population method (pearson-r-sut | -sqr) uses the row vector in the\n" \
             "   fourth column of the lookup BED4 file to generate correlation scores between pairs\n" \
-            "   of elements.\n\n" \
+            "   of elements.\n\n"                                       \
             "   The random-sut and random-sqr methods populate the data store with random values\n" \
             "   drawn from the MT19937 RNG. In the case of random-sqr, a second pass is made through\n" \
             "   the output file to populate the lower triangular section of the matrix.\n\n" \
             "   The random-buffered-sqr method works identically to the random-sqr method, but only\n" \
             "   makes one pass to generate the output store file. This can require considerably more\n" \
             "   memory than the two-pass method.\n\n"                   \
-            " - Lookup file is a sorted BED4 file.\n\n"                  \
+            " - Lookup file is a sorted BED4 file.\n\n"                 \
             " - The fourth column of the BED4 file is a comma-delimited string of floating-point values.\n\n" \
             " - Query string is a numeric range specifing indices of interest from lookup\n" \
             "   table (e.g. \"17-83\" represents indices 17 through 83).\n\n" \
             " - The encoding strategy determines how scores map to bytes. The full strategy maps the full\n" \
             "   range of scores to the interval [-1.00, +1.00], while the mid-quarter-zero strategy maps\n" \
-            "   values between (-0.25, +0.25) to the +0.00 bin.\n\n" \
+            "   values between (-0.25, +0.25) to the +0.00 bin.\n\n"    \
             " - Query output is in BED7 format (BED3 + BED3 + floating-point score).\n\n" \
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
             " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
             " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed data store to a\n" \
             "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n",
+            bs_name,
             bs_name,
             bs_name,
             bs_name);

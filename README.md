@@ -62,19 +62,21 @@ To evaluate the potential longer-term archival of a SUT or square-matrix byte-st
 
 ## Results
 
-Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard drive (7200 RPM) connected to a MacBook Pro (2.8 GHz Intel Core i5, 8 GB RAM) over a USB 2 connection. Test results can be written to an alternative destination by overriding the `SAMPLEDIR` variable setting in the `makefile`.
+Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard drive (7200 RPM) attached to a MacBook Pro (2.8 GHz Intel Core i5, 8 GB RAM) over a USB 2 connection (local test results can be written to an alternative destination by overriding the `SAMPLEDIR` variable setting in the `makefile`).
 
 ### Creation
 
-With fewer bytes to write, creation of an uncompressed, "raw" SUT byte store takes less average time per element than creation of an uncompressed square-matrix store for all encoding strategies.
+An uncompressed, "raw" SUT byte store takes less average time per element to make than an uncompressed square-matrix store for all encoding strategies.
 
-Compression of a square byte store with ``bzip2`` (either as a monolithic file or a series of "split" per-block files) writes fewer bytes as the encoding strategy goes from full to m.q.z. to "custom". This is because the "custom" strategy pushes more score values to zeroes, which increases redundancy and improves compression efficiency (with the tradeoff of lost information). The average per-element creation time for a compressed archive is lower than for the raw (uncompressed) store types, which suggests that store creation is an I/O-bound process.
+Compression of a square byte store with `bzip2` (either as a monolithic file or a series of "split" per-block files) writes fewer bytes as the encoding strategy goes from "full" to "m.q.z." to "custom". This is because the "custom" strategy pushes more score values to zeroes, which increases redundancy and improves compression efficiency (with the tradeoff of lost information). The average per-element creation time for a compressed archive is lower than for the raw (uncompressed) store types, which suggests that much of the cost of store creation is in file I/O (under the listed test conditions).
 
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
 
 ### Querying
 
-Querying elements from an uncompressed, "raw" SUT byte store quickly gets slower (more "expensive" per element) than lookups to a raw or compressed square-matrix store, as the number of elements increases. Query times are virtually identical for all three encoding strategies, and there is practically little difference between raw and ``bzip2``-compressed square matrix retrieval times.
+Querying elements from an uncompressed, "raw" SUT byte store very quickly gets slower (more "expensive" per element) than lookups to a raw or compressed square-matrix store, as the number of elements increases.
+
+Query times are virtually identical for all three encoding strategies, and there is little practical difference between average retrieval times for raw and `bzip2`-compressed square matrices.
 
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
