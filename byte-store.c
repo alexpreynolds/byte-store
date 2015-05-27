@@ -30,7 +30,7 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixBzip2:
             case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreUndefined:
-                fprintf(stderr, "Error: You should never see this error!\n");
+                fprintf(stderr, "Error: You should never see this error! (A)\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -69,7 +69,7 @@ main(int argc, char** argv)
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
-                fprintf(stderr, "Error: You should never see this error!\n");
+                fprintf(stderr, "Error: You should never see this error! (B)\n");
                 exit(EXIT_FAILURE);
             }            
         }
@@ -90,7 +90,7 @@ main(int argc, char** argv)
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
-                fprintf(stderr, "Error: You should never see this error!\n");
+                fprintf(stderr, "Error: You should never see this error! (C)\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -110,7 +110,7 @@ main(int argc, char** argv)
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
-                fprintf(stderr, "Error: You should never see this error!\n");
+                fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -120,8 +120,11 @@ main(int argc, char** argv)
         if (bs_globals.lookup_frequency_flag) {
             bs_print_lookup_frequency(lookup, stdout);
         }
+        else if (bs_globals.permutation_test_flag) {
+            bs_permute_lookup(lookup, stdout);
+        }
         else {
-            fprintf(stderr, "Error: You should never see this error!\n");
+            fprintf(stderr, "Error: You should never see this error! (E)\n");
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
         }
@@ -450,6 +453,64 @@ bs_init_lookup(char* fn, boolean pi)
 }
 
 /**
+ * @brief      bs_permute_lookup(l, os)
+ *
+ * @details    Permute contents of lookup_t* and print frequency table to output stream.
+ *
+ * @param      l      (lookup_t*) lookup table pointer
+ *             os     (FILE*) output stream pointer
+ */
+
+void
+bs_permute_lookup(lookup_t *l, FILE* os)
+{
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(uint64_t));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate space for permutation frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
+    for (int32_t permute_idx = 0; permute_idx < bs_globals.permutation_count; permute_idx++) {
+        /* shuffle all l->nelem vectors */
+        for (uint32_t elem_idx = 0; elem_idx < l->nelems; elem_idx++) {
+            bs_shuffle_signal_data(l->elems[elem_idx]->signal->data, l->elems[elem_idx]->signal->n);
+        }
+        bs_increment_lookup_frequency(freq_table, l);
+    }
+    uint64_t n_bytes = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
+    bs_print_frequency_buffer(freq_table, n_bytes, os);
+    free(freq_table), freq_table = NULL;    
+}
+
+/**
+ * @brief      bs_shuffle_signal_data(d, n)
+ *
+ * @details    Apply Fisher-Yates shuffle on double array.
+ *
+ * @param      d      (double*) data pointer
+ *             n      (size_n) number of elements in data pointer
+ */
+
+void
+bs_shuffle_signal_data(double* d, size_t n)
+{
+    if (n > 1) {
+        for (size_t i = 0; i < n; i++) {   
+            size_t s = mt19937_generate_random_ulong() % n;
+            double t = d[s];
+            d[s] = d[i];
+            d[i] = t;
+        }
+    }
+}
+
+/**
  * @brief      bs_print_lookup(l, os)
  *
  * @details    Print contents of lookup_t* to output stream for debugging.
@@ -489,7 +550,30 @@ bs_print_lookup(lookup_t* l, FILE* os)
 void
 bs_print_lookup_frequency(lookup_t* l, FILE* os)
 {
-    unsigned char freq_table[256] = {0};    
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(uint64_t));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate space for permutation frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
+    bs_increment_lookup_frequency(freq_table, l);
+    uint64_t n_bytes = (uint64_t) l->nelems * l->nelems;
+    bs_print_frequency_buffer(freq_table, n_bytes, os);
+    free(freq_table), freq_table = NULL;
+}
+
+/**
+ * @brief      bs_increment_lookup_frequency(t, l)
+ *
+ * @details    Update score frequency table from lookup struct.
+ *
+ * @param      t      (uint64_t*) frequency table
+ *             l      (lookup_t*) pointer to lookup struct
+ */
+
+void
+bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
+{
     unsigned char self_correlation_score =
         (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
@@ -498,7 +582,7 @@ bs_print_lookup_frequency(lookup_t* l, FILE* os)
 
     for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
-        freq_table[self_correlation_score]++;
+        t[self_correlation_score]++;
         for (uint32_t col_idx = row_idx + 1; col_idx < l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
@@ -506,12 +590,9 @@ bs_print_lookup_frequency(lookup_t* l, FILE* os)
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
                 bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-            freq_table[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
+            t[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
         }
     }
-
-    uint64_t n_bytes = (uint64_t) l->nelems * l->nelems;
-    bs_print_frequency_buffer(freq_table, n_bytes, os);
 }
 
 /**
@@ -945,6 +1026,8 @@ bs_init_globals()
     bs_globals.encoding_cutoff_zero_min = kEncodingStrategyDefaultCutoff;
     bs_globals.encoding_cutoff_zero_max = kEncodingStrategyDefaultCutoff;
     bs_globals.lookup_frequency_flag = kFalse;
+    bs_globals.permutation_test_flag = kFalse;
+    bs_globals.permutation_count = 0;
 }
 
 /**
@@ -1033,6 +1116,11 @@ bs_init_command_line_options(int argc, char** argv)
         case 'x':
             sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_max);
             break;
+        case 'm':
+            bs_globals.permutation_test_flag = kTrue;
+            sscanf(optarg, "%d", &bs_globals.permutation_count);
+            bs_output_flag_counter++;
+            break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
@@ -1055,7 +1143,7 @@ bs_init_command_line_options(int argc, char** argv)
     }
 
     if (bs_output_flag_counter != 1) {
-        fprintf(stderr, "Error: Must create or query a data store, or count bin-frequency of data store or lookup table!\n");
+        fprintf(stderr, "Error: Must create or query a data store, count bin-frequency of data store or lookup table, or perform permutation test!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1066,13 +1154,13 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if ((strlen(bs_globals.store_fn) == 0) && (!bs_globals.lookup_frequency_flag)) {
+    if ((strlen(bs_globals.store_fn) == 0) && (!bs_globals.lookup_frequency_flag && !bs_globals.permutation_test_flag)) {
         fprintf(stderr, "Error: Must specify store filename!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
-    if ((bs_globals.store_type == kStoreUndefined) && (!bs_globals.lookup_frequency_flag)) {
+    if ((bs_globals.store_type == kStoreUndefined) && (!bs_globals.lookup_frequency_flag && !bs_globals.permutation_test_flag)) {
         fprintf(stderr, "Error: Must specify store type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1087,8 +1175,14 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize) {
+    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && (bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize)) {
         fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 or pearson-r-sqr-bzip2-split encoding type!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.permutation_test_flag && (bs_globals.permutation_count < 1)) {
+        fprintf(stderr, "Error: Must specify positive permutation count value!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1116,6 +1210,8 @@ bs_print_usage(FILE* os)
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency lookup table:\n\n"                        \
             "     %s --lookup-frequency --lookup=fn\n\n"                \
+            "   Permutation testing:\n\n"                               \
+            "     %s --permutation-test=int --lookup=fn\n\n"            \
             " Available store types:\n\n"                               \
             " - pearson-r-sut\n"                                        \
             " - pearson-r-sqr\n"                                        \
@@ -1149,6 +1245,7 @@ bs_print_usage(FILE* os)
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
             " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed data store to a\n" \
             "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n",
+            bs_name,
             bs_name,
             bs_name,
             bs_name,
@@ -1451,7 +1548,7 @@ bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    unsigned char freq_table[256] = {0};
+    uint64_t freq_table[256] = {0};
     uint32_t row_idx = 0;
     uint32_t col_idx = 1;
     do {
@@ -2994,7 +3091,7 @@ bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     uint32_t row_idx = 0;
-    unsigned char freq_table[256] = {0};
+    uint64_t freq_table[256] = {0};
     do {
         uint32_t nbyte = 0;
         if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
@@ -3005,7 +3102,6 @@ bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
             freq_table[byte_buf[nbyte++]]++;
         } while (nbyte < l->nelems);
     } while (++row_idx < l->nelems);
-
     bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
     
     /* clean up */
@@ -3086,7 +3182,7 @@ bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
 
     uint32_t block_idx = 0;
     uint64_t total_bytes = 0;
-    unsigned char freq_table[256] = {0};
+    uint64_t freq_table[256] = {0};
     do {
         uint32_t buf_byte = 0;
         off_t start_offset = md->offsets[block_idx++];
@@ -3224,7 +3320,7 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
 
     uint32_t block_idx = 0;
     uint64_t total_bytes = 0;
-    unsigned char freq_table[256] = {0};
+    uint64_t freq_table[256] = {0};
     do {
         uint32_t buf_byte = 0;
         is = fopen(bs_init_sqr_bzip2_split_store_fn_str(block_src_dir, block_idx++), "rb");
@@ -3285,17 +3381,17 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
  *
  * @details    Print formatted frequency table to output stream
  *
- * @param      t      (unsigned char*) pointer to frequency table
+ * @param      t      (uint64_t*) pointer to frequency table
  *             n      (uint64_t) total number of elements in store
  *             os     (FILE*) pointer to output stream (stdout, stderr, etc.)
  */
 
 void
-bs_print_frequency_buffer(unsigned char* t, uint64_t n, FILE* os)
+bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os)
 {
     for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
         fprintf(os,
-                "%3.6f\t%d\t%3.6f\n",
+                "%3.6f\t%" PRIu64 "\t%3.12f\n",
                 bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
                 t[freq_idx],
                 (double) t[freq_idx] / n);

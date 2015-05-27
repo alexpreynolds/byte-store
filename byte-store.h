@@ -204,6 +204,8 @@ static struct bs_globals_t {
     boolean store_compression_flag;
     uint32_t store_compression_row_chunk_size;
     boolean lookup_frequency_flag;
+    boolean permutation_test_flag;
+    int32_t permutation_count;
 } bs_globals;
 
 static struct option bs_client_long_options[] = {
@@ -219,13 +221,14 @@ static struct option bs_client_long_options[] = {
     { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
     { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
     { "lookup-frequency",                 no_argument,       NULL, 'u' },
+    { "permutation-test",                 required_argument, NULL, 'm' },
     { "rng-seed",                         required_argument, NULL, 'd' },
     { "test-pearson-r",                   no_argument,       NULL, '1' },
     { "help",                             no_argument,       NULL, 'h' },
     { NULL,                               no_argument,       NULL,  0  }
 }; 
 
-static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:ud:1h?";
+static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:um:d:1h?";
 
 static const char *bs_name = "byte-store";
 
@@ -319,8 +322,11 @@ static inline double         bs_decode_unsigned_char_to_double_custom(unsigned c
 void                         bs_parse_query_str(lookup_t* l);
 void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
 lookup_t*                    bs_init_lookup(char* fn, boolean pi);
+void                         bs_permute_lookup(lookup_t *l, FILE* os);
+void                         bs_shuffle_signal_data(double* d, size_t n);
 void                         bs_print_lookup(lookup_t* l, FILE* os);
 void                         bs_print_lookup_frequency(lookup_t* l, FILE* os);
+void                         bs_increment_lookup_frequency(uint64_t* t, lookup_t* l);
 void                         bs_delete_lookup(lookup_t** l);
 signal_t*                    bs_init_signal(char *cds);
 void                         bs_print_signal(signal_t* s, FILE* os);
@@ -364,7 +370,7 @@ void                         bs_delete_metadata(metadata_t** m);
 void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
 void                         bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
-void                         bs_print_frequency_buffer(unsigned char* t, uint64_t n, FILE* os);
+void                         bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os);
 void                         bs_delete_sqr_store(sqr_store_t** s);
 store_buf_node_t*            bs_init_store_buf_node(unsigned char uc);
 void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);
