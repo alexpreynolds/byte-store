@@ -118,10 +118,12 @@ main(int argc, char** argv)
         break;
     case kStoreUndefined:
         if (bs_globals.lookup_frequency_flag) {
-            bs_print_lookup_frequency(lookup, stdout);
-        }
-        else if (bs_globals.permutation_test_flag) {
-            bs_permute_lookup(lookup, stdout);
+            if (bs_globals.permutation_test_flag) {
+                bs_permute_lookup(lookup, stdout);
+            }
+            else if (!bs_globals.permutation_test_flag) {
+                bs_print_lookup_frequency(lookup, stdout);
+            }
         }
         else {
             fprintf(stderr, "Error: You should never see this error! (E)\n");
@@ -483,15 +485,15 @@ bs_permute_lookup(lookup_t *l, FILE* os)
         }
         bs_increment_lookup_frequency(freq_table, l);
     }
-    uint64_t n_bytes = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
-    bs_print_frequency_buffer(freq_table, n_bytes, os);
+    uint64_t n = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
+    bs_print_frequency_buffer(freq_table, n, os);
     free(freq_table), freq_table = NULL;    
 }
 
 /**
  * @brief      bs_shuffle_signal_data(d, n)
  *
- * @details    Apply Fisher-Yates shuffle on double array.
+ * @details    Apply unbiased Fisher-Yates shuffle on double array entries.
  *
  * @param      d      (double*) data pointer
  *             n      (size_n) number of elements in data pointer
@@ -500,9 +502,10 @@ bs_permute_lookup(lookup_t *l, FILE* os)
 void
 bs_shuffle_signal_data(double* d, size_t n)
 {
+    /* cf. http://blog.codinghorror.com/the-danger-of-naivete/ */
     if (n > 1) {
         for (size_t i = 0; i < n; i++) {   
-            size_t s = mt19937_generate_random_ulong() % n;
+            size_t s = i + (mt19937_generate_random_ulong() % (n - i));
             double t = d[s];
             d[s] = d[i];
             d[i] = t;
@@ -1119,7 +1122,6 @@ bs_init_command_line_options(int argc, char** argv)
         case 'm':
             bs_globals.permutation_test_flag = kTrue;
             sscanf(optarg, "%d", &bs_globals.permutation_count);
-            bs_output_flag_counter++;
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
@@ -1209,9 +1211,8 @@ bs_print_usage(FILE* os)
             "   Bin-frequency data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency lookup table:\n\n"                        \
-            "     %s --lookup-frequency --lookup=fn\n\n"                \
-            "   Permutation testing:\n\n"                               \
-            "     %s --permutation-test=int --lookup=fn\n\n"            \
+            "     %s --lookup-frequency --lookup=fn\n"                  \
+            "     %s --lookup-frequency --permutation-test=int --lookup=fn\n\n" \
             " Available store types:\n\n"                               \
             " - pearson-r-sut\n"                                        \
             " - pearson-r-sqr\n"                                        \
@@ -1244,7 +1245,8 @@ bs_print_usage(FILE* os)
             " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
             " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed data store to a\n" \
-            "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n",
+            "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n" \
+            " - Specifying --lookup-frequency without --permutation-test yields the frequency distribution table without any permutation testing\n",
             bs_name,
             bs_name,
             bs_name,
