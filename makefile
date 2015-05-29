@@ -138,9 +138,29 @@ test-pearsonr-sqr-bzip2-split-4-query:
 test-pearsonr-sqr-bzip2-split-4-frequency:
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -f -l $(TESTDIR)/vec_test4.bed -s $(TESTDIR)/vec_test4.sqr.cbs
 
-test-pearsonr-sqr-1k:
+test-pearsonr-sqr-1k: test-pearsonr-sqr-1k-create test-pearsonr-sqr-1k-query
+
+test-pearsonr-sqr-1k-create:
 	$(PWD)/byte-store -t pearson-r-sqr -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs
+
+test-pearsonr-sqr-1k-query:
 	$(PWD)/byte-store -t pearson-r-sqr -q -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.bs -i 0-999 | awk '$$7>=1.00'
+
+test-pearsonr-sqr-bzip2-1k: test-pearsonr-sqr-bzip2-1k-create test-pearsonr-sqr-bzip2-1k-query
+
+test-pearsonr-sqr-bzip2-1k-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.cbs -r 512
+
+test-pearsonr-sqr-bzip2-1k-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.cbs -i 0-999 | awk '$$7>=1.00'
+
+test-pearsonr-sqr-bzip2-1k-custom: test-pearsonr-sqr-bzip2-1k-custom-create test-pearsonr-sqr-bzip2-1k-custom-query
+
+test-pearsonr-sqr-bzip2-1k-custom-create:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.custom.cbs -r 512 -e custom -n -0.21 -x 0.49
+
+test-pearsonr-sqr-bzip2-1k-custom-query:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(TESTDIR)/vec_test1000.bed -s $(TESTDIR)/vec_test1000.sqr.custom.cbs -i 0-999 | awk '$$7>=1.00'
 
 test-pearsonr-sqr-10k: test-pearsonr-sqr-10k-create test-pearsonr-sqr-10k-query
 

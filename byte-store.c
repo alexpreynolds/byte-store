@@ -143,8 +143,7 @@ main(int argc, char** argv)
  * @details    Truncates double-type value to specified precision.
  *
  * @param      d      (double) value to be truncated
- *             prec   (signed integer) value to determine 
- *                    precision of truncated value
+ *             prec   (int) value to determine precision of truncated value
  *
  * @return     (double) truncated value
  */
@@ -157,10 +156,10 @@ bs_truncate_double_to_precision(double d, int prec)
 }
 
 /**
- * @brief      bs_encode_double_to_unsigned_char(d)
+ * @brief      bs_encode_double_to_byte(d)
  *
  * @details    Encodes double-type value between -1 and +1 to 
- *             unsigned char-type byte "bin".
+ *             byte_t byte "bin".
  *
  *             (-1.01, -1.00] (-1.00, -0.99] (-0.99, -0.98] ...
  *                        ... (-0.01, -0.00] [+0.00, +0.01) ... 
@@ -172,82 +171,66 @@ bs_truncate_double_to_precision(double d, int prec)
  *
  * @param      d      (double) value to be encoded
  *
- * @return     (unsigned char) encoded score byte value
+ * @return     (byte_t) encoded score byte value
  *
- * @example    bs_encode_double_to_unsigned_char(-0.010) = 0x63
- *             bs_encode_double_to_unsigned_char(-0.009) = 0x64
- *             bs_encode_double_to_unsigned_char(-0.000) = 0x64
- *             bs_encode_double_to_unsigned_char(+0.000) = 0x65
- *             bs_encode_double_to_unsigned_char(+0.139) = 0x72
- *             bs_encode_double_to_unsigned_char(+0.140) = 0x73
- *             bs_encode_double_to_unsigned_char(+0.142) = 0x73
+ * @example    bs_encode_double_to_byte(-0.010) = 0x63
+ *             bs_encode_double_to_byte(-0.009) = 0x64
+ *             bs_encode_double_to_byte(-0.000) = 0x64
+ *             bs_encode_double_to_byte(+0.000) = 0x65
+ *             bs_encode_double_to_byte(+0.139) = 0x72
+ *             bs_encode_double_to_byte(+0.140) = 0x73
+ *             bs_encode_double_to_byte(+0.142) = 0x73
  */
 
-inline unsigned char
-bs_encode_double_to_unsigned_char(double d) 
+inline byte_t
+bs_encode_double_to_byte(double d) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
-    return (unsigned char) encode_d;
+    return (byte_t) encode_d;
 }
 
 /**
- * @brief      bs_encode_double_to_unsigned_char_mqz(d)
+ * @brief      bs_encode_double_to_byte_mqz(d)
  *
  * @details    Encodes double-type value between -1 and +1 to 
- *             unsigned char-type byte "bin". If value is between
+ *             byte-type byte "bin". If value is between
  *             (-0.25, +0.25) then encoding returns +0.00.
  *
  * @param      d      (double) value to be encoded
  *
- * @return     (unsigned char) encoded score byte value
+ * @return     (byte_t) encoded score byte value
  */
 
-inline unsigned char
-bs_encode_double_to_unsigned_char_mqz(double d) 
+inline byte_t
+bs_encode_double_to_byte_mqz(double d) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     if ((encode_d > 76) && (encode_d < 127))
         encode_d = 100;
-    return (unsigned char) encode_d;
+    return (byte_t) encode_d;
 }
 
 /**
- * @brief      bs_encode_double_to_unsigned_char_custom(d, min, max)
+ * @brief      bs_encode_double_to_byte_custom(d, min, max)
  *
  * @details    Encodes double-type value between -1 and +1 to 
- *             unsigned char-type byte "bin". If value is between
+ *             byte-type byte "bin". If value is between
  *             (min, max) then encoding returns +0.00.
  *
  * @param      d      (double) value to be encoded
  *             min    (double) minimum cutoff value for zero-encoding
  *             max    (double) maximum cutoff value for zero-encoding
  *
- * @return     (unsigned char) encoded score byte value
+ * @return     (byte_t) encoded score byte value
  */
 
-unsigned char
-bs_encode_double_to_unsigned_char_custom(double d, double min, double max) 
+byte_t
+bs_encode_double_to_byte_custom(double d, double min, double max) 
 {
-    /* 
-       Note
-       ----
-
-       At some point, it may be useful to set up permutation tests
-       on the Pearson r signals. In other words, we shuffle the signal
-       within each vector some number of times and then calculate a sample 
-       of r scores that determine a two-sided 99% confidence interval where 
-       there is no correlation. 
-
-       Once that interval is determined, we know what values have "significant"
-       correlation. An encoding strategy can be applied that safely "zeroes" out 
-       scores outside this region of significance for optimal compression.
-       
-       Cf. http://stats.stackexchange.com/a/5754/13384
-    */
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     min += (min < 0) ? -kEpsilon : kEpsilon;
     max += (max < 0) ? -kEpsilon : kEpsilon;
@@ -259,7 +242,7 @@ bs_encode_double_to_unsigned_char_custom(double d, double min, double max)
     int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + bs_signbit(-max);
     if ((encode_d > encode_min) && (encode_d < encode_max))
         encode_d = 100;
-    return (unsigned char) encode_d;
+    return (byte_t) encode_d;
 }
 
 /**
@@ -271,60 +254,60 @@ bs_encode_double_to_unsigned_char_custom(double d, double min, double max)
  *
  * @param      d      (double) value to have its sign evaluated
  *
- * @return     (boolean) true, if sign is negative; false, if sign is positive
+ * @return     (boolean_t) true, if sign is negative; false, if sign is positive
  */
 
-inline boolean
+inline boolean_t
 bs_signbit(double d)
 {
     return (signbit(d) > 0) ? kTrue : kFalse;
 }
 
 /**
- * @brief      bs_decode_unsigned_char_to_double(uc)
+ * @brief      bs_decode_byte_to_double(uc)
  *
- * @details    Decodes unsigned char-type byte bin to
+ * @details    Decodes byte-type byte bin to
  *             equivalent score bin.
  *
- * @param      uc     (unsigned char) value to be decoded
+ * @param      uc     (byte) value to be decoded
  *
  * @return     (double) decoded score bin start value
  *
- * @example    bs_decode_unsigned_char_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
- *             bs_decode_unsigned_char_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
- *             bs_decode_unsigned_char_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
+ * @example    bs_decode_byte_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
+ *             bs_decode_byte_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
+ *             bs_decode_byte_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
  */
 
 static inline double
-bs_decode_unsigned_char_to_double(unsigned char uc)
+bs_decode_byte_to_double(byte_t uc)
 {
-    return bs_encode_unsigned_char_to_double_table[uc];
+    return bs_encode_byte_to_double_table[uc];
 }
 
 /**
- * @brief      bs_decode_unsigned_char_to_double_mqz(uc)
+ * @brief      bs_decode_byte_to_double_mqz(uc)
  *
- * @details    Decodes unsigned char-type byte bin to
+ * @details    Decodes byte-type byte bin to
  *             equivalent mid-quarter-zero score bin.
  *
- * @param      uc     (unsigned char) value to be decoded
+ * @param      uc     (byte_t) value to be decoded
  *
  * @return     (double) decoded score bin start value
  */
 
 static inline double
-bs_decode_unsigned_char_to_double_mqz(unsigned char uc)
+bs_decode_byte_to_double_mqz(byte_t uc)
 {
-    return bs_encode_unsigned_char_to_double_mqz_table[uc];
+    return bs_encode_byte_to_double_mqz_table[uc];
 }
 
 /**
- * @brief      bs_decode_unsigned_char_to_double_custom(uc)
+ * @brief      bs_decode_byte_to_double_custom(uc)
  *
- * @details    Decodes unsigned char-type byte bin to
+ * @details    Decodes byte-type byte bin to
  *             equivalent custom zero-ranged score bin.
  *
- * @param      uc     (unsigned char) value to be decoded
+ * @param      uc     (byte_t) value to be decoded
  *             min    (double) minimum value to be decoded to zero byte
  *             max    (double) maximum value to be decoded to zero byte
  *
@@ -332,9 +315,9 @@ bs_decode_unsigned_char_to_double_mqz(unsigned char uc)
  */
 
 static inline double
-bs_decode_unsigned_char_to_double_custom(unsigned char uc, double min, double max)
+bs_decode_byte_to_double_custom(byte_t uc, double min, double max)
 {
-    double test = bs_encode_unsigned_char_to_double_table[uc];
+    double test = bs_encode_byte_to_double_table[uc];
     return ((min < test) && (test < max)) ? +0.00f : test;        
 }
 
@@ -406,13 +389,13 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
  *             Function allocates memory to lookup table pointer, as needed.
  *
  * @param      fn     (char*) filename string
- *             pi     (boolean) flag to decide whether to parse ID string
+ *             pi     (boolean_t) flag to decide whether to parse ID string
  *
  * @return     (lookup_t*) lookup table pointer referencing element data
  */
 
 lookup_t*
-bs_init_lookup(char* fn, boolean pi)
+bs_init_lookup(char* fn, boolean_t pi)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
@@ -466,6 +449,48 @@ bs_init_lookup(char* fn, boolean pi)
 void
 bs_permute_lookup(lookup_t *l, FILE* os)
 {
+    /* 
+       Via permutation tests on signal_t vectors, we can shuffle the signal
+       within each vector some number of times and then calculate a sample 
+       of r scores that determine a two-sided 99% confidence interval where 
+       we observe no correlation.
+
+       Once that interval is determined, we can decide what values have "significant"
+       correlation. An encoding strategy can be applied that "zeroes" out scores 
+       outside this region of significance for optimal compression.
+
+       If we provide the desired precision, significance threshold, and confidence
+       interval increment, we can calculate the minimum number of permutation tests:
+
+       k >= ( 2 * l )^2 * ( alpha * (1 - alpha) / P^2 )
+
+       l     = multiple of sigma, i.e., 1, 2, 3, etc. which is equivalent 
+               to a confidence interval of ~68%, ~95%, ~99%, etc.
+
+       alpha = desired significance threshold
+
+       P     = precision (e.g., 0.01)
+
+       Or, we can provide the number of tests (k) directly.
+       
+       cf. http://stats.stackexchange.com/a/5754/13384
+           http://stats.stackexchange.com/questions/80025
+    */
+
+    /* set up minimum permutation count k, if default k is set */
+    if (bs_globals.permutation_count == kPermutationTestDefaultCount) {
+        bs_globals.permutation_count = ceil( 4 * (bs_globals.permutation_significance_level * bs_globals.permutation_significance_level) * (bs_globals.permutation_alpha * ( 1 - bs_globals.permutation_alpha ) / ( bs_globals.permutation_precision * bs_globals.permutation_precision ) ) );
+    }
+    
+    int32_t sl_perc =
+        (bs_globals.permutation_significance_level == 1) ? 68 :
+        (bs_globals.permutation_significance_level == 2) ? 95 :
+        (bs_globals.permutation_significance_level == 3) ? 99 : 99;
+    fprintf(os, "Permutation precision            --   P     = %7.8f\n",         bs_globals.permutation_precision);        
+    fprintf(os, "Permutation significance level   --   l     = %u (~%d%%)\n",    bs_globals.permutation_significance_level, sl_perc);        
+    fprintf(os, "Permutation alpha                --   alpha = %7.8f\n",         bs_globals.permutation_alpha);    
+    fprintf(os, "Permutation count                --   k     = %u\n",            bs_globals.permutation_count);
+    
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
         mt19937_seed_rng(bs_globals.rng_seed_value);
@@ -478,15 +503,54 @@ bs_permute_lookup(lookup_t *l, FILE* os)
         fprintf(stderr, "Error: Could not allocate space for permutation frequency table!\n");
         exit(EXIT_FAILURE);
     }
-    for (int32_t permute_idx = 0; permute_idx < bs_globals.permutation_count; permute_idx++) {
+    for (uint32_t permute_idx = 0; permute_idx < bs_globals.permutation_count; permute_idx++) {
         /* shuffle all l->nelem vectors */
         for (uint32_t elem_idx = 0; elem_idx < l->nelems; elem_idx++) {
             bs_shuffle_signal_data(l->elems[elem_idx]->signal->data, l->elems[elem_idx]->signal->n);
         }
         bs_increment_lookup_frequency(freq_table, l);
     }
-    uint64_t n = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
-    bs_print_frequency_buffer(freq_table, n, os);
+
+    uint64_t non_diagonal_n = bs_globals.permutation_count * (((uint64_t) l->nelems * l->nelems) - l->nelems);
+    uint64_t test_ndn = ceil((1.0 - bs_globals.permutation_alpha) * non_diagonal_n);
+    uint64_t non_signif_ndn = non_diagonal_n - test_ndn;
+    uint64_t signif_ndn_width = floor(non_signif_ndn / 2);
+    uint64_t start_bin_bound = signif_ndn_width;
+    uint64_t end_bin_bound = non_diagonal_n - signif_ndn_width;
+
+    /*
+       fprintf(os, "non_diagonal_n: [%" PRIu64 "]\n", non_diagonal_n);
+       fprintf(os, "test_ndn: [%" PRIu64 "]\n", test_ndn);
+       fprintf(os, "non_signif_ndn: [%" PRIu64 "]\n", non_signif_ndn);
+       fprintf(os, "signif_ndn_width: [%" PRIu64 "]\n", signif_ndn_width);        
+       fprintf(os, "start_bin_bound: [%" PRIu64 "]\n", start_bin_bound);
+       fprintf(os, "end_bin_bound: [%" PRIu64 "]\n", end_bin_bound);    
+    */
+    
+    uint64_t cumulative_freq_count = 0;
+    uint32_t start_bin_idx = 0;
+    uint32_t end_bin_idx = 0;
+    for (uint32_t bin_idx = 0; bin_idx <= 201; bin_idx++) {
+        cumulative_freq_count += freq_table[bin_idx];
+        if (cumulative_freq_count < start_bin_bound) {
+            start_bin_idx = bin_idx;
+        }
+        if (cumulative_freq_count > end_bin_bound) {
+            end_bin_idx = bin_idx;
+            break;
+        }
+    }
+    fprintf(os,
+            "Non-significant interval         --   [%3.2f, %3.2f]\n",
+            bs_encode_byte_to_double_table[start_bin_idx],
+            bs_encode_byte_to_double_table[end_bin_idx]);
+
+    /*
+       uint64_t n = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
+       bs_print_frequency_buffer(freq_table, n, os);
+    */
+    
+    /* clean up */
     free(freq_table), freq_table = NULL;    
 }
 
@@ -577,11 +641,11 @@ bs_print_lookup_frequency(lookup_t* l, FILE* os)
 void
 bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
 {
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
 
     for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
@@ -589,10 +653,10 @@ bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
         for (uint32_t col_idx = row_idx + 1; col_idx < l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
-            unsigned char corr_uc =
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
-                bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            byte_t corr_uc =
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             t[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
         }
     }
@@ -655,7 +719,7 @@ bs_init_signal(char* cds)
     char* end = cds;
     char entry_buf[ENTRY_MAX_LEN];
     uint32_t entry_idx = 0;
-    boolean finished = kFalse;
+    boolean_t finished = kFalse;
     do {
         end = strchr(start, kSignalDelim);
         if (!end) {
@@ -805,13 +869,13 @@ bs_delete_signal(signal_t** s)
  *             start  (uint64_t) start coordinate position
  *             stop   (uint64_t) stop coordinate position
  *             id     (char*) id string 
- *             pi     (boolean) parse ID string
+ *             pi     (boolean_t) parse ID string
  *
  * @return     (element_t*) element pointer
  */
 
 element_t*
-bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean pi)
+bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi)
 {
     element_t *e = NULL;
 
@@ -871,11 +935,11 @@ bs_delete_element(element_t** e)
  *
  * @param      e      (element_t*) element pointer
  *             l      (lookup_t**) pointer to lookup table pointer
- *             pi     (boolean) parse ID string
+ *             pi     (boolean_t) parse ID string
  */
 
 void
-bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean pi)
+bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi)
 {
     if ((*l)->capacity == 0) {
         (*l)->capacity++;
@@ -930,8 +994,8 @@ bs_test_pearsons_r()
     assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
 
-    unsigned char encoded_expected_score_byte = bs_encode_double_to_unsigned_char(kPearsonRTestCorrelationUnencoded);
-    unsigned char encoded_observed_score_byte = bs_encode_double_to_unsigned_char(unencoded_observed_score);
+    byte_t encoded_expected_score_byte = bs_encode_double_to_byte(kPearsonRTestCorrelationUnencoded);
+    byte_t encoded_observed_score_byte = bs_encode_double_to_byte(unencoded_observed_score);
     fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
     fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_score_byte);
     fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_score_byte);
@@ -952,7 +1016,7 @@ bs_test_pearsons_r()
  * @details    Tests encoding of scores in the interval 
  *             [-1.0, +1.0] at kEpsilon increments. 
  *
- *             Encoded scores are unsigned char byte values 
+ *             Encoded scores are byte_t byte values 
  *             equivalent to the provided score value. Decoded 
  *             scores are the double-typed "bin" with which the 
  *             original score associates.
@@ -963,12 +1027,12 @@ bs_test_score_encoding()
 {
     double d, decode_d;
     int count;
-    unsigned char encode_d;
+    byte_t encode_d;
 
     if (bs_globals.encoding_strategy == kEncodingStrategyFull) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_unsigned_char(d);
-            decode_d = bs_decode_unsigned_char_to_double(encode_d);
+            encode_d = bs_encode_double_to_byte(d);
+            decode_d = bs_decode_byte_to_double(encode_d);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -979,8 +1043,8 @@ bs_test_score_encoding()
     }
     else if (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_unsigned_char_mqz(d);
-            decode_d = bs_decode_unsigned_char_to_double_mqz(encode_d);
+            encode_d = bs_encode_double_to_byte_mqz(d);
+            decode_d = bs_decode_byte_to_double_mqz(encode_d);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -991,8 +1055,8 @@ bs_test_score_encoding()
     }
     else if (bs_globals.encoding_strategy == kEncodingStrategyCustom) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_unsigned_char_custom(d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-            decode_d = bs_decode_unsigned_char_to_double_custom(encode_d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            encode_d = bs_encode_double_to_byte_custom(d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            decode_d = bs_decode_byte_to_double_custom(encode_d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -1030,7 +1094,10 @@ bs_init_globals()
     bs_globals.encoding_cutoff_zero_max = kEncodingStrategyDefaultCutoff;
     bs_globals.lookup_frequency_flag = kFalse;
     bs_globals.permutation_test_flag = kFalse;
-    bs_globals.permutation_count = 0;
+    bs_globals.permutation_count = kPermutationTestDefaultCount;
+    bs_globals.permutation_precision = kPermutationTestDefaultPrecision;
+    bs_globals.permutation_alpha = kPermutationTestDefaultAlpha;
+    bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
 }
 
 /**
@@ -1054,6 +1121,7 @@ bs_init_command_line_options(int argc, char** argv)
 
     opterr = 0;
     int bs_output_flag_counter = 0;
+    int bs_permutation_flag_counter = 0;
 
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
@@ -1121,7 +1189,22 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'm':
             bs_globals.permutation_test_flag = kTrue;
+            break;
+        case 'o':
+            bs_permutation_flag_counter++;
             sscanf(optarg, "%d", &bs_globals.permutation_count);
+            break;
+        case 'p':
+            bs_permutation_flag_counter++;
+            sscanf(optarg, "%lf", &bs_globals.permutation_precision);
+            break;
+        case 'a':
+            bs_permutation_flag_counter++;
+            sscanf(optarg, "%lf", &bs_globals.permutation_alpha);
+            break;
+        case 'v':
+            bs_permutation_flag_counter++;
+            sscanf(optarg, "%u", &bs_globals.permutation_significance_level);
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
@@ -1182,12 +1265,6 @@ bs_init_command_line_options(int argc, char** argv)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-
-    if (bs_globals.permutation_test_flag && (bs_globals.permutation_count < 1)) {
-        fprintf(stderr, "Error: Must specify positive permutation count value!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
 }
 
 /**
@@ -1208,11 +1285,12 @@ bs_print_usage(FILE* os)
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn --index-query=str\n\n" \
-            "   Bin-frequency data store:\n\n"                          \
+            "   Bin-frequency on data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
-            "   Bin-frequency lookup table:\n\n"                        \
+            "   Bin-frequency and permutation testing  on lookup table:\n\n" \
             "     %s --lookup-frequency --lookup=fn\n"                  \
-            "     %s --lookup-frequency --permutation-test=int --lookup=fn\n\n" \
+            "     %s --lookup-frequency --permutation-test --permutation-count=int --permutation-alpha=float --lookup=fn\n" \
+            "     %s --lookup-frequency --permutation-test --permutation-precision=float --permutation-alpha=float --permutation-significance-level=int --lookup=fn\n\n" \
             " Available store types:\n\n"                               \
             " - pearson-r-sut\n"                                        \
             " - pearson-r-sqr\n"                                        \
@@ -1244,9 +1322,12 @@ bs_print_usage(FILE* os)
             " - Frequency output is a three-column text file containing the score bin, count and frequency.\n\n" \
             " - If the 'pearson-r-sqr-bzip2' storage type is specified, then the --store-compression-row-chunk-size\n" \
             "   parameter must also be set to some integer value, as the number of rows in a compression unit.\n\n" \
-            " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed data store to a\n" \
-            "   separate folder containing one file per block, and a 'blocks.md' file containing archive metadata.\n\n" \
-            " - Specifying --lookup-frequency without --permutation-test yields the frequency distribution table without any permutation testing\n",
+            " - When compressing row blocks, the 'pearson-r-sqr-bzip2-split' store type writes the compressed\n" \
+            "   data store to a separate folder containing one file per block, and a 'blocks.md' file containing\n" \
+            "   archive metadata.\n\n" \
+            " - Specifying --lookup-frequency without --permutation-test yields the frequency distribution table\n" \
+            "   without any permutation testing.\n\n",
+            bs_name,
             bs_name,
             bs_name,
             bs_name,
@@ -1263,11 +1344,11 @@ bs_print_usage(FILE* os)
  * @param      p       (const char*) path to test existence
  */ 
 
-inline boolean 
+inline boolean_t 
 bs_path_exists(const char* p)
 {
     struct stat st;
-    return (boolean) (stat(p, &st) == 0);
+    return (boolean_t) (stat(p, &st) == 0);
 }
 
 /**
@@ -1330,7 +1411,7 @@ bs_init_sut_store(uint32_t n)
 /**
  * @brief      bs_populate_sut_store_with_random_scores(s)
  *
- * @details    Write randomly-generated unsigned char bytes to a
+ * @details    Write randomly-generated byte_t bytes to a
  *             FILE* handle associated with the specified SUT 
  *             store filename.
  *
@@ -1340,7 +1421,7 @@ bs_init_sut_store(uint32_t n)
 void
 bs_populate_sut_store_with_random_scores(sut_store_t* s)
 {
-    unsigned char score = 0;
+    byte_t score = 0;
     FILE* os = NULL;
     
     /* seed RNG */
@@ -1359,7 +1440,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
     /* write stream of random scores out to os ptr */
     for (uint32_t idx = 0; idx < s->attr->nbytes; idx++) {
         do {
-            score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+            score = (byte_t) (mt19937_generate_random_ulong() % 256);
         } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
         if (fputc(score, os) != score) {
             fprintf(stderr, "Error: Could not write score to output SUT store!\n");
@@ -1374,7 +1455,7 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
  * @brief      bs_populate_sut_store_with_pearsonr_scores(s, l)
  *
  * @details    Write Pearson's r correlation scores as encoded 
- *             unsigned char bytes to a FILE* handle associated 
+ *             byte_t bytes to a FILE* handle associated 
  *             with the specified SUT store filename.
  *
  * @param      s      (sut_store_t*) pointer to SUT struct
@@ -1396,7 +1477,7 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
     /* write out a buffer of scores to output stream */
     size_t s_buf = 0;
     size_t n_buf = BUF_MAX_LEN;
-    unsigned char* buf = NULL;
+    byte_t* buf = NULL;
     buf = malloc(n_buf * sizeof(*buf));    
 
     /* write Pearson's r correlation scores to output stream ptr */
@@ -1406,9 +1487,9 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
             signal_t* col_signal = l->elems[col_idx]->signal;
             double corr = bs_pearson_r_signal(row_signal, col_signal);
             buf[s_buf++] = 
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
-                bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
                     fprintf(stderr, "Error: Could not write score buffer to output SUT store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
@@ -1498,7 +1579,7 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
                 fseek(is, new_offset, SEEK_SET);
                 cur_offset = new_offset;
             }
-            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double((unsigned char) fgetc(is)) : bs_decode_unsigned_char_to_double_mqz((unsigned char) fgetc(is));
+            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double((byte_t) fgetc(is)) : bs_decode_byte_to_double_mqz((byte_t) fgetc(is));
             cur_offset++;
             fprintf(os, 
                     "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
@@ -1543,7 +1624,7 @@ bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -1636,7 +1717,7 @@ bs_init_sqr_store(uint32_t n)
 /**
  * @brief      bs_populate_sqr_store_with_random_scores(s)
  *
- * @details    Write randomly-generated unsigned char bytes to a
+ * @details    Write randomly-generated byte_t bytes to a
  *             FILE* handle associated with the specified square 
  *             matrix store filename.
  *
@@ -1646,18 +1727,18 @@ bs_init_sqr_store(uint32_t n)
 void
 bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 {
-    unsigned char score = 0;
+    byte_t score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
-    unsigned char no_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kNoCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kNoCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kNoCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kNoCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
+    byte_t no_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kNoCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kNoCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1677,7 +1758,7 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             if (row_idx < col_idx) {
                 do {
-                    score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+                    score = (byte_t) (mt19937_generate_random_ulong() % 256);
                 } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
             }
             else if (row_idx == col_idx) {
@@ -1705,7 +1786,7 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
         exit(EXIT_FAILURE);
     }
     
-    unsigned char* row_bytes = NULL;
+    byte_t* row_bytes = NULL;
     row_bytes = malloc(s->attr->nelems - 1); /* first byte is a self-correlation score and is not needed */
     if (!row_bytes) {
         fprintf(stderr, "Error: Could not allocate space to row byte buffer!\n");
@@ -1742,7 +1823,7 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 /**
  * @brief      bs_populate_sqr_store_with_buffered_random_scores(s)
  *
- * @details    Write randomly-generated unsigned char bytes to a
+ * @details    Write randomly-generated byte_t bytes to a
  *             FILE* handle associated with the specified square 
  *             matrix store filename, buffering rows of data to 
  *             populate lower diagonal values without a second 
@@ -1754,13 +1835,13 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
 void
 bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 {
-    unsigned char score = 0;
+    byte_t score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -1883,7 +1964,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             if (row_idx < col_idx) {
                 do {
-                    score = (unsigned char) (mt19937_generate_random_ulong() % 256);
+                    score = (byte_t) (mt19937_generate_random_ulong() % 256);
                 } while (score > 200); /* sample until a {0, ..., 200} bin is referenced */
                 if (fputc(score, os) != score) {
                     fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
@@ -1948,7 +2029,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
  * @brief      bs_populate_sqr_store_with_pearsonr_scores(s, l)
  *
  * @details    Write Pearson's r correlation scores as encoded
- *             unsigned char bytes to a FILE* handle associated 
+ *             byte_t bytes to a FILE* handle associated 
  *             with the specified square matrix store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
@@ -1959,11 +2040,11 @@ void
 bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 {
     FILE* os = NULL;
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
 
     os = fopen(bs_globals.store_fn, "wb");
     if (ferror(os)) {
@@ -1975,7 +2056,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
     /* write out a buffer of scores to output stream */
     size_t s_buf = 0;
     size_t n_buf = BUF_MAX_LEN;
-    unsigned char* buf = NULL;
+    byte_t* buf = NULL;
     buf = malloc(n_buf * sizeof(*buf));
     
     /* write Pearson's r correlation scores to output stream ptr */
@@ -1986,9 +2067,9 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 buf[s_buf++] = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
-                    bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 buf[s_buf++] = self_correlation_score;
@@ -2029,13 +2110,13 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 void
 bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
 {
-    unsigned char score = 0;
+    byte_t score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -2100,9 +2181,9 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
-                    bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -2219,13 +2300,13 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 void
 bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
 {
-    unsigned char score = 0;
+    byte_t score = 0;
     FILE* os = NULL;
-    unsigned char self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_unsigned_char_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_unsigned_char(kSelfCorrelationScore);
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -2305,9 +2386,9 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             if (row_idx != col_idx) {
                 double corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_unsigned_char(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_unsigned_char_mqz(corr) : 
-                    bs_encode_double_to_unsigned_char_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -2558,7 +2639,7 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 void
 bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 {
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -2601,9 +2682,9 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                         l->elems[col_idx]->chr,
                         l->elems[col_idx]->start,
                         l->elems[col_idx]->stop,
-                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[col_idx]) :
-                        bs_decode_unsigned_char_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                         );
             }
             col_idx++;
@@ -2691,7 +2772,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     /* block buffer */
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     ssize_t n_byte_buf = md->block_row_size * l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
@@ -2752,9 +2833,9 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx]) :
-                            bs_decode_unsigned_char_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[within_block_col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[within_block_col_idx]) :
+                            bs_decode_byte_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
@@ -2862,7 +2943,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }
     
     /* allocate block buffer */
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     ssize_t n_byte_buf = md->block_row_size * l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
@@ -2929,9 +3010,9 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_unsigned_char_to_double(byte_buf[within_block_col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_unsigned_char_to_double_mqz(byte_buf[within_block_col_idx]) :
-                            bs_decode_unsigned_char_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[within_block_col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[within_block_col_idx]) :
+                            bs_decode_byte_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
@@ -3085,7 +3166,7 @@ bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
 
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -3170,7 +3251,7 @@ bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     /* block buffer */
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     ssize_t n_byte_buf = md->block_row_size * l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
@@ -3308,7 +3389,7 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
     }    
     
     /* allocate block buffer */
-    unsigned char* byte_buf = NULL;
+    byte_t* byte_buf = NULL;
     ssize_t n_byte_buf = md->block_row_size * l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
@@ -3391,12 +3472,12 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
 void
 bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os)
 {
-    for (int freq_idx = 0; freq_idx <= 201; freq_idx++) {
+    for (int bin_idx = 0; bin_idx <= 201; bin_idx++) {
         fprintf(os,
                 "%3.6f\t%" PRIu64 "\t%3.12f\n",
-                bs_decode_unsigned_char_to_double((unsigned char) freq_idx),
-                t[freq_idx],
-                (double) t[freq_idx] / n);
+                bs_decode_byte_to_double((byte_t) bin_idx),
+                t[bin_idx],
+                (double) t[bin_idx] / n);
     }    
 }
 
@@ -3421,13 +3502,13 @@ bs_delete_sqr_store(sqr_store_t** s)
  *
  * @details    Returns new store buffer node pointer.
  *
- * @param      uc     (unsigned char) data value
+ * @param      uc     (byte_t) data value
  *
  * @return     (store_buf_node_t*) pointer to buffer node
  */
 
 store_buf_node_t*
-bs_init_store_buf_node(unsigned char uc)
+bs_init_store_buf_node(byte_t uc)
 {
     store_buf_node_t* b = NULL;
     b = malloc(sizeof(store_buf_node_t));
