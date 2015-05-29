@@ -183,12 +183,12 @@ extern "C" {
     const char* kCompressionMetadataSplitFn = "blocks.md";
     const char* kCompressionMetadataSplitDirSuffix = "blocks";
 
-    extern const int32_t kPermutationTestDefaultCount;
+    extern const uint32_t kPermutationTestDefaultCount;
     extern const double kPermutationTestDefaultPrecision;
     extern const double kPermutationTestDefaultAlpha;
     extern const uint32_t kPermutationTestDefaultSignificanceLevel;
 
-    const int32_t kPermutationTestDefaultCount = 0;
+    const uint32_t kPermutationTestDefaultCount = 0;
     const double kPermutationTestDefaultPrecision = 0.01f;
     const double kPermutationTestDefaultAlpha = 0.01f;
     const uint32_t kPermutationTestDefaultSignificanceLevel = 3;

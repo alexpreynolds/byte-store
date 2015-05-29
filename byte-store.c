@@ -1192,7 +1192,7 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'o':
             bs_permutation_flag_counter++;
-            sscanf(optarg, "%d", &bs_globals.permutation_count);
+            sscanf(optarg, "%u", &bs_globals.permutation_count);
             break;
         case 'p':
             bs_permutation_flag_counter++;
