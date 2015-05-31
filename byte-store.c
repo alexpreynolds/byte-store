@@ -35,8 +35,23 @@ main(int argc, char** argv)
             }
         }
         else if (bs_globals.store_query_flag) {
-            bs_parse_query_str(lookup);
-            bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
+            boolean_t rows_found = kFalse;
+            switch (bs_globals.store_query_kind) {
+            case kQueryKindIndex:
+                rows_found = bs_parse_query_index_str(lookup);
+                break;
+            case kQueryKindRange:
+                rows_found = bs_parse_query_range_str(lookup,
+                                                      bs_globals.store_query_str,
+                                                      &bs_globals.store_query_idx_start,
+                                                      &bs_globals.store_query_idx_end);
+                break;
+            case kQueryKindUndefined:
+                fprintf(stderr, "Error: Query type unsupported!\n");
+                exit(EXIT_FAILURE);
+            }
+            if (rows_found)
+                bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
         }
         else if (bs_globals.store_frequency_flag) {
             bs_print_sut_frequency_to_txt(lookup, sut_store, stdout);
@@ -74,24 +89,42 @@ main(int argc, char** argv)
             }            
         }
         else if (bs_globals.store_query_flag) {
-            bs_parse_query_str(lookup);
-            switch (bs_globals.store_type) {
-            case kStoreRandomBufferedSquareMatrix:
-            case kStoreRandomSquareMatrix:
-            case kStorePearsonRSquareMatrix:
-                bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+            /* set up query type */
+            boolean_t rows_found = kFalse;
+            switch (bs_globals.store_query_kind) {
+            case kQueryKindIndex:
+                rows_found = bs_parse_query_index_str(lookup);
                 break;
-            case kStorePearsonRSquareMatrixBzip2:
-                bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+            case kQueryKindRange:
+                rows_found = bs_parse_query_range_str(lookup,
+                                                      bs_globals.store_query_str,
+                                                      &bs_globals.store_query_idx_start,
+                                                      &bs_globals.store_query_idx_end);
                 break;
-            case kStorePearsonRSquareMatrixBzip2Split:                
-                bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
-                break;
-            case kStorePearsonRSUT:
-            case kStoreRandomSUT:
-            case kStoreUndefined:
-                fprintf(stderr, "Error: You should never see this error! (C)\n");
+            case kQueryKindUndefined:
+                fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
+            }
+            if (rows_found) {
+                /* extract from raw or uncompressed square matrix */
+                switch (bs_globals.store_type) {
+                case kStoreRandomBufferedSquareMatrix:
+                case kStoreRandomSquareMatrix:
+                case kStorePearsonRSquareMatrix:
+                    bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+                    break;
+                case kStorePearsonRSquareMatrixBzip2:
+                    bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                    break;
+                case kStorePearsonRSquareMatrixBzip2Split:                
+                    bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
+                    break;
+                case kStorePearsonRSUT:
+                case kStoreRandomSUT:
+                case kStoreUndefined:
+                    fprintf(stderr, "Error: You should never see this error! (C)\n");
+                    exit(EXIT_FAILURE);
+                }
             }
         }
         else if (bs_globals.store_frequency_flag) {
@@ -322,26 +355,153 @@ bs_decode_byte_to_double_custom(byte_t uc, double min, double max)
 }
 
 /**
- * @brief      bs_parse_query_str(l)
+ * @brief      bs_parse_query_range_str(l, rs, start, end)
+ *
+ * @details    Parses range-query string, performs some validation, and
+ *             scans lookup table for start and end indices for matching
+ *             rows.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             rs     (char*) range string
+ *             start  (uint32_t*) start index to be populated
+ *             end    (uint32_t*) end index to be populated
+ *
+ * @return     (boolean_t) whether rows were found in provided range
+ */
+
+boolean_t
+bs_parse_query_range_str(lookup_t* l, char* rs, uint32_t* start, uint32_t* end)
+{
+    if (!rs) {
+        fprintf(stderr, "Error: Range string is empty and cannot be parsed into components!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* 
+       range string format:
+       --------------------------------------
+       chrA:coordA-chrB:coordB
+    */
+
+    ssize_t rs_len = strlen(rs);
+    char *rs_substr_start = rs;
+    char buf[QUERY_MAX_LEN] = {0};    
+    char chrA[QUERY_MAX_LEN] = {0};
+    char chrB[QUERY_MAX_LEN] = {0};
+    uint64_t coordA = 0;
+    uint64_t coordB = 0;
+    char* rs_delim = NULL;
+    ssize_t substr_len;
+    ssize_t cumulative_len = 0;
+
+    /* chrA */
+    rs_delim = strchr(rs_substr_start, kQueryRangeWithinDelim);
+    substr_len = rs_delim - rs_substr_start;
+    if ((!rs_delim) || (substr_len < 0) || (substr_len >= QUERY_MAX_LEN)) {
+        fprintf(stderr, "Error: Query range string not formatted correctly? (A)\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    memcpy(buf, rs_substr_start, substr_len);
+    buf[substr_len] = '\0';
+    cumulative_len += substr_len;
+    strcpy(chrA, buf);
+    rs_substr_start = rs_delim + 1;
+
+    /* coordA */
+    rs_delim = strchr(rs_substr_start, kQueryRangeBetweenDelim);
+    substr_len = rs_delim - rs_substr_start;
+    if ((!rs_delim) || (substr_len < 0) || (substr_len >= QUERY_MAX_LEN)) {
+        fprintf(stderr, "Error: Query range string not formatted correctly? (B)\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    memcpy(buf, rs_substr_start, substr_len);
+    buf[substr_len] = '\0';
+    cumulative_len += substr_len;    
+    sscanf(buf, "%" SCNu64, &coordA);
+    rs_substr_start = rs_delim + 1;
+
+    /* chrB */
+    rs_delim = strchr(rs_substr_start, kQueryRangeWithinDelim);
+    substr_len = rs_delim - rs_substr_start;
+    if ((!rs_delim) || (substr_len < 0) || (substr_len >= QUERY_MAX_LEN)) {
+        fprintf(stderr, "Error: Query range string not formatted correctly? (C)\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    memcpy(buf, rs_substr_start, substr_len);
+    buf[substr_len] = '\0';
+    cumulative_len += substr_len;    
+    strcpy(chrB, buf);
+    rs_substr_start = rs_delim + 1;
+
+    /* coordB */
+    memcpy(buf, rs_substr_start, rs_len - cumulative_len);
+    buf[rs_len - cumulative_len] = '\0';    
+    sscanf(buf, "%" SCNu64, &coordB);
+
+    if ((strcmp(chrA, chrB) > 0) || (strcmp(chrA, chrB) && (coordA > coordB))) {
+        fprintf(stderr, "Error: Query bounds incorrect!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* iterate through lookup table's elements to find start index */
+    element_t* elem = NULL;
+    uint32_t start_elem_idx;
+    boolean_t start_set_flag = kFalse;
+    for (start_elem_idx = 0; start_elem_idx < l->nelems; start_elem_idx++) {
+        elem = l->elems[start_elem_idx];
+        if (strcmp(elem->chr, chrA) < 0) {
+            continue;
+        }
+        else if ((strcmp(elem->chr, chrA) == 0) && (elem->start > coordA)) {
+            *start = start_elem_idx;
+            start_set_flag = kTrue;
+            break;
+        }
+        else if (strcmp(elem->chr, chrA) > 0) {
+            break;
+        }        
+    }
+    *end = *start;
+    uint32_t end_elem_idx;
+    for (end_elem_idx = start_elem_idx + 1; end_elem_idx < l->nelems; end_elem_idx++) {
+        elem = l->elems[end_elem_idx];
+        if (strcmp(elem->chr, chrB) < 0) {
+            *end = end_elem_idx;
+        }
+        else if ((strcmp(elem->chr, chrB) == 0) && (elem->stop < coordB)) {
+            *end = end_elem_idx;
+        }
+        else if (strcmp(elem->chr, chrB) > 0) {
+            continue;
+        }        
+    }
+
+    return start_set_flag;
+}
+
+/**
+ * @brief      bs_parse_query_index_str(l)
  *
  * @details    Parses index-query string and performs some validation
  *
  * @param      l      (lookup_t*) pointer to lookup table
+ *
+ * @return     (boolean_t) if rows are found or not
  */
 
-void
-bs_parse_query_str(lookup_t* l)
+boolean_t
+bs_parse_query_index_str(lookup_t* l)
 {
     /* parse query string for index values */
     bs_parse_query_str_to_indices(bs_globals.store_query_str, 
                                   &bs_globals.store_query_idx_start, 
                                   &bs_globals.store_query_idx_end);
     
-    if (((bs_globals.store_query_idx_start + 1) > l->nelems) || ((bs_globals.store_query_idx_end + 1) > l->nelems)) {
-        fprintf(stderr, "Error: Index range outside of number of elements in lookup table!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
+    return (((bs_globals.store_query_idx_start + 1) > l->nelems) || ((bs_globals.store_query_idx_end + 1) > l->nelems)) ? kFalse : kTrue;        
 }
 
 /**
@@ -360,7 +520,7 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
     ssize_t qs_len = strlen(qs);
     char start_str[QUERY_MAX_LEN] = {0};
     char end_str[QUERY_MAX_LEN] = {0};
-    char* qs_delim = strchr(qs, kQueryDelim);
+    char* qs_delim = strchr(qs, kQueryIndexDelim);
     ssize_t start_len = qs_delim - qs;
     ssize_t end_len = qs_len - start_len;
 
@@ -370,7 +530,7 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
         (end_len < 0) || 
         (end_len >= QUERY_MAX_LEN)) 
         {
-            fprintf(stderr, "Error: Index query string not formatted correctly?\n");
+            fprintf(stderr, "Error: Query index string not formatted correctly?\n");
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
         }
@@ -380,6 +540,55 @@ bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* end)
     
     *start = (uint32_t) strtol(start_str, NULL, 10);
     *end = (uint32_t) strtol(end_str, NULL, 10);
+}
+
+/**
+ * @brief      bs_init_bed(chr, start, end)
+ *
+ * @details    Read BED components into a bed_t pointer, allocating
+ *             memory as required.
+ *
+ * @param      chr    (char*) nul-terminated chromosome string
+ *             start  (uint64_t) start coordinate of BED element
+ *             end    (uint64_t) end coordinate of BED element
+ *
+ * @return     (bed_t*) BED element pointer
+ */
+
+bed_t*
+bs_init_bed(const char* chr, uint64_t start, uint64_t end)
+{
+    bed_t* bp = NULL;
+    bp = malloc(sizeof(bed_t));
+    if (!bp) {
+        fprintf(stderr, "Error: Could not allocate space for bed_t pointer!\n");
+        exit(EXIT_FAILURE);
+    }
+    bp->chromosome = NULL;
+    bp->chromosome = malloc(strlen(chr) + 1);
+    if (!bp->chromosome) {
+        fprintf(stderr, "Error: Could not allocate space for bed_t pointer chromosome member!\n");
+        exit(EXIT_FAILURE);
+    }
+    memcpy(bp->chromosome, chr, strlen(chr) + 1);
+    bp->start = start;
+    bp->end = end;
+    return bp;
+}
+
+/**
+ * @brief      bs_delete_bed(b)
+ *
+ * @details    Release memory used by bed_t* pointer.
+ *
+ * @param      b      (bed_t**) pointer to BED element pointer
+ */
+
+void
+bs_delete_bed(bed_t** b)
+{
+    free((*b)->chromosome), (*b)->chromosome = NULL;
+    free(*b), *b = NULL;
 }
 
 /**
@@ -1078,9 +1287,12 @@ bs_init_globals()
 {
     bs_globals.store_create_flag = kFalse;
     bs_globals.store_query_flag = kFalse;
+    bs_globals.store_query_kind = kQueryKindDefaultKind;
     bs_globals.store_query_str[0] = '\0';
-    bs_globals.store_query_idx_start = 0;
-    bs_globals.store_query_idx_end = 0;
+    bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
+    bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
+    bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
+    bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_compression_row_chunk_size = kCompressionRowChunkDefaultSize;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.rng_seed_flag = kFalse;
@@ -1098,6 +1310,19 @@ bs_init_globals()
     bs_globals.permutation_precision = kPermutationTestDefaultPrecision;
     bs_globals.permutation_alpha = kPermutationTestDefaultAlpha;
     bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
+}
+
+/**
+ * @brief      bs_delete_globals()
+ *
+ * @details    Release application global variables from heap.
+ */
+
+void
+bs_delete_globals()
+{
+    bs_delete_bed(&bs_globals.store_query_range_start);
+    bs_delete_bed(&bs_globals.store_query_range_end);
 }
 
 /**
@@ -1160,8 +1385,14 @@ bs_init_command_line_options(int argc, char** argv)
             bs_output_flag_counter++;
             break;
         case 'i':
+            bs_globals.store_query_kind = kQueryKindIndex;
             memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
             break;
+        case 'g':
+            bs_globals.store_query_kind = kQueryKindRange;            
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
+            
+            break;            
         case 'l':
             memcpy(bs_globals.lookup_fn, optarg, strlen(optarg) + 1);
             if (!bs_path_exists(bs_globals.lookup_fn)) {
@@ -1284,7 +1515,7 @@ bs_print_usage(FILE* os)
             "   Create data store:\n\n" \
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn --index-query=str\n\n" \
+            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --range-query=str ]\n\n" \
             "   Bin-frequency on data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency and permutation testing  on lookup table:\n\n" \

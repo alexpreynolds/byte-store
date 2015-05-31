@@ -24,7 +24,7 @@ extern "C" {
 
 #define BUF_MAX_LEN 4096
 #define FN_MAX_LEN 1024
-#define QUERY_MAX_LEN 40
+#define QUERY_MAX_LEN 128
 #define ENTRY_MAX_LEN 20
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
@@ -65,8 +65,14 @@ extern "C" {
     extern const double kNoCorrelationScore;
     const double kNoCorrelationScore = +0.0f;
     
-    extern const int kQueryDelim;
-    const int kQueryDelim = (int) '-';
+    extern const int kQueryIndexDelim;
+    const int kQueryIndexDelim = (int) '-';
+
+    extern const int kQueryRangeBetweenDelim;
+    const int kQueryRangeBetweenDelim = (int) '-';
+
+    extern const int kQueryRangeWithinDelim;
+    const int kQueryRangeWithinDelim = (int) ':';
     
     extern const int kSignalDelim;
     const int kSignalDelim = (int) ',';
@@ -199,14 +205,45 @@ extern "C" {
         size_t block_row_size;
         double version;
     } metadata_t;
+
+    extern const uint32_t kQueryIndexDefaultStart;
+    extern const uint32_t kQueryIndexDefaultEnd;
+    extern const char* kQueryRangeDefaultChromosome;
+    extern const uint64_t kQueryRangeDefaultStart;
+    extern const uint64_t kQueryRangeDefaultEnd;
     
+    const uint32_t kQueryIndexDefaultStart = 0;
+    const uint32_t kQueryIndexDefaultEnd = 0;
+    const char* kQueryRangeDefaultChromosome = "chrXYZ";    
+    const uint64_t kQueryRangeDefaultStart = 0;
+    const uint64_t kQueryRangeDefaultEnd = 0;
+    
+    typedef struct bed {
+        char* chromosome;
+        uint64_t start;
+        uint64_t end;
+    } bed_t;
+
+    typedef enum query_kind {
+        kQueryKindIndex,
+        kQueryKindRange,
+        kQueryKindUndefined
+    } query_kind_t;
+
+    extern const query_kind_t kQueryKindDefaultKind;
+
+    const query_kind_t kQueryKindDefaultKind = kQueryKindUndefined;    
+
     static struct bs_globals_t {
         boolean_t store_create_flag;
         boolean_t store_query_flag;
         boolean_t store_frequency_flag;
+        query_kind_t store_query_kind;
         char store_query_str[QUERY_MAX_LEN];
         uint32_t store_query_idx_start;
         uint32_t store_query_idx_end;
+        bed_t* store_query_range_start;
+        bed_t* store_query_range_end;
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -234,6 +271,7 @@ extern "C" {
         { "store-frequency",                  no_argument,       NULL, 'f' },
         { "store-compression-row-chunk-size", required_argument, NULL, 'r' },
         { "index-query",                      required_argument, NULL, 'i' },
+        { "range-query",                      required_argument, NULL, 'g' },
         { "lookup",                           required_argument, NULL, 'l' },
         { "store",                            required_argument, NULL, 's' },
         { "encoding-strategy",                required_argument, NULL, 'e' },
@@ -251,7 +289,7 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char *bs_client_opt_string = "t:cqfr:i:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char *bs_client_opt_string = "t:cqfr:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
     static const char *bs_name = "byte-store";
     
@@ -342,8 +380,11 @@ extern "C" {
     static inline double         bs_decode_byte_to_double(byte_t uc);
     static inline double         bs_decode_byte_to_double_mqz(byte_t uc);
     static inline double         bs_decode_byte_to_double_custom(byte_t uc, double min, double max);
-    void                         bs_parse_query_str(lookup_t* l);
+    boolean_t                    bs_parse_query_range_str(lookup_t* l, char* rs, uint32_t* start, uint32_t* end);
+    boolean_t                    bs_parse_query_index_str(lookup_t* l);
     void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
+    bed_t*                       bs_init_bed(const char* chr, uint64_t start, uint64_t end);
+    void                         bs_delete_bed(bed_t** b);
     lookup_t*                    bs_init_lookup(char* fn, boolean_t pi);
     void                         bs_permute_lookup(lookup_t *l, FILE* os);
     void                         bs_shuffle_signal_data(double* d, size_t n);
@@ -363,6 +404,7 @@ extern "C" {
     void                         bs_test_pearsons_r();
     void                         bs_test_score_encoding();
     void                         bs_init_globals();
+    void                         bs_delete_globals();
     void                         bs_init_command_line_options(int argc, char** argv);
     void                         bs_print_usage(FILE* os);
     inline boolean_t             bs_path_exists(const char* p);
