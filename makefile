@@ -71,8 +71,8 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
 	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
-	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
-	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
+	$(TESTDIR)/accumulate_creation_times_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
+	$(TESTDIR)/accumulate_query_times_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
 	cat $(SAMPLEDIR)/*.create_times > $(SAMPLEDIR)/create_times.txt
 	cat $(SAMPLEDIR)/*.query_all_times > $(SAMPLEDIR)/query_all_times.txt
 	cat $(SAMPLEDIR)/*.compression_ratios > $(SAMPLEDIR)/compression_ratios.txt
@@ -82,8 +82,8 @@ test-sample-graphs: test-sample-graphs-timing test-sample-graphs-compression tes
 	mv $(SAMPLEDIR)/*.pdf $(PDFDIR)
 
 test-sample-graphs-timing:
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Avg. creation rate (sec/element)"
-	$(TESTDIR)/graph_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Avg. query rate (sec/element)"
+	$(TESTDIR)/graph_create_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Avg. creation rate (sec/element)"
+	$(TESTDIR)/graph_query_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Avg. query rate (sec/element/byte)"
 
 test-sample-graphs-compression:
 	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"

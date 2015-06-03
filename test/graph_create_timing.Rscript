@@ -57,7 +57,7 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
     return(datac)
 }
 
-input <- read.table(opt$inFn, col.names=c("type", "elements", "trial", "strategy", "time"), colClasses=c("character", "numeric", "numeric", "factor", "numeric"))
+input <- read.table(opt$inFn, col.names=c("type", "elements", "trial", "strategy", "filesize", "time"), colClasses=c("character", "numeric", "numeric", "factor", "numeric", "numeric"))
 time_per_element <- input$time/input$elements
 input <- cbind(input, time_per_element)
 
