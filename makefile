@@ -7,8 +7,8 @@ LIBS        = -lm -lbz2
 SAMPLE     := $(shell `which sample` --help 2> /dev/null)
 TESTDIR     = $(PWD)/test
 PDFDIR      = $(TESTDIR)/pdf
-#SAMPLEDIR   = /Volumes/Data/byte-store
-SAMPLEDIR   = /tmp/byte-store
+SAMPLEDIR   = /Volumes/Data/byte-store
+#SAMPLEDIR   = /tmp/byte-store
 UNAME      := $(shell uname -s)
 INCLUDES    = /usr/include
 
@@ -81,9 +81,17 @@ test-sample-graphs: test-sample-graphs-timing test-sample-graphs-compression tes
 	mkdir -p $(PDFDIR)
 	mv $(SAMPLEDIR)/*.pdf $(PDFDIR)
 
-test-sample-graphs-timing:
+test-sample-graphs-timing: test-sample-graphs-creation-timing test-sample-graphs-query-timing
+
+test-sample-graphs-creation-timing:
 	$(TESTDIR)/graph_create_timing.Rscript -i $(SAMPLEDIR)/create_times.txt -o $(SAMPLEDIR)/create_times -t "Store creation cost" -y "Avg. creation rate (sec/element)"
-	$(TESTDIR)/graph_query_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Avg. query rate (sec/element/byte)"
+
+test-sample-graphs-query-timing:
+	$(TESTDIR)/graph_query_timing.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times -t "Store query cost" -y "Avg. query rate (sec/element)"
+	$(TESTDIR)/graph_query_timing_pb.Rscript -i $(SAMPLEDIR)/query_all_times.txt -o $(SAMPLEDIR)/query_all_times_pb -t "Store query cost" -y "Avg. query rate (sec/element/byte)"
+	grep -v "pearson-r-sut" $(SAMPLEDIR)/query_all_times.txt > $(SAMPLEDIR)/query_no_sut_times.txt
+	$(TESTDIR)/graph_query_timing.Rscript -i $(SAMPLEDIR)/query_no_sut_times.txt -o $(SAMPLEDIR)/query_no_sut_times -t "Store query cost" -y "Avg. query rate (sec/element)"
+	$(TESTDIR)/graph_query_timing_pb.Rscript -i $(SAMPLEDIR)/query_no_sut_times.txt -o $(SAMPLEDIR)/query_no_sut_times_pb -t "Store query cost" -y "Avg. query rate (sec/element/byte)"
 
 test-sample-graphs-compression:
 	$(TESTDIR)/graph_compression.Rscript -i $(SAMPLEDIR)/compression_ratios.txt -o $(SAMPLEDIR)/compression_ratios -t "Store compression efficiency" -y "Compression ratio"
@@ -201,6 +209,7 @@ clean:
 	rm -rf *~
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
+	rm -rf $(TESTDIR)/*.bs.blocks
 	rm -rf $(TESTDIR)/*.cbs
 	rm -rf $(TESTDIR)/*.cbs.blocks
 	rm -rf $(PDFDIR)

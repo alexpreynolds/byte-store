@@ -3,6 +3,8 @@
 tests=($(seq 1 3))
 sizes=(562 1000 1779 3162 5623 10000);
 
+echo "-> Generating samples..."
+
 for size in "${sizes[@]}"
 do
     for test_idx in "${tests[@]}"

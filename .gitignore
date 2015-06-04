@@ -39,3 +39,7 @@
 
 # Binary files
 *.pdf
+
+# Intermediate files
+sample_bs_input.bed
+sample_bs_input.starch

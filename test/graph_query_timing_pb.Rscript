@@ -58,7 +58,7 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
 }
 
 input <- read.table(opt$inFn, col.names=c("type", "elements", "trial", "strategy", "filesize", "time"), colClasses=c("character", "numeric", "numeric", "factor", "numeric", "numeric"))
-time_per_element <- input$time/(input$elements)
+time_per_element <- input$time/(input$elements*input$filesize)
 input <- cbind(input, time_per_element)
 
 # cf. http://www.cookbook-r.com/Graphs/Plotting_means_and_error_bars_(ggplot2)/#Helper functions

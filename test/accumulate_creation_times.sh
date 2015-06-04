@@ -4,6 +4,8 @@ tests=($(seq 1 3))
 sizes=(562 1000 1779 3162 5623 10000);
 strategies=("full" "mid-quarter-zero" "custom")
 
+echo "-> Accumulating creation times... ($1)"
+
 for size in "${sizes[@]}"
 do
     rm -f $2/sample.${size}.$1.create_times

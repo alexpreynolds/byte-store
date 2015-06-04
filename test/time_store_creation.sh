@@ -6,6 +6,8 @@ strategies=("full" "mid-quarter-zero" "custom")
 cutoff_min=-0.5
 cutoff_max=+0.5
 
+echo "-> Timing store creation... ($1)"
+
 for size in "${sizes[@]}"
 do
     for test_idx in "${tests[@]}"

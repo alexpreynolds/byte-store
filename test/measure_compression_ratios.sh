@@ -5,6 +5,8 @@ sizes=(562 1000 1779 3162 5623 10000);
 compr=("bzip2" "gzip")
 strategies=("full" "mid-quarter-zero" "custom")
 
+echo "-> Measuring compression ratios... ($1)"
+
 for size in "${sizes[@]}"
 do
     rm -rf $2/sample.${size}.*.$1.bs.compression_ratios
