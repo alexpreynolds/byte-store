@@ -1,16 +1,17 @@
-SHELL      := /bin/bash
-PWD        := $(shell pwd)
-BLDFLAGS    = -Wall -Wextra -pedantic -std=c99
-CFLAGS      = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-LIBS        = -lm -lbz2
-.PHONY      = test
-SAMPLE     := $(shell `which sample` --help 2> /dev/null)
-TESTDIR     = $(PWD)/test
-PDFDIR      = $(TESTDIR)/pdf
-SAMPLEDIR   = /Volumes/Data/byte-store
-#SAMPLEDIR   = /tmp/byte-store
-UNAME      := $(shell uname -s)
-INCLUDES    = /usr/include
+SHELL       := /bin/bash
+PWD         := $(shell pwd)
+BLDFLAGS     = -Wall -Wextra -pedantic -std=c99
+CFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+LIBS         = -lm -lbz2
+.PHONY       = test
+SAMPLE      := $(shell `which sample` --help 2> /dev/null)
+TESTDIR      = $(PWD)/test
+PDFDIR       = $(TESTDIR)/pdf
+SAMPLEDIR    = /Volumes/Data/byte-store
+#SAMPLEDIR    = /tmp/byte-store
+UNAME       := $(shell uname -s)
+INCLUDES     = /usr/include
+AWK_VERSION := $(shell awk --version | grep "GNU Awk")
 
 ifeq ($(UNAME),Darwin)
 	CC = clang
@@ -35,6 +36,9 @@ byte-store:
 # -----------------
 
 test-sample:
+ifndef AWK_VERSION
+	@$(error GNU 'awk' not found -- please install GNU awk!)
+endif
 ifdef SAMPLE
 	$(MAKE) test-sample-performance
 	$(MAKE) test-sample-graphs
@@ -48,9 +52,15 @@ test/sample_bs_input.starch:
 test/sample_bs_input.bed: test/sample_bs_input.starch
 	unstarch $^ > $@
 
-test-sample-performance: test/sample_bs_input.bed byte-store 
+test-sample-performance: test/sample_bs_input.bed byte-store test-sample-performance-prep test-sample-performance-generate-samples test-sample-performance-sut test-sample-performance-sqr test-sample-performance-sqr-bzip2 test-sample-performance-sqr-bzip2-split test-sample-performance-cat-data
+
+test-sample-performance-prep: 
 	mkdir -p $(SAMPLEDIR)
+
+test-sample-performance-generate-samples:
 	$(TESTDIR)/generate_samples.sh test/sample_bs_input.bed $(SAMPLEDIR)
+
+test-sample-performance-sut:
 	$(TESTDIR)/time_store_creation.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all_sut.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/compress_store.sh pearson-r-sut $(SAMPLEDIR)
@@ -58,6 +68,8 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/measure_frequency.sh pearson-r-sut $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sut $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sut $(SAMPLEDIR)
+
+test-sample-performance-sqr:
 	$(TESTDIR)/time_store_creation.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/compress_store.sh pearson-r-sqr $(SAMPLEDIR)
@@ -65,14 +77,20 @@ test-sample-performance: test/sample_bs_input.bed byte-store
 	$(TESTDIR)/measure_frequency.sh pearson-r-sqr $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr $(SAMPLEDIR)
+
+test-sample-performance-sqr-bzip2:
 	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all_compressed.sh pearson-r-sqr-bzip2 $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times.sh pearson-r-sqr-bzip2 $(SAMPLEDIR)
+
+test-sample-performance-sqr-bzip2-split:
 	$(TESTDIR)/time_store_creation_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/time_store_query_all_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR) $(PWD)/byte-store
 	$(TESTDIR)/accumulate_creation_times_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
 	$(TESTDIR)/accumulate_query_times_compressed.sh pearson-r-sqr-bzip2-split $(SAMPLEDIR)
+
+test-sample-performance-cat-data:
 	cat $(SAMPLEDIR)/*.create_times > $(SAMPLEDIR)/create_times.txt
 	cat $(SAMPLEDIR)/*.query_all_times > $(SAMPLEDIR)/query_all_times.txt
 	cat $(SAMPLEDIR)/*.compression_ratios > $(SAMPLEDIR)/compression_ratios.txt

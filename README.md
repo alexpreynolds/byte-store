@@ -62,7 +62,7 @@ To evaluate the potential longer-term archival of a SUT or square-matrix byte-st
 
 ## Results
 
-Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3 external hard drive (7200 RPM) attached to a MacBook Pro (2.8 GHz Intel Core i5, 8 GB RAM) over a USB 2 connection (local test results can be written to an alternative destination by overriding the `SAMPLEDIR` variable setting in the `makefile`).
+Intermediate test files are written to a 3 TB LaCie d2 Quadra USB3/FW800 external hard drive (7200 RPM) attached to a Mac mini (2.3 GHz Intel Core i5, 16 GB RAM) over a FireWire 800 connection (local test results can be written to an alternative destination by overriding the `SAMPLEDIR` variable setting in the `makefile`).
 
 ### Creation
 
@@ -76,9 +76,17 @@ Compression of a square byte store with `bzip2` (either as a monolithic file or 
 
 Querying elements from an uncompressed, "raw" SUT byte store very quickly gets slower (more "expensive" per element) than lookups to a raw or compressed square-matrix store, as the number of elements increases.
 
-Query times are virtually identical for all three encoding strategies, and there is little practical difference between average retrieval times for raw and `bzip2`-compressed square matrices.
+Query times are virtually identical for all three encoding strategies:
 
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+
+Further, there is little practical difference between average retrieval times for single-file raw and `bzip2`-compressed square matrices. Relative query times rise for "split" compression, where the archive is broken into 512-row chunk files:
+
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>
+
+If we normalize by the filesizes of the respective encoding types, querying has a relatively similar per-byte cost:
+
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>
 
 ### Compression
 

@@ -5,7 +5,6 @@ sizes=(562 1000 1779 3162 5623 10000)
 strategies=("full" "mid-quarter-zero" "custom")
 cutoff_min=-0.5
 cutoff_max=+0.5
-custom="custom"
 
 echo "-> Time store creation compressed... ($1)"
 
@@ -17,7 +16,7 @@ do
         do
             echo "create store ${size}-${test_idx}-${strategy} $1"
             bs_cmd="$3 -t $1 -c -l $2/sample.${size}.${test_idx}.bed -s $2/sample.${size}.${test_idx}.${strategy}.$1.bs -e ${strategy} -r 512"
-            if [[ "${strategy}" == "${custom}" ]]
+            if [[ "${strategy}" == "custom" ]]
             then
                 bs_cmd="$bs_cmd --encoding-cutoff-zero-min ${cutoff_min} --encoding-cutoff-zero-max ${cutoff_max}"
             fi
