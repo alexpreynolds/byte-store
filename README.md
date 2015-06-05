@@ -70,7 +70,11 @@ An uncompressed, "raw" SUT byte store takes less average time per element to mak
 
 Compression of a square byte store with `bzip2` (either as a monolithic file or a series of "split" per-block files) writes fewer bytes as the encoding strategy goes from "full" to "m.q.z." to "custom". This is because the "custom" strategy pushes more score values to zeroes, which increases redundancy and improves compression efficiency (with the tradeoff of lost information). The average per-element creation time for a compressed archive is lower than for the raw (uncompressed) store types, which suggests that much of the cost of store creation is in file I/O (under the listed test conditions).
 
+---
+
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
+
+---
 
 ### Querying
 
@@ -78,15 +82,27 @@ Querying elements from an uncompressed, "raw" SUT byte store very quickly gets s
 
 Query times are virtually identical for all three encoding strategies:
 
+---
+
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+
+---
 
 Further, there is little practical difference between average retrieval times for single-file raw and `bzip2`-compressed square matrices. Relative query times rise for "split" compression, where the archive is broken into 512-row chunk files:
 
+---
+
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>
+
+---
 
 If we normalize by the filesizes of the respective encoding types, querying has a relatively similar per-byte cost:
 
+---
+
 <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>
+
+---
 
 ### Compression
 
