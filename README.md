@@ -72,7 +72,11 @@ Compression of a square byte store with `bzip2` (either as a monolithic file or 
 
 ---
 
-> <a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>__ 
+<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_creation_rate.png" align="left" width="640" ></a>
+
+&nbsp;
+&nbsp;
+&nbsp;
 
 ---
 
@@ -84,7 +88,11 @@ Query times are virtually identical for all three encoding strategies:
 
 ---
 
-> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>__ 
+> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+
+&nbsp;
+&nbsp;
+&nbsp;
 
 ---
 
@@ -92,7 +100,11 @@ Further, there is little practical difference between average retrieval times fo
 
 ---
 
-> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>__ 
+> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>
+
+&nbsp;
+&nbsp;
+&nbsp;
 
 ---
 
@@ -100,7 +112,11 @@ If we normalize by the filesizes of the respective encoding types, querying has 
 
 ---
 
-> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>__ 
+> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>
+
+&nbsp;
+&nbsp;
+&nbsp;
 
 ---
 
@@ -110,4 +126,8 @@ For the "full" encoding strategy, compressing a raw SUT or square-matrix byte-st
 
 ---
 
-> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>__ 
+> <a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
+
+&nbsp;
+&nbsp;
+&nbsp;
