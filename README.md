@@ -84,7 +84,7 @@ Query times are virtually identical for all three encoding strategies:
 
 ---
 
-<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
+<a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate.png" align="left" width="640" ></a>
 
 ---
 
@@ -92,7 +92,7 @@ Further, there is little practical difference between average retrieval times fo
 
 ---
 
-<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>
+<a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_no_sut.png" align="left" width="640" ></a>
 
 ---
 
@@ -100,7 +100,7 @@ If we normalize by the filesizes of the respective encoding types, querying has 
 
 ---
 
-<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>
+<a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.store_query_rate_per_byte.png" align="left" width="640" ></a>
 
 ---
 
@@ -108,4 +108,6 @@ If we normalize by the filesizes of the respective encoding types, querying has 
 
 For the "full" encoding strategy, compressing a raw SUT or square-matrix byte-store with `gzip` (default parameters) gives better results than `bzip2` (default parameters). Byte-stores of typical encoded scores can be compressed down to roughly 76-80% of the original size. However, use of the "mid-quarter-zero" encoding strategy improves the compression efficiency to ~20%, with `bzip2` offering more optimal results. The "custom" strategy more broadly encodes correlation values of (-0.50, +0.50) to 0, leading to a compression efficiency of ~4% when used with `bzip2` routines.
 
-<a href="url"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
+---
+
+<a href="url" style="width:100%;"><img src="https://dl.dropboxusercontent.com/u/31495717/byte-store-test.compression_efficiency.png" align="left" width="640" ></a>
