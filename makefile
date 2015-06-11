@@ -119,6 +119,21 @@ test-sample-graphs-frequencies:
 	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
 
 # -------------
+# Special tests
+# -------------
+
+test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create
+
+test-pearsonr-sqr-bzip2-1M-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
+	sample -k 1000000 --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
+
+test-pearsonr-sqr-bzip2-1M-create: byte-store test-pearsonr-sqr-bzip2-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.cbs -r 512
+
+test-pearsonr-sqr-bzip2-1M-query: 
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.cbs -i 0-0
+
+# -------------
 # General tests
 # -------------
 

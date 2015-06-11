@@ -3002,9 +3002,9 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         query_end -= md->block_row_size;
     }
 
-    /* block buffer */
+    /* byte buffer */
     byte_t* byte_buf = NULL;
-    ssize_t n_byte_buf = md->block_row_size * l->nelems;
+    ssize_t n_byte_buf = l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -3031,30 +3031,28 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             exit(EXIT_FAILURE);
         }
 
-        /* read a block of rows (or as much as possible, from a partial block) */
-        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-        switch (bzf_error) {
-        case BZ_OK:
-        case BZ_STREAM_END:
-            break;
-        case BZ_PARAM_ERROR:
-        case BZ_SEQUENCE_ERROR:
-        case BZ_IO_ERROR:
-        case BZ_UNEXPECTED_EOF:
-        case BZ_DATA_ERROR:
-        case BZ_DATA_ERROR_MAGIC:
-        case BZ_MEM_ERROR:
-            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-            exit(EXIT_FAILURE);                
-        }
-        
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
 
         do {
-            uint32_t within_block_row_idx = row_idx % md->block_row_size;
+	    /* read one row -- can require streaming through entire block to get elements at the end of a block! */
+	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+	    switch (bzf_error) {
+	    case BZ_OK:
+	    case BZ_STREAM_END:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_UNEXPECTED_EOF:
+	    case BZ_DATA_ERROR:
+	    case BZ_DATA_ERROR_MAGIC:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+		exit(EXIT_FAILURE);                
+	    }
+	    
             do {
-                uint32_t within_block_col_idx = col_idx % l->nelems + within_block_row_idx * l->nelems;
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     fprintf(os, 
                             "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
@@ -3064,15 +3062,16 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[within_block_col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[within_block_col_idx]) :
-                            bs_decode_byte_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
             col_idx = 0;
             row_idx++;
+	    
         } while (row_idx <= end_row_idx);
         
         BZ2_bzReadClose(&bzf_error, bzf);
@@ -3123,7 +3122,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    ssize_t md_fn_size = bs_file_size(s->attr->fn);
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
     FILE *is = NULL;
     is = fopen(md_src_fn, "rb");
     if (ferror(is)) {
@@ -3134,7 +3133,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
     char md_length[MD_OFFSET_MAX_LEN] = {0};
     if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
-        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
         exit(EXIT_FAILURE);
     }
     uint32_t md_string_length = 0;
@@ -3173,9 +3172,9 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         query_end -= md->block_row_size;
     }
     
-    /* allocate block buffer */
+    /* allocate byte buffer */
     byte_t* byte_buf = NULL;
-    ssize_t n_byte_buf = md->block_row_size * l->nelems;
+    ssize_t n_byte_buf = l->nelems;
     byte_buf = malloc(n_byte_buf);
     if (!byte_buf) {
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
@@ -3207,31 +3206,28 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             exit(EXIT_FAILURE);
         }
 
-        /* read in full or partial block */
-        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-        switch (bzf_error) {
-        case BZ_OK:
-        case BZ_STREAM_END:
-            break;
-        case BZ_PARAM_ERROR:
-        case BZ_SEQUENCE_ERROR:
-        case BZ_IO_ERROR:
-        case BZ_UNEXPECTED_EOF:
-        case BZ_DATA_ERROR:
-        case BZ_DATA_ERROR_MAGIC:
-        case BZ_MEM_ERROR:
-            fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-            exit(EXIT_FAILURE);                
-        }
-
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
         ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
         do {
-            uint32_t within_block_row_idx = row_idx % md->block_row_size;
+	    /* read in row */
+	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+	    switch (bzf_error) {
+	    case BZ_OK:
+	    case BZ_STREAM_END:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_UNEXPECTED_EOF:
+	    case BZ_DATA_ERROR:
+	    case BZ_DATA_ERROR_MAGIC:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+		exit(EXIT_FAILURE);                
+	    }
             do {
-                uint32_t within_block_col_idx = col_idx % l->nelems + within_block_row_idx * l->nelems;
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     fprintf(os, 
                             "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
@@ -3241,9 +3237,9 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                             l->elems[col_idx]->chr,
                             l->elems[col_idx]->start,
                             l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[within_block_col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[within_block_col_idx]) :
-                            bs_decode_byte_to_double_custom(byte_buf[within_block_col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                             );
                 }
                 col_idx++;
