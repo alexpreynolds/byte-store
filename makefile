@@ -122,16 +122,33 @@ test-sample-graphs-frequencies:
 # Special tests
 # -------------
 
-test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create
+test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create-bs512
 
 test-pearsonr-sqr-bzip2-1M-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
-	sample -k 1000000 --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
+#	sample -k 1000000 --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
 
-test-pearsonr-sqr-bzip2-1M-create: byte-store test-pearsonr-sqr-bzip2-1M-prep
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.cbs -r 512
+test-pearsonr-sqr-bzip2-1M-create-bs512: byte-store test-pearsonr-sqr-bzip2-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.cbs -r 512
 
-test-pearsonr-sqr-bzip2-1M-query: 
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.cbs -i 0-0
+test-pearsonr-sqr-bzip2-1M-query-bs512: 
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2 -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.cbs -i 0-0
+
+test-pearsonr-sqr-bzip2-split-1M: test-pearsonr-sqr-bzip2-split-1M-create-bs512 test-pearsonr-sqr-bzip2-split-1M-create-bs256
+
+test-pearsonr-sqr-bzip2-split-1M-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
+#	sample -k 1000000 --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
+
+test-pearsonr-sqr-bzip2-split-1M-create-bs512: byte-store test-pearsonr-sqr-bzip2-split-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs512.cbs -r 512
+
+test-pearsonr-sqr-bzip2-split-1M-query-bs512:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs512.cbs -i 0-0
+
+test-pearsonr-sqr-bzip2-split-1M-create-bs256: byte-store test-pearsonr-sqr-bzip2-split-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs256.cbs -r 256
+
+test-pearsonr-sqr-bzip2-split-1M-query-bs256:
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs256.cbs -i 0-0
 
 # -------------
 # General tests
@@ -248,4 +265,4 @@ clean:
 	rm -rf $(PDFDIR)
 	rm -rf test/sample_bs_input.starch
 	rm -rf test/sample_bs_input.bed
-	rm -rf $(SAMPLEDIR)
+#	rm -rf $(SAMPLEDIR)
