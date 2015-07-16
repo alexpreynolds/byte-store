@@ -101,7 +101,7 @@ extern "C" {
     typedef struct store_attr {
         uint32_t nelems;
         uint64_t nbytes;
-        char *fn;
+        char* fn;
     } store_attr_t;
     
     typedef struct sut_store {
@@ -114,12 +114,12 @@ extern "C" {
     
     typedef struct store_buf_node {
         byte_t data;
-        struct store_buf_node *next;
+        struct store_buf_node* next;
     } store_buf_node_t;
     
     typedef struct store_buf_row_node {
-        struct store_buf_node *head;
-        struct store_buf_node *tail;
+        struct store_buf_node* head;
+        struct store_buf_node* tail;
     } store_buf_row_node_t;
     
     typedef enum store_type {
@@ -289,9 +289,9 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char *bs_client_opt_string = "t:cqfr:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char* bs_client_opt_string = "t:cqfr:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
-    static const char *bs_name = "byte-store";
+    static const char* bs_name = "byte-store";
     
     /**
      * @brief      bs_encode_byte_to_double_table[]
