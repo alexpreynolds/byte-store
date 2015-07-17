@@ -232,7 +232,21 @@ extern "C" {
 
     extern const query_kind_t kQueryKindDefaultKind;
 
-    const query_kind_t kQueryKindDefaultKind = kQueryKindUndefined;    
+    const query_kind_t kQueryKindDefaultKind = kQueryKindUndefined;
+
+    typedef enum score_filter {
+        kScoreFilterNone,
+        kScoreFilterGtEq,
+        kScoreFilterGt,
+        kScoreFilterEq,
+        kScoreFilterLtEq,
+        kScoreFilterLt,
+        kScoreFilterUndefined
+    } score_filter_t;
+
+    extern const score_filter_t kScoreDefaultFilter;
+
+    const score_filter_t kScoreDefaultFilter = kScoreFilterNone;
 
     static struct bs_globals_t {
         boolean_t store_create_flag;
@@ -244,6 +258,8 @@ extern "C" {
         uint32_t store_query_idx_end;
         bed_t* store_query_range_start;
         bed_t* store_query_range_end;
+        score_filter_t store_filter;
+        double score_filter_cutoff;
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -270,6 +286,11 @@ extern "C" {
         { "store-query",                      no_argument,       NULL, 'q' },
         { "store-frequency",                  no_argument,       NULL, 'f' },
         { "store-compression-row-chunk-size", required_argument, NULL, 'r' },
+        { "score-filter-gteq",                required_argument, NULL, '2' },
+        { "score-filter-gt",                  required_argument, NULL, '3' },
+        { "score-filter-eq",                  required_argument, NULL, '4' },
+        { "score-filter-lteq",                required_argument, NULL, '5' },
+        { "score-filter-lt",                  required_argument, NULL, '6' },
         { "index-query",                      required_argument, NULL, 'i' },
         { "range-query",                      required_argument, NULL, 'g' },
         { "lookup",                           required_argument, NULL, 'l' },
@@ -289,7 +310,7 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char* bs_client_opt_string = "t:cqfr:2:3:4:5:6:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
     static const char* bs_name = "byte-store";
     
@@ -409,11 +430,13 @@ extern "C" {
     void                         bs_print_usage(FILE* os);
     inline boolean_t             bs_path_exists(const char* p);
     inline ssize_t               bs_file_size(const char* fn);
+    inline void                  bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, double score);
     sut_store_t*                 bs_init_sut_store(uint32_t n);
     void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
     void                         bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l);
     off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os);
+    void                         bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os);
     void                         bs_delete_sut_store(sut_store_t** s);
     sqr_store_t*                 bs_init_sqr_store(uint32_t n);
@@ -428,8 +451,11 @@ extern "C" {
     char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);

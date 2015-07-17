@@ -50,8 +50,10 @@ main(int argc, char** argv)
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
             }
-            if (rows_found)
+            if (rows_found && (bs_globals.store_filter == kScoreFilterNone))
                 bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
+            else if (rows_found)
+                bs_print_sut_filtered_store_to_bed7(lookup, sut_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
         }
         else if (bs_globals.store_frequency_flag) {
             bs_print_sut_frequency_to_txt(lookup, sut_store, stdout);
@@ -111,13 +113,22 @@ main(int argc, char** argv)
                 case kStoreRandomBufferedSquareMatrix:
                 case kStoreRandomSquareMatrix:
                 case kStorePearsonRSquareMatrix:
-                    bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+                    if (bs_globals.store_filter == kScoreFilterNone) 
+                        bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+                    else 
+                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixBzip2:
-                    bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                    if (bs_globals.store_filter == kScoreFilterNone)
+                        bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                    else
+                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
                     break;
-                case kStorePearsonRSquareMatrixBzip2Split:                
-                    bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
+                case kStorePearsonRSquareMatrixBzip2Split:
+                    if (bs_globals.store_filter == kScoreFilterNone)
+                        bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
+                    else
+                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
@@ -1295,6 +1306,7 @@ bs_init_globals()
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_compression_row_chunk_size = kCompressionRowChunkDefaultSize;
     bs_globals.store_compression_flag = kFalse;
+    bs_globals.store_filter = kScoreDefaultFilter;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
     bs_globals.lookup_fn[0] = '\0';
@@ -1347,10 +1359,16 @@ bs_init_command_line_options(int argc, char** argv)
     opterr = 0;
     int bs_output_flag_counter = 0;
     int bs_permutation_flag_counter = 0;
+    int bs_score_filter_counter = 0;
 
     while (bs_client_opt != -1) {
         switch (bs_client_opt) {
         case 't':
+            if (!optarg) {
+                fprintf(stderr, "Error: Store type parameter specified without type value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             memcpy(bs_globals.store_type_str, optarg, strlen(optarg) + 1);
             bs_globals.store_type =
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
@@ -1378,7 +1396,62 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'r':
             bs_globals.store_compression_flag = kTrue;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store chunk size parameter specified without chunk size value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%u", &bs_globals.store_compression_row_chunk_size);
+            break;
+        case '2':
+            bs_globals.store_filter = kScoreFilterGtEq;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
+            break;
+        case '3':
+            bs_globals.store_filter = kScoreFilterGt;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
+            break;
+        case '4':
+            bs_globals.store_filter = kScoreFilterEq;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
+            break;
+        case '5':
+            bs_globals.store_filter = kScoreFilterLtEq;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
+            break;
+        case '6':
+            bs_globals.store_filter = kScoreFilterLt;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
             break;
         case 'f':
             bs_globals.store_frequency_flag = kTrue;
@@ -1386,14 +1459,28 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'i':
             bs_globals.store_query_kind = kQueryKindIndex;
+            if (!optarg) {
+                fprintf(stderr, "Error: Index query parameter specified without index value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
             break;
         case 'g':
-            bs_globals.store_query_kind = kQueryKindRange;            
-            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
-            
+            bs_globals.store_query_kind = kQueryKindRange;
+            if (!optarg) {
+                fprintf(stderr, "Error: Range query parameter specified without range value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);            
             break;            
         case 'l':
+            if (!optarg) {
+                fprintf(stderr, "Error: Lookup file parameter specified without lookup filename value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             memcpy(bs_globals.lookup_fn, optarg, strlen(optarg) + 1);
             if (!bs_path_exists(bs_globals.lookup_fn)) {
                 fprintf(stderr, "Error: Lookup file [%s] does not exist!\n", bs_globals.lookup_fn);
@@ -1402,9 +1489,19 @@ bs_init_command_line_options(int argc, char** argv)
             }
             break;
         case 's':
+            if (!optarg) {
+                fprintf(stderr, "Error: Store file parameter specified without store filename value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             memcpy(bs_globals.store_fn, optarg, strlen(optarg) + 1);
             break;
         case 'e':
+            if (!optarg) {
+                fprintf(stderr, "Error: Encoding strategy parameter specified without strategy value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             memcpy(bs_globals.encoding_strategy_str, optarg, strlen(optarg) + 1);
             bs_globals.encoding_strategy = 
                 (strcmp(bs_globals.encoding_strategy_str, kEncodingStrategyFullStr) == 0) ? kEncodingStrategyFull :
@@ -1413,9 +1510,19 @@ bs_init_command_line_options(int argc, char** argv)
                 kEncodingStrategyUndefined;
             break;
         case 'n':
+            if (!optarg) {
+                fprintf(stderr, "Error: Encoding cutoff parameter specified without cutoff minimum value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_min);
             break;
         case 'x':
+            if (!optarg) {
+                fprintf(stderr, "Error: Encoding cutoff parameter specified without cutoff maximum value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_max);
             break;
         case 'm':
@@ -1423,22 +1530,47 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'o':
             bs_permutation_flag_counter++;
+            if (!optarg) {
+                fprintf(stderr, "Error: Permutation count parameter specified without count value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%u", &bs_globals.permutation_count);
             break;
         case 'p':
             bs_permutation_flag_counter++;
+            if (!optarg) {
+                fprintf(stderr, "Error: Permutation precision parameter specified without precision value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%lf", &bs_globals.permutation_precision);
             break;
         case 'a':
             bs_permutation_flag_counter++;
+            if (!optarg) {
+                fprintf(stderr, "Error: Permutation alpha parameter specified without alpha value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%lf", &bs_globals.permutation_alpha);
             break;
         case 'v':
             bs_permutation_flag_counter++;
+            if (!optarg) {
+                fprintf(stderr, "Error: Permutation significance parameter specified without significance value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             sscanf(optarg, "%u", &bs_globals.permutation_significance_level);
             break;
         case 'd':
             bs_globals.rng_seed_flag = kTrue;
+            if (!optarg) {
+                fprintf(stderr, "Error: RNG seed parameter specified without seed value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
             break;
         case '1':
@@ -1460,6 +1592,12 @@ bs_init_command_line_options(int argc, char** argv)
 
     if (bs_output_flag_counter != 1) {
         fprintf(stderr, "Error: Must create or query a data store, count bin-frequency of data store or lookup table, or perform permutation test!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (bs_score_filter_counter > 1) {
+        fprintf(stderr, "Error: Cannot specify more than one filter operation!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1515,7 +1653,7 @@ bs_print_usage(FILE* os)
             "   Create data store:\n\n" \
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --range-query=str ]\n\n" \
+            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --range-query=str ] [ --score-filter-gteq=float | --score-filter-gt=float | --score-filter-eq=float | --score-filter-lteq=float | --score-filter-lt=float ]\n\n" \
             "   Bin-frequency on data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency and permutation testing  on lookup table:\n\n" \
@@ -1596,6 +1734,35 @@ bs_file_size(const char* fn)
     struct stat st;
     stat(fn, &st);
     return (ssize_t) st.st_size;
+}
+
+/**
+ * @brief      bs_print_pair(os, chr_a, start_a, stop_a, chr_b, start_b, stop_b, score)
+ *
+ * @details    Prints pair to output stream
+ *
+ * @param      os       (FILE*) output stream where pair will be printed
+ *             chr_a    (char*) chromosome A
+ *             start_a  (uint64_t) start position A
+ *             stop_a   (uint64_t) stop position A
+ *             chr_b    (char*) chromosome B
+ *             start_b  (uint64_t) start position B
+ *             stop_b   (uint64_t) stop position B
+ *             double   (double) correlation score
+ */ 
+
+inline void
+bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, double score)
+{
+    fprintf(os, 
+            "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
+            chr_a,
+            start_a,
+            stop_a,
+            chr_b,
+            start_b,
+            stop_b,
+            score);
 }
 
 /**
@@ -1812,15 +1979,87 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
             }
             double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double((byte_t) fgetc(is)) : bs_decode_byte_to_double_mqz((byte_t) fgetc(is));
             cur_offset++;
-            fprintf(os, 
-                    "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                    l->elems[row_idx]->chr,
-                    l->elems[row_idx]->start,
-                    l->elems[row_idx]->stop,
-                    l->elems[col_idx]->chr,
-                    l->elems[col_idx]->start,
-                    l->elems[col_idx]->stop,
-                    d);
+            bs_print_pair(os, 
+                          l->elems[row_idx]->chr,
+                          l->elems[row_idx]->start,
+                          l->elems[row_idx]->stop,
+                          l->elems[col_idx]->chr,
+                          l->elems[col_idx]->start,
+                          l->elems[col_idx]->stop,
+                          d);
+        }
+    }
+
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sut_filtered_store_to_bed7(l, s, os, f, op)
+ *
+ * @details    Queries SUT store for provided index range globals
+ *             and prints BED7 (BED3 + BED3 + floating point) to 
+ *             specified output stream, after filtered against the
+ *             provided score cutoff. The two BED3 elements are 
+ *             retrieved from the lookup table and represent a 
+ *             score pairing.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sut_store_t*) pointer to SUT store
+ *             os     (FILE*) pointer to output stream
+ *             fc     (double) score filter cutoff
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, double fc, score_filter_t fo)
+{
+    if (!bs_path_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* swap indices, if row and column range are in lower triangle */
+    if (bs_globals.store_query_idx_start > bs_globals.store_query_idx_end) {
+        swap(bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+    }
+
+    off_t cur_offset = (off_t) ftell(is);
+    for (uint32_t row_idx = bs_globals.store_query_idx_start; row_idx <= bs_globals.store_query_idx_end; row_idx++) {
+        for (uint32_t col_idx = 0; col_idx < l->nelems; col_idx++) {
+            if (row_idx == col_idx)
+                continue;
+            /* to minimize fseek calls, we only fseek if we need to move the file ptr backwards */
+            off_t new_offset = bs_sut_byte_offset_for_element_ij(l->nelems, (col_idx > row_idx) ? row_idx : col_idx, (col_idx > row_idx) ? col_idx : row_idx);
+            if (cur_offset != new_offset) {
+                fseek(is, new_offset, SEEK_SET);
+                cur_offset = new_offset;
+            }
+            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double((byte_t) fgetc(is)) : bs_decode_byte_to_double_mqz((byte_t) fgetc(is));
+            cur_offset++;
+
+            if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                 ((fo == kScoreFilterGt) && (d > fc)) ||
+                 ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                 ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                 ((fo == kScoreFilterLt) && (d < fc)) ) {
+                bs_print_pair(os,
+                              l->elems[row_idx]->chr,
+                              l->elems[row_idx]->start,
+                              l->elems[row_idx]->stop,
+                              l->elems[col_idx]->chr,
+                              l->elems[col_idx]->start,
+                              l->elems[col_idx]->stop,
+                              d);
+            }
         }
     }
 
@@ -2905,18 +3144,101 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         }
         do {
             if (row_idx != col_idx) {
-                fprintf(os, 
-                        "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                        l->elems[row_idx]->chr,
-                        l->elems[row_idx]->start,
-                        l->elems[row_idx]->stop,
-                        l->elems[col_idx]->chr,
-                        l->elems[col_idx]->start,
-                        l->elems[col_idx]->stop,
-                        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                        );
+                bs_print_pair(os, 
+                              l->elems[row_idx]->chr,
+                              l->elems[row_idx]->start,
+                              l->elems[row_idx]->stop,
+                              l->elems[col_idx]->chr,
+                              l->elems[col_idx]->start,
+                              l->elems[col_idx]->stop,
+                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                              bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                              );
+            }
+            col_idx++;
+        } while (col_idx < l->nelems);
+        row_idx++;
+        col_idx = 0;
+    } while (row_idx <= bs_globals.store_query_idx_end);
+
+    free(byte_buf);
+
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, fo)
+ *
+ * @details    Queries square matrix store for provided index range 
+ *             globals and prints BED7 (BED3 + BED3 + floating point) 
+ *             to specified output stream, after filtered against the
+ *             provided score cutoff. The two BED3 elements are
+ *             retrieved from the lookup table and represent a
+ *             score pairing.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ *             fc     (double) score filter cutoff
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+{
+    byte_t* byte_buf = NULL;
+    byte_buf = malloc(l->nelems);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!bs_path_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* fseek(is) to the starting offset */
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, bs_globals.store_query_idx_start, 0);
+    fseek(is, start_offset, SEEK_SET);
+
+    uint32_t row_idx = bs_globals.store_query_idx_start;
+    uint32_t col_idx = 0;
+
+    do {
+        if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
+            fprintf(stderr, "Error: Could not read a row of data from sqr input stream!\n");
+            exit(EXIT_FAILURE);
+        }
+        do {
+            if (row_idx != col_idx) {
+                double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                    bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                     ((fo == kScoreFilterGt) && (d > fc)) ||
+                     ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                     ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                     ((fo == kScoreFilterLt) && (d < fc)) ) {
+                    bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  d);
+                }
             }
             col_idx++;
         } while (col_idx < l->nelems);
@@ -3054,18 +3376,186 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 	    
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
-                    fprintf(os, 
-                            "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                            l->elems[row_idx]->chr,
-                            l->elems[row_idx]->start,
-                            l->elems[row_idx]->stop,
-                            l->elems[col_idx]->chr,
-                            l->elems[col_idx]->start,
-                            l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                            bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                            );
+                    bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  );
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+            col_idx = 0;
+            row_idx++;
+	    
+        } while (row_idx <= end_row_idx);
+        
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    
+    /* cleanup */
+    bs_delete_metadata(&md);
+    free(md_string);
+    free(byte_buf);
+    fclose(is);
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_bzip2_store_to_bed7(l, s, os, fc, fo)
+ *
+ * @details    Queries bzip2-compressed square matrix store for 
+ *             provided index range globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ *             fc     (double) score filter cutoff
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+{
+    if (!bs_path_exists(s->attr->fn)) {
+        fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t fn_size = bs_file_size(s->attr->fn);
+
+    FILE* is = NULL;
+    is = fopen(s->attr->fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* metadata string */
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* metadata struct */
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
+    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+
+    uint32_t query_start_block = 0;
+    while (query_start >= (int32_t) md->block_row_size) {
+        query_start_block++;
+        query_start -= md->block_row_size;
+    } 
+    uint32_t query_end_block = 0;
+    while (query_end >= (int32_t) md->block_row_size) {
+        query_end_block++;
+        query_end -= md->block_row_size;
+    }
+
+    /* byte buffer */
+    byte_t* byte_buf = NULL;
+    ssize_t n_byte_buf = l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+
+    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
+        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        off_t start_offset = md->offsets[block_idx];
+        fseek(is, start_offset, SEEK_SET);
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        uint32_t row_idx = block_idx * md->block_row_size;
+        uint32_t col_idx = 0;
+
+        do {
+	    /* read one row -- can require streaming through entire block to get elements at the end of a block! */
+	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+	    switch (bzf_error) {
+	    case BZ_OK:
+	    case BZ_STREAM_END:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_UNEXPECTED_EOF:
+	    case BZ_DATA_ERROR:
+	    case BZ_DATA_ERROR_MAGIC:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+		exit(EXIT_FAILURE);                
+	    }
+	    
+            do {
+                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                    double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      d);
+                    }
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
@@ -3229,18 +3719,202 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 	    }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
-                    fprintf(os, 
-                            "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
-                            l->elems[row_idx]->chr,
-                            l->elems[row_idx]->start,
-                            l->elems[row_idx]->stop,
-                            l->elems[col_idx]->chr,
-                            l->elems[col_idx]->start,
-                            l->elems[col_idx]->stop,
-                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                            bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                            );
+                    bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  );
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+            col_idx = 0;
+            row_idx++;
+        } while (row_idx <= end_row_idx);
+        
+        /* at end of block, close bzf ptr */
+        BZ2_bzReadClose(&bzf_error, bzf);
+        switch (bzf_error) {
+        case BZ_OK:
+            fclose(is);
+            break;
+        case BZ_SEQUENCE_ERROR:
+            fprintf(stderr, "Error: Could not close bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }        
+    }
+    
+    
+    /* clean up */
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
+    free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_bzip2_split_store_to_bed7(l, s, os, fc, fo)
+ *
+ * @details    Queries bzip2-compressed square matrix store folder 
+ *             for provided index range globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ *             fc     (double) score filter cutoff
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE *is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is);
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }    
+    
+    /* build query_start and query_end parameters */
+    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
+    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+
+    uint32_t query_start_block = 0;
+    while (query_start >= (int32_t) md->block_row_size) {
+        query_start_block++;
+        query_start -= md->block_row_size;
+    } 
+    uint32_t query_end_block = 0;
+    while (query_end >= (int32_t) md->block_row_size) {
+        query_end_block++;
+        query_end -= md->block_row_size;
+    }
+    
+    /* allocate byte buffer */
+    byte_t* byte_buf = NULL;
+    ssize_t n_byte_buf = l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* set up bzip2 machinery */
+    BZFILE* bzf = NULL;
+    int bzf_error = BZ_OK;
+    
+    /* iterate through query_start -> query_end blocks */
+    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
+        /* at start of block, open new bzf ptr */
+        is = fopen(bs_init_sqr_bzip2_split_store_fn_str(block_src_dir, block_idx), "rb");
+        if (ferror(is)) {
+            fprintf(stderr, "Error: Could not open handle to input store!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+        bzf = BZ2_bzReadOpen(&bzf_error, is, kCompressionBzip2Verbosity, kCompressionBzip2SmallPolicy, NULL, 0);
+        switch (bzf_error) {
+        case BZ_OK:
+            break;
+        case BZ_CONFIG_ERROR:
+        case BZ_PARAM_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_MEM_ERROR:
+            fprintf(stderr, "Error: Could not open bzip2 block stream!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        uint32_t row_idx = block_idx * md->block_row_size;
+        uint32_t col_idx = 0;
+        ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+
+        do {
+	    /* read in row */
+	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+	    switch (bzf_error) {
+	    case BZ_OK:
+	    case BZ_STREAM_END:
+		break;
+	    case BZ_PARAM_ERROR:
+	    case BZ_SEQUENCE_ERROR:
+	    case BZ_IO_ERROR:
+	    case BZ_UNEXPECTED_EOF:
+	    case BZ_DATA_ERROR:
+	    case BZ_DATA_ERROR_MAGIC:
+	    case BZ_MEM_ERROR:
+		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+		exit(EXIT_FAILURE);                
+	    }
+            do {
+                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                    double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ) {                    
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      d);
+                    }
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
