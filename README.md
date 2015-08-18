@@ -29,7 +29,7 @@ To build `byte-store`, download the source and compile:
 
 ```
 $ git clone https://github.com/alexpreynolds/byte-store.git
-$ make 
+$ cd byte-store && make 
 ```
 
 To date, compilation and score tests have passed under GNU `gcc` 4.6.3 and Clang 3.4 under [Ubuntu 12.04 LTS Server (64-bit)](http://docs.travis-ci.com/user/ci-environment/), GNU `gcc` 4.8.2 under RHEL6, and Clang 3.6 under Mac OS X Yosemite 10.10.4.
