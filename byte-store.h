@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-    
+  
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,10 +16,13 @@ extern "C" {
 #include <assert.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <float.h>
 #include <errno.h>
 #include <bzlib.h>
+#include <pthread.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 4096
@@ -30,6 +33,25 @@ extern "C" {
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
 
+#define PIPE_READ 0
+#define PIPE_WRITE 1
+#define PIPE_STREAMS 2
+#define MAX_PIPES 4
+
+#define PIPE4_FLAG_NONE       (0U)
+#define PIPE4_FLAG_RD_CLOEXEC (1U << 0)
+#define PIPE4_FLAG_WR_CLOEXEC (1U << 1)
+
+#define bs_pipe4_cloexec(fd) bs_pipe4((fd), PIPE4_FLAG_RD_CLOEXEC | PIPE4_FLAG_WR_CLOEXEC)
+
+#define POPEN4_FLAG_NONE                        (0U)
+#define POPEN4_FLAG_NOCLOSE_PARENT_STDIN        (1U << 0)
+#define POPEN4_FLAG_NOCLOSE_PARENT_STDOUT       (1U << 1)
+#define POPEN4_FLAG_NOCLOSE_PARENT_STDERR       (1U << 2)
+#define POPEN4_FLAG_CLOSE_CHILD_STDIN           (1U << 3)
+#define POPEN4_FLAG_CLOSE_CHILD_STDOUT          (1U << 4)
+#define POPEN4_FLAG_CLOSE_CHILD_STDERR          (1U << 5)
+    
 #define swap(x,y) do                                                    \
         { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
             memcpy(swap_temp,&y,sizeof(x));                             \
@@ -38,6 +60,23 @@ extern "C" {
         } while(0)
 
     typedef unsigned char byte_t;
+
+    typedef struct pipeset {
+	int32_t **in;
+	int32_t **out;
+	int32_t **err;
+	int32_t num;
+    } bs_pipeset_t;
+
+    typedef struct pipeline_stage {
+	bs_pipeset_t *pipeset;
+	unsigned int src;
+	unsigned int dest;
+	void (*buf_functor)();
+	int status;
+	char *description;
+	pid_t pid;
+    } bs_pipeline_stage_t;
     
     extern const char* kPearsonRTestVectorA;
     extern const char* kPearsonRTestVectorB;
@@ -392,8 +431,18 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00};
-    
-    inline double                bs_truncate_double_to_precision(double d, int prec);
+
+    static void                  bs_init_pipeset(bs_pipeset_t *p, const int32_t num);
+    static void                  bs_delete_pipeset(bs_pipeset_t *p);
+    static void                  bs_set_close_exec_flag(int fd);
+    static void                  bs_unset_close_exec_flag(int fd);
+    static int                   bs_pipe4(int fd[2], int flags);
+    static pid_t                 bs_popen4(const char* cmd, int32_t pin[2], int32_t pout[2], int32_t perr[2], int32_t flags);
+    static boolean_t             bs_test_dependency(char* dep);
+    static boolean_t             bs_print_matches(char *path, char *fn);
+    static char *                bs_strsep(char **p, const char *d);
+    static boolean_t             bs_is_there(char *c);
+    inline double                bs_truncate_double_to_precision(double d, int8_t prec);
     inline byte_t                bs_encode_double_to_byte(double d);
     inline byte_t                bs_encode_double_to_byte_mqz(double d);
     byte_t                       bs_encode_double_to_byte_custom(double d, double min, double max);

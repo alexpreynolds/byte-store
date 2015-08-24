@@ -12,6 +12,9 @@ main(int argc, char** argv)
 
     lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
 
+    bs_pipeset_t pipes;
+    bs_init_pipeset(&pipes, MAX_PIPES);
+    
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
@@ -176,9 +179,280 @@ main(int argc, char** argv)
         }
     }
 
+    bs_delete_pipeset(&pipes);
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
+}
+
+static void
+bs_init_pipeset(bs_pipeset_t *p, const int32_t num)
+{
+    int32_t **ins = NULL;
+    int32_t **outs = NULL;
+    int32_t **errs = NULL;
+    int32_t n;
+
+    ins = malloc(num * sizeof(int32_t *));
+    outs = malloc(num * sizeof(int32_t *));
+    errs = malloc(num * sizeof(int32_t *));
+    if ((!ins) || (!outs) || (!errs)) {
+	fprintf(stderr, "Error: Could not allocate space to temporary pipe arrays!\n");
+	bs_print_usage(stderr);
+	exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+
+    p->in = ins;
+    p->out = outs;
+    p->err = errs;
+
+    for (n = 0; n < num; n++) {
+	p->in[n] = NULL;
+	p->in[n] = malloc(PIPE_STREAMS * sizeof(int32_t));
+	if (!p->in[n]) {
+	    fprintf(stderr, "Error: Could not allocate space to temporary internal pipe array!\n");
+	    bs_print_usage(stderr);
+	    exit(ENOMEM); /* Not enough space (POSIX.1) */
+	}
+	p->out[n] = NULL;
+	p->out[n] = malloc(PIPE_STREAMS * sizeof(int32_t));
+	if (!p->out[n]) {
+	    fprintf(stderr, "Error: Could not allocate space to temporary internal pipe array!\n");
+	    bs_print_usage(stderr);
+	    exit(ENOMEM); /* Not enough space (POSIX.1) */
+	}
+	p->err[n] = NULL;
+	p->err[n] = malloc(PIPE_STREAMS * sizeof(int32_t));
+	if (!p->err[n]) {
+	    fprintf(stderr, "Error: Could not allocate space to temporary internal pipe array!\n");
+	    bs_print_usage(stderr);
+	    exit(ENOMEM); /* Not enough space (POSIX.1) */
+	}
+
+	/* set close-on-exec flag for each pipe */
+	bs_pipe4_cloexec(p->in[n]);
+	bs_pipe4_cloexec(p->out[n]);
+	bs_pipe4_cloexec(p->err[n]);
+
+	/* set stderr as output for each err write */
+	p->err[n][PIPE_WRITE] = STDERR_FILENO;
+    }
+
+    p->num = num;
+}
+
+static void
+bs_delete_pipeset(bs_pipeset_t *p)
+{
+    int32_t n;
+    int32_t s;
+
+    for (n = 0; n < p->num; n++) {
+	for (s = 0; s < PIPE_STREAMS; s++) {
+	    close(p->in[n][s]);
+	    close(p->out[n][s]);
+	    close(p->err[n][s]);
+	}
+	free(p->in[n]), p->in[n] = NULL;
+	free(p->out[n]), p->out[n] = NULL;
+	free(p->err[n]), p->err[n] = NULL;
+    }
+    free(p->in), p->in = NULL;
+    free(p->out), p->out = NULL;
+    free(p->err), p->err = NULL;
+
+    p->num = 0;
+}
+
+static void
+bs_set_close_exec_flag(int fd)
+{
+    fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
+}
+
+static void
+bs_unset_close_exec_flag(int fd)
+{
+    fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC);
+}
+
+static int
+bs_pipe4(int fd[2], int32_t flags)
+{
+    int ret = pipe(fd);
+    if (flags & PIPE4_FLAG_RD_CLOEXEC) {
+	bs_set_close_exec_flag(fd[PIPE_READ]);
+    }
+    if (flags & PIPE4_FLAG_WR_CLOEXEC) {
+	bs_set_close_exec_flag(fd[PIPE_WRITE]);
+    }
+    return ret;
+}
+
+static pid_t
+bs_popen4(const char* cmd, int32_t pin[2], int32_t pout[2], int32_t perr[2], int32_t flags)
+{
+    pid_t ret = fork();
+    int execl_ret = 0;
+
+    if (ret < 0) {
+	fprintf(stderr, "fork() failed!\n");
+	return ret;
+    }
+    else if (ret == 0) {
+	/* 
+           Child-side of fork
+	*/
+	if (flags & POPEN4_FLAG_CLOSE_CHILD_STDIN) {
+	    close(STDIN_FILENO);
+	}
+	else {
+	    bs_unset_close_exec_flag(pin[PIPE_READ]);
+	    dup2(pin[PIPE_READ], STDIN_FILENO);
+	}
+	if (flags & POPEN4_FLAG_CLOSE_CHILD_STDOUT) {
+	    close(STDOUT_FILENO);
+	}
+	else {
+	    bs_unset_close_exec_flag(pout[PIPE_WRITE]);
+	    dup2(pout[PIPE_WRITE], STDOUT_FILENO);
+	}
+	if (flags & POPEN4_FLAG_CLOSE_CHILD_STDERR) {
+	    close(STDERR_FILENO);
+	}
+	else {
+	    bs_unset_close_exec_flag(perr[PIPE_WRITE]);
+	    dup2(perr[PIPE_WRITE], STDERR_FILENO);
+	}
+	execl_ret = execl("/bin/sh", "/bin/sh", "-c", cmd, NULL);
+	if (execl_ret == -1) {
+	    int errsv = errno;
+	    fprintf(stderr, "Error: exec() failed (%d)\n", errsv);
+	    exit(errsv);
+	}
+    }
+    else {
+	/* 
+           Parent-side of fork
+	*/
+	if (~flags & POPEN4_FLAG_NOCLOSE_PARENT_STDIN && ~flags & POPEN4_FLAG_CLOSE_CHILD_STDIN) {
+	    close(pin[PIPE_READ]);
+	}
+	if (~flags & POPEN4_FLAG_NOCLOSE_PARENT_STDOUT && ~flags & POPEN4_FLAG_CLOSE_CHILD_STDOUT) {
+	    close(pout[PIPE_WRITE]);
+	}
+	if (~flags & POPEN4_FLAG_NOCLOSE_PARENT_STDERR && ~flags & POPEN4_FLAG_CLOSE_CHILD_STDERR) {
+	    //close(perr[PIPE_WRITE]);
+	}
+	return ret;
+    }
+
+    /* Unreachable */
+    return ret;
+}
+
+static boolean_t
+bs_test_dependency(char* dep)
+{
+    char *p = NULL;
+    char *path = NULL;
+
+    if ((p = getenv("PATH")) == NULL) {
+	fprintf(stderr, "Error: Cannot retrieve environment PATH variable\n");
+	bs_print_usage(stderr);
+	exit(EINVAL); /* Invalid argument (POSIX.1) */
+    }
+    path = malloc(strlen(p) + 1);
+    if (!path) {
+	fprintf(stderr, "Error: Cannot allocate space for path variable copy\n");
+	bs_print_usage(stderr);
+	exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path, p, strlen(p) + 1);
+
+    if (bs_print_matches(path, dep) != kTrue) {
+	fprintf(stderr, "Error: Cannot find binary required for operations (%s) in PATH (%s)!\n", dep, path);
+	bs_print_usage(stderr);
+	exit(ENOENT); /* No such file or directory (POSIX.1) */
+    }
+
+    free(path), path = NULL;
+    return kTrue;
+}
+
+static boolean_t
+bs_print_matches(char *path, char *fn)
+{
+    char candidate[FN_MAX_LEN];
+    const char *d;
+    boolean_t found = kFalse;
+
+    if (strchr(fn, '/') != NULL) {
+	return (bs_is_there(fn) ? kTrue : kFalse);
+    }
+
+    while ((d = bs_strsep(&path, ":")) != NULL) {
+	if (*d == '\0') {
+	    d = ".";
+	}
+	if (snprintf(candidate, sizeof(candidate), "%s/%s", d, fn) >= (int) sizeof(candidate)) {
+	    continue;
+	}
+	if (bs_is_there(candidate)) {
+	    found = kTrue;
+	    break;
+	}
+    }
+
+    return found;
+}
+
+static char *
+bs_strsep(char **p, const char *d)
+{
+    char *s;
+    const char *spanp;
+    int c, sc;
+    char *tok;
+
+    if ((s = *p) == NULL)
+	return NULL;
+
+    for (tok = s;;) {
+	c = *s++;
+	spanp = d;
+	do {
+	    if ((sc = *spanp++) == c) {
+		if (c == 0)
+		    s = NULL;
+		else
+		    s[-1] = 0;
+		*p = s;
+		return tok;
+	    }
+	} while (sc != 0);
+    }
+
+    return NULL;
+}
+
+static boolean_t
+bs_is_there(char *c)
+{
+    struct stat fin;
+    boolean_t found = kFalse;
+
+    if (access(c, X_OK) == 0
+	&& stat(c, &fin) == 0
+	&& S_ISREG(fin.st_mode)
+	&& (getuid() != 0 || (fin.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0)) {
+	#ifdef DEBUG
+	fprintf(stderr, "Debug: Found dependency [%s]\n", c);
+	#endif
+	found = kTrue;
+    }
+
+    return found;
 }
 
 /**
@@ -187,13 +461,13 @@ main(int argc, char** argv)
  * @details    Truncates double-type value to specified precision.
  *
  * @param      d      (double) value to be truncated
- *             prec   (int) value to determine precision of truncated value
+ *             prec   (int8_t) value to determine precision of truncated value
  *
  * @return     (double) truncated value
  */
 
 inline double
-bs_truncate_double_to_precision(double d, int prec)
+bs_truncate_double_to_precision(double d, int8_t prec)
 {
     double factor = powf(10, prec);
     return (d < 0) ? ceil(d * factor)/factor : floor((d + kEpsilon) * factor)/factor;
