@@ -88,7 +88,7 @@ main(int argc, char** argv)
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (B)\n");
                 exit(EXIT_FAILURE);
-            }            
+            }
         }
         else if (bs_globals.store_query_flag) {
             /* set up query type */
@@ -149,7 +149,7 @@ main(int argc, char** argv)
                 bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
-                bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, sqr_store, stdout);                
+                bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
