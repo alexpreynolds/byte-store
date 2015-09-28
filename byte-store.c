@@ -80,7 +80,7 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
                 break;
             case kStorePearsonRSquareMatrixSplit:
-                //bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
                 bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
@@ -2249,10 +2249,10 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
                 /* write placeholder byte to mtx[row_idx][col_idx] -- we overwrite this further down */
                 score = no_correlation_score;
             }
-	    if (fputc(score, os) != score) {
-		fprintf(stderr, "Error: Could not write score to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
-		exit(EXIT_FAILURE);
-	    }
+            if (fputc(score, os) != score) {
+                fprintf(stderr, "Error: Could not write score to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -2430,14 +2430,14 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
     store_buf_row_node_t** row_node_ptr_buf = NULL;
     row_node_ptr_buf = malloc(sizeof(store_buf_row_node_t*) * s->attr->nelems);
     for (uint32_t elem_idx = 0; elem_idx < s->attr->nelems; elem_idx++) {
-	row_node_ptr_buf[elem_idx] = NULL;
-	row_node_ptr_buf[elem_idx] = malloc(sizeof(store_buf_row_node_t));
-	if (!row_node_ptr_buf[elem_idx]) {
-	    fprintf(stderr, "Error: Could not allocate space for row node ptr buffer!\n");
-	    exit(EXIT_FAILURE);
-	}
-	row_node_ptr_buf[elem_idx]->head = NULL;
-	row_node_ptr_buf[elem_idx]->tail = NULL;
+        row_node_ptr_buf[elem_idx] = NULL;
+        row_node_ptr_buf[elem_idx] = malloc(sizeof(store_buf_row_node_t));
+        if (!row_node_ptr_buf[elem_idx]) {
+            fprintf(stderr, "Error: Could not allocate space for row node ptr buffer!\n");
+            exit(EXIT_FAILURE);
+        }
+        row_node_ptr_buf[elem_idx]->head = NULL;
+        row_node_ptr_buf[elem_idx]->tail = NULL;
     }
 
     /* write stream of random scores out to os ptr */
@@ -2451,16 +2451,16 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
                     fprintf(stderr, "Error: Could not write score to output square matrix store!\n");
                     exit(EXIT_FAILURE);
                 }
-		/* add score to buffer linked list */
-		if (!row_node_ptr_buf[row_idx]->tail) {
-		    row_node_ptr_buf[row_idx]->tail = bs_init_store_buf_node(score);
-		    row_node_ptr_buf[row_idx]->head = row_node_ptr_buf[row_idx]->tail;
-		}
-		else {
-		    store_buf_node_t* new_node = bs_init_store_buf_node(score);
-		    bs_insert_store_buf_node(row_node_ptr_buf[row_idx]->tail, new_node);
-		    row_node_ptr_buf[row_idx]->tail = new_node;
-		}
+                /* add score to buffer linked list */
+                if (!row_node_ptr_buf[row_idx]->tail) {
+                    row_node_ptr_buf[row_idx]->tail = bs_init_store_buf_node(score);
+                    row_node_ptr_buf[row_idx]->head = row_node_ptr_buf[row_idx]->tail;
+                }
+                else {
+                    store_buf_node_t* new_node = bs_init_store_buf_node(score);
+                    bs_insert_store_buf_node(row_node_ptr_buf[row_idx]->tail, new_node);
+                    row_node_ptr_buf[row_idx]->tail = new_node;
+                }
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -2470,21 +2470,21 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
                 }
             }
             else if (row_idx > col_idx) {
-		/* retrieve cached score from buffer -- we switch to col_idx to get mirror element */
-		score = row_node_ptr_buf[col_idx]->head->data;
-		/* get pointer to next node (which could be NULL) */
-		store_buf_node_t* next_node = row_node_ptr_buf[col_idx]->head->next;
-		/* delete what head is pointing to */
-		free(row_node_ptr_buf[col_idx]->head);
-		/* move head up to next node, if it exists, else set head and tail to NULL */
-		if (next_node) {
-		    row_node_ptr_buf[col_idx]->head = next_node;
-		}
-		else {
-		    row_node_ptr_buf[col_idx]->head = NULL;
-		    row_node_ptr_buf[col_idx]->tail = NULL;
-		}
-		/* writed cached score value to file handle */
+                /* retrieve cached score from buffer -- we switch to col_idx to get mirror element */
+                score = row_node_ptr_buf[col_idx]->head->data;
+                /* get pointer to next node (which could be NULL) */
+                store_buf_node_t* next_node = row_node_ptr_buf[col_idx]->head->next;
+                /* delete what head is pointing to */
+                free(row_node_ptr_buf[col_idx]->head);
+                /* move head up to next node, if it exists, else set head and tail to NULL */
+                if (next_node) {
+                    row_node_ptr_buf[col_idx]->head = next_node;
+                }
+                else {
+                    row_node_ptr_buf[col_idx]->head = NULL;
+                    row_node_ptr_buf[col_idx]->tail = NULL;
+                }
+                /* writed cached score value to file handle */
                 if (fputc(score, os) != score) {
                     fprintf(stderr, "Error: Could not write cached score to output square matrix store!\n");
                     exit(EXIT_FAILURE);
@@ -2495,11 +2495,11 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 
     /* clean up the cache */
     for (uint32_t elem_idx = 0; elem_idx < s->attr->nelems; elem_idx++) {
-	if (row_node_ptr_buf[elem_idx]->head || row_node_ptr_buf[elem_idx]->tail) {
-	    fprintf(stderr, "Error: Some cached row node data was not copied over entirely!\n");
-	    exit(EXIT_FAILURE);
-	}
-	free(row_node_ptr_buf[elem_idx]);
+        if (row_node_ptr_buf[elem_idx]->head || row_node_ptr_buf[elem_idx]->tail) {
+            fprintf(stderr, "Error: Some cached row node data was not copied over entirely!\n");
+            exit(EXIT_FAILURE);
+        }
+        free(row_node_ptr_buf[elem_idx]);
     }
     free(row_node_ptr_buf);
 
@@ -2577,6 +2577,24 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 }
 
 /**
+ * @brief      bs_populate_sqr_split_store_with_pearsonr_scores(s, l, n)
+ *
+ * @details    Write each raw block of encoded Pearson's r correlation scores to 
+ *             a FILE* handle associated with the specified square matrix store 
+ *             filename. Each block and a metadata file are stored in a folder, 
+ *             its name determined by the store filename.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ *             n      (uint32_t) number of rows within a raw chunk 
+ */
+
+void
+bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
+{
+}
+
+/**
  * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l, n)
  *
  * @details    Write bzip2-compressed chunks of encoded Pearson's r 
@@ -2601,9 +2619,9 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
-	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum (%u)!\n", kCompressionRowChunkMaximumSize);
-	bs_print_usage(stderr);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum (%u)!\n", kCompressionRowChunkMaximumSize);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
     }
     
     /* open handle to output sqr matrix store */
@@ -2630,8 +2648,8 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     char *bz_uncompressed_buffer = NULL;
     bz_uncompressed_buffer = malloc(bz_uncompressed_buffer_size);
     if (!bz_uncompressed_buffer) {
-	fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
+        exit(EXIT_FAILURE);
     }
     BZFILE* bzf = NULL;
     int bzf_error = BZ_OK;
@@ -2644,13 +2662,13 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     switch (bzf_error) {
     case BZ_OK:
         offsets[offset_idx++] = bzf_cumulative_bytes_written;
-	break;
+        break;
     case BZ_CONFIG_ERROR:
     case BZ_PARAM_ERROR:
     case BZ_IO_ERROR:
     case BZ_MEM_ERROR:
-	fprintf(stderr, "Error: Could not set up new bzip2 output stream! (initial)\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: Could not set up new bzip2 output stream! (initial)\n");
+        exit(EXIT_FAILURE);
     }
 
     /* write compressed bytes, if an end-of-block or -chunk condition is met within a row, or at the end of a series of rows */
@@ -2669,83 +2687,83 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
             }
-	    bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
-	    /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
+            bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
+            /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
-		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-		switch (bzf_error) {
-		case BZ_OK:
-		    break;
-		case BZ_PARAM_ERROR:
-		case BZ_IO_ERROR:
-		case BZ_SEQUENCE_ERROR:
-		    fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (full, within row)\n");
-		    exit(EXIT_FAILURE);
-		}
-		uncompressed_buffer_idx = 0;
+                BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+                switch (bzf_error) {
+                case BZ_OK:
+                    break;
+                case BZ_PARAM_ERROR:
+                case BZ_IO_ERROR:
+                case BZ_SEQUENCE_ERROR:
+                    fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (full, within row)\n");
+                    exit(EXIT_FAILURE);
+                }
+                uncompressed_buffer_idx = 0;
             }
         }
-	/* if row index is last index in matrix, compress bytes, write to output stream, and close bz stream */
-	if (row_idx == s->attr->nelems) {
-	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (last row)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
-	    switch (bzf_error) {
-	    case BZ_OK:
+        /* if row index is last index in matrix, compress bytes, write to output stream, and close bz stream */
+        if (row_idx == s->attr->nelems) {
+            BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+            switch (bzf_error) {
+            case BZ_OK:
+                break;
+            case BZ_PARAM_ERROR:
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (last row)\n");
+                exit(EXIT_FAILURE);
+            }
+            uncompressed_buffer_idx = 0;
+            BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
+            switch (bzf_error) {
+            case BZ_OK:
                 bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
-		break;
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
-		exit(EXIT_FAILURE);
-	    }
-	}
-	/* else if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
-	else if (row_idx % n == 0) {
-	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		break;
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
-	    switch (bzf_error) {
-	    case BZ_OK:
+                break;
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        /* else if row index is multiple of row block, compress bytes, write to output stream, and close/reinitialize bz stream */
+        else if (row_idx % n == 0) {
+            BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+            switch (bzf_error) {
+            case BZ_OK:
+                break;
+            case BZ_PARAM_ERROR:
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+                exit(EXIT_FAILURE);
+            }
+            uncompressed_buffer_idx = 0;
+            BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
+            switch (bzf_error) {
+            case BZ_OK:
+                bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
+                break;
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+                exit(EXIT_FAILURE);
+	        }
+            bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
+            switch (bzf_error) {
+            case BZ_OK:
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
-		break;
-	    case BZ_CONFIG_ERROR:
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not set up new bzip2 output stream! (post-row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	}
+                break;
+            case BZ_CONFIG_ERROR:
+            case BZ_PARAM_ERROR:
+            case BZ_IO_ERROR:
+            case BZ_MEM_ERROR:
+                fprintf(stderr, "Error: Could not set up new bzip2 output stream! (post-row block)\n");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
 
     /* convert offsets to formatted metadata string and write to output stream */
@@ -2791,9 +2809,9 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
-	fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
-	bs_print_usage(stderr);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
     }
 
     /* create an owner read/write/executable directory to contain block files */
@@ -2822,8 +2840,8 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     char *bz_uncompressed_buffer = NULL;
     bz_uncompressed_buffer = malloc(bz_uncompressed_buffer_size);
     if (!bz_uncompressed_buffer) {
-	fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: Could not allocate space to bzip2 uncompressed byte buffer!\n");
+        exit(EXIT_FAILURE);
     }
     BZFILE* bzf = NULL;
     int bzf_error = BZ_OK;
@@ -2890,52 +2908,52 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             }
         }
         if (row_idx == s->attr->nelems) {
-	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (last row)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
-	    switch (bzf_error) {
-	    case BZ_OK:
+            BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+            switch (bzf_error) {
+            case BZ_OK:
+                break;
+            case BZ_PARAM_ERROR:
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (last row)\n");
+                exit(EXIT_FAILURE);
+            }
+            uncompressed_buffer_idx = 0;
+            BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
+            switch (bzf_error) {
+            case BZ_OK:
                 bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
                 offsets[offset_idx++] = bzf_cumulative_bytes_written;
-		break;
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
-		exit(EXIT_FAILURE);            
+                break;
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not close bzip2 output stream! (last row)\n");
+                exit(EXIT_FAILURE);
             }
             fclose(os);
         }
         else if (row_idx % n == 0) {
-	    BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
-	    uncompressed_buffer_idx = 0;
-	    BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
-	    switch (bzf_error) {
-	    case BZ_OK:
-		bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
-		break;
-	    case BZ_IO_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-		fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
-		exit(EXIT_FAILURE);
-	    }
+            BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+            switch (bzf_error) {
+            case BZ_OK:
+                break;
+            case BZ_PARAM_ERROR:
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (row block)\n");
+                exit(EXIT_FAILURE);
+            }
+            uncompressed_buffer_idx = 0;
+            BZ2_bzWriteClose64(&bzf_error, bzf, kCompressionBzip2AbandonPolicy, &bzf_bytes_read_lo32, &bzf_bytes_read_hi32, &bzf_bytes_written_lo32, &bzf_bytes_written_hi32);
+            switch (bzf_error) {
+            case BZ_OK:
+                bzf_cumulative_bytes_written += ((off_t) bzf_bytes_written_hi32 << 32) + bzf_bytes_written_lo32;
+                break;
+            case BZ_IO_ERROR:
+            case BZ_SEQUENCE_ERROR:
+                fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
+                exit(EXIT_FAILURE);
+            }
             fclose(os);
         }
     }

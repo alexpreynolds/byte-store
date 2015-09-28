@@ -447,6 +447,7 @@ extern "C" {
     void                         bs_populate_sqr_store_with_random_scores(sqr_store_t* s);
     void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
     void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
+    void                         bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
