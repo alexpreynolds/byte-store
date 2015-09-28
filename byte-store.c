@@ -2577,6 +2577,31 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 }
 
 /**
+ * @brief      bs_init_sqr_split_store_fn_str(d, i)
+ *
+ * @details    Prints formatted string for per-block raw
+ *             file name, given parent directory name
+ *
+ * @param      d      (char*) directory name
+ *             i      (uint32_t) block index
+ *
+ * @return     (char*) formatted per-block filename string 
+ */
+
+char*
+bs_init_sqr_split_store_fn_str(char* d, uint32_t i)
+{
+    char* block_dest_fn = NULL;
+    block_dest_fn = malloc(strlen(d) + BLOCK_STR_MAX_LEN + 6);
+    if (!block_dest_fn) {
+        fprintf(stderr, "Error: Could not allocate space for block destination filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    snprintf(block_dest_fn, strlen(d) + BLOCK_STR_MAX_LEN + 6, "%s/%0*u.rbs", d, (int) BLOCK_STR_MAX_LEN, i);
+    return block_dest_fn;
+}
+
+/**
  * @brief      bs_populate_sqr_split_store_with_pearsonr_scores(s, l, n)
  *
  * @details    Write each raw block of encoded Pearson's r correlation scores to 
@@ -2592,6 +2617,131 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 void
 bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
 {
+    byte_t score = 0;
+    FILE* os = NULL;
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
+    
+    /* test bounds of row-chunk size */
+    if (n > kCompressionRowChunkMaximumSize) {
+        fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }    
+    
+    /* create an owner read/write/executable directory to contain block files */
+    char* block_dest_dir = NULL;
+    block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (bs_path_exists(block_dest_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] exists!\n", block_dest_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }    
+    mkdir(block_dest_dir, S_IRUSR | S_IWUSR | S_IXUSR);
+    
+    /* init offset array */
+    off_t* offsets = NULL;
+    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    offsets = malloc(num_offsets * sizeof(*offsets));
+    if (!offsets) {
+        fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t offset_idx = 0;
+    
+    /* iterate through l->nelems, one block of rows at a time; write a raw stream buffer for each block */
+    uint64_t cumulative_bytes_written = 0;
+    uint32_t block_idx = 0;
+    char *block_dest_fn = NULL;
+    
+    /* write out a buffer of scores to output stream */
+    byte_t* buf = NULL;
+    buf = malloc(l->nelems * sizeof(*buf));
+    size_t buf_idx = 0;
+    
+    for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
+        if ((row_idx - 1) % l->nelems == 0) {
+            /* open handle to output sqr matrix store */
+            block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
+            os = fopen(block_dest_fn, "wb");
+            if (ferror(os)) {
+                fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            free(block_dest_fn), block_dest_fn = NULL;
+            offsets[offset_idx++] = cumulative_bytes_written;
+        }
+        signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
+        for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
+            if (row_idx != col_idx) {
+                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score = 
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            }
+            else if (row_idx == col_idx) {
+                score = self_correlation_score;
+            }            
+            buf[buf_idx++] = score;
+            if (buf_idx == l->nelems) {
+                offsets[offset_idx++] = cumulative_bytes_written;
+                /* write buf[] to output stream */
+                if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
+                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+                cumulative_bytes_written += l->nelems;
+                buf_idx = 0;
+            }
+        }
+        if (row_idx == s->attr->nelems) {
+            offsets[offset_idx++] = cumulative_bytes_written;
+            /* write buf[] to output stream */
+            if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                exit(EXIT_FAILURE);
+            }
+            fclose(os);
+        }
+        else if (row_idx % n == 0) {
+            offsets[offset_idx++] = cumulative_bytes_written;
+            /* write buf[] to output stream */
+            if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                exit(EXIT_FAILURE);
+            }
+            fclose(os);
+        }
+    }
+    
+    /* convert offsets to formatted metadata string and write to output stream */
+    char* md_str = NULL;
+    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    if (!md_str) {
+        fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
+        exit(EXIT_FAILURE);
+    }
+    char* md_dest_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_dest_dir);
+    os = fopen(md_dest_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output metadata!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fwrite(md_str, 1, strlen(md_str), os);
+    fclose(os);
+    
+    /* cleanup */
+    free(offsets), offsets = NULL;
+    free(block_dest_dir), block_dest_dir = NULL;
+    free(md_dest_fn), md_dest_fn = NULL;
+    free(md_str), md_str = NULL;
 }
 
 /**
@@ -2894,16 +3044,16 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             }            
             bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
-		BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
-		switch (bzf_error) {
-		case BZ_OK:
-		    break;
-		case BZ_PARAM_ERROR:
-		case BZ_IO_ERROR:
-		case BZ_SEQUENCE_ERROR:
-		    fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (full, within row)\n");
-		    exit(EXIT_FAILURE);
-		}
+                BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
+                switch (bzf_error) {
+                case BZ_OK:
+                    break;
+                case BZ_PARAM_ERROR:
+                case BZ_IO_ERROR:
+                case BZ_SEQUENCE_ERROR:
+                    fprintf(stderr, "Error: Could not write buffer to bzip2 output stream! (full, within row)\n");
+                    exit(EXIT_FAILURE);
+                }
                 uncompressed_buffer_idx = 0;
             }
         }
