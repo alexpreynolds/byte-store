@@ -27,6 +27,7 @@ main(int argc, char** argv)
             case kStoreRandomBufferedSquareMatrix:
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
+            case kStorePearsonRSquareMatrixSplit:
             case kStorePearsonRSquareMatrixBzip2:
             case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreUndefined:
@@ -61,6 +62,7 @@ main(int argc, char** argv)
         bs_delete_sut_store(&sut_store);
         break;
     case kStorePearsonRSquareMatrix:
+    case kStorePearsonRSquareMatrixSplit:
     case kStorePearsonRSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
     case kStoreRandomSquareMatrix:
@@ -77,11 +79,14 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrix:
                 bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
                 break;
+            case kStorePearsonRSquareMatrixSplit:
+                //bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                break;
             case kStorePearsonRSquareMatrixBzip2:
-                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
+                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
-                bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_compression_row_chunk_size);
+                bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -118,6 +123,8 @@ main(int argc, char** argv)
                     else 
                         bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
                     break;
+                case kStorePearsonRSquareMatrixSplit:
+                    break;
                 case kStorePearsonRSquareMatrixBzip2:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
@@ -144,6 +151,8 @@ main(int argc, char** argv)
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
                 bs_print_sqr_store_frequency_to_txt(lookup, sqr_store, stdout);
+                break;
+            case kStorePearsonRSquareMatrixSplit:
                 break;
             case kStorePearsonRSquareMatrixBzip2:
                 bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
@@ -1304,7 +1313,7 @@ bs_init_globals()
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
     bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
-    bs_globals.store_compression_row_chunk_size = kCompressionRowChunkDefaultSize;
+    bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
     bs_globals.rng_seed_flag = kFalse;
@@ -1373,6 +1382,7 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.store_type =
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitStr) == 0) ? kStorePearsonRSquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :                
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
@@ -1401,7 +1411,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%u", &bs_globals.store_compression_row_chunk_size);
+            sscanf(optarg, "%u", &bs_globals.store_row_chunk_size);
             break;
         case '2':
             bs_globals.store_filter = kScoreFilterGtEq;
@@ -1629,7 +1639,7 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && (bs_globals.store_compression_row_chunk_size == kCompressionRowChunkDefaultSize)) {
+    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && (bs_globals.store_row_chunk_size == kRowChunkDefaultSize)) {
         fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 or pearson-r-sqr-bzip2-split encoding type!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
@@ -1663,6 +1673,7 @@ bs_print_usage(FILE* os)
             " Available store types:\n\n"                               \
             " - pearson-r-sut\n"                                        \
             " - pearson-r-sqr\n"                                        \
+            " - pearson-r-sqr-split\n"                                  \
             " - pearson-r-sqr-bzip2\n"                                  \
             " - pearson-r-sqr-bzip2-split\n"                            \
             " - random-sut\n" \

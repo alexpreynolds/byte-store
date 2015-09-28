@@ -125,6 +125,7 @@ extern "C" {
     typedef enum store_type {
         kStorePearsonRSUT = 0,
         kStorePearsonRSquareMatrix,
+        kStorePearsonRSquareMatrixSplit,
         kStorePearsonRSquareMatrixBzip2,
         kStorePearsonRSquareMatrixBzip2Split,
         kStoreRandomSUT,
@@ -135,6 +136,7 @@ extern "C" {
     
     extern const char* kStorePearsonRSUTStr;
     extern const char* kStorePearsonRSquareMatrixStr;
+    extern const char* kStorePearsonRSquareMatrixSplitStr;
     extern const char* kStorePearsonRSquareMatrixBzip2Str;
     extern const char* kStorePearsonRSquareMatrixBzip2SplitStr;
     extern const char* kStoreRandomSUTStr;
@@ -142,6 +144,7 @@ extern "C" {
     extern const char* kStoreRandomBufferedSquareMatrixStr;
     const char* kStorePearsonRSUTStr = "pearson-r-sut";
     const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
+    const char* kStorePearsonRSquareMatrixSplitStr = "pearson-r-sqr-split";
     const char* kStorePearsonRSquareMatrixBzip2Str = "pearson-r-sqr-bzip2";
     const char* kStorePearsonRSquareMatrixBzip2SplitStr = "pearson-r-sqr-bzip2-split";
     const char* kStoreRandomSUTStr = "random-sut";
@@ -164,7 +167,9 @@ extern "C" {
     const char* kEncodingStrategyCustomStr = "custom";
     const double kEncodingStrategyDefaultCutoff = -DBL_MAX;
     
-    extern const uint32_t kCompressionRowChunkDefaultSize;
+    extern const uint32_t kRowChunkDefaultSize;
+    const uint32_t kRowChunkDefaultSize = UINT32_MAX;
+    
     extern const uint32_t kCompressionRowChunkMaximumSize;
     extern const uint32_t kCompressionBzip2BlockSize100k;
     extern const uint32_t kCompressionBzip2BlockSizeFactor;
@@ -176,7 +181,6 @@ extern "C" {
     extern const double kCompressionMetadataVersion;
     extern const char* kCompressionMetadataSplitFn;
     extern const char* kCompressionMetadataSplitDirSuffix;
-    const uint32_t kCompressionRowChunkDefaultSize = UINT32_MAX;
     const uint32_t kCompressionRowChunkMaximumSize = 512;
     const uint32_t kCompressionBzip2BlockSize100k = 9;
     const uint32_t kCompressionBzip2BlockSizeFactor = 100000;
@@ -270,8 +274,8 @@ extern "C" {
         char encoding_strategy_str[BUF_MAX_LEN];
         double encoding_cutoff_zero_min;
         double encoding_cutoff_zero_max;
+        uint32_t store_row_chunk_size;
         boolean_t store_compression_flag;
-        uint32_t store_compression_row_chunk_size;
         boolean_t lookup_frequency_flag;
         boolean_t permutation_test_flag;
         uint32_t permutation_count;
@@ -285,7 +289,7 @@ extern "C" {
         { "store-create",                     no_argument,       NULL, 'c' },
         { "store-query",                      no_argument,       NULL, 'q' },
         { "store-frequency",                  no_argument,       NULL, 'f' },
-        { "store-compression-row-chunk-size", required_argument, NULL, 'r' },
+        { "store-row-chunk-size",             required_argument, NULL, 'r' },
         { "score-filter-gteq",                required_argument, NULL, '2' },
         { "score-filter-gt",                  required_argument, NULL, '3' },
         { "score-filter-eq",                  required_argument, NULL, '4' },
