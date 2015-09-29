@@ -127,7 +127,7 @@ test-pearsonr-sqr-raw-split-5K: test-pearsonr-sqr-raw-split-5K-create-bs512
 test-pearsonr-sqr-raw-split-5K-create-bs512: byte-store test-pearsonr-sqr-raw-5K-prep
 
 test-pearsonr-sqr-raw-5K-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
-	sample -k 5000 --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test5K.bed
+	sample -k 5000 --cstdio --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test5K.bed
 
 test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create-bs512
 
