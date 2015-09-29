@@ -170,6 +170,11 @@ extern "C" {
     extern const uint32_t kRowChunkDefaultSize;
     const uint32_t kRowChunkDefaultSize = UINT32_MAX;
     
+    extern const char* kRawMetadataSplitFn;
+    extern const char* kRawMetadataSplitDirSuffix;
+    const char* kRawMetadataSplitFn = "blocks.md";    
+    const char* kRawMetadataSplitDirSuffix = "blocks";
+    
     extern const uint32_t kCompressionRowChunkMaximumSize;
     extern const uint32_t kCompressionBzip2BlockSize100k;
     extern const uint32_t kCompressionBzip2BlockSizeFactor;
@@ -448,6 +453,8 @@ extern "C" {
     void                         bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s);
     void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
     char*                        bs_init_sqr_split_store_fn_str(char* d, uint32_t i);
+    char*                        bs_init_sqr_split_store_dir_str(char* p);
+    char*                        bs_init_sqr_split_store_metadata_fn_str(char* d);    
     void                         bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
@@ -458,6 +465,8 @@ extern "C" {
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);    
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
