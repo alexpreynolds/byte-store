@@ -273,6 +273,6 @@ clean:
 	rm -rf $(TESTDIR)/*.cbs
 	rm -rf $(TESTDIR)/*.cbs.blocks
 	rm -rf $(PDFDIR)
-	rm -rf test/sample_bs_input.starch
-	rm -rf test/sample_bs_input.bed
+#	rm -rf test/sample_bs_input.starch
+#	rm -rf test/sample_bs_input.bed
 #	rm -rf $(SAMPLEDIR)
