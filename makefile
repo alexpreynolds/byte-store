@@ -2,6 +2,7 @@ SHELL       := /bin/bash
 PWD         := $(shell pwd)
 BLDFLAGS     = -Wall -Wextra -pedantic -std=c99
 CFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+CDFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -g -O
 LIBS         = -lm -lbz2
 .PHONY       = test
 SAMPLE      := $(shell `which sample` --help 2> /dev/null)
@@ -30,6 +31,12 @@ byte-store:
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c byte-store.c -o byte-store.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) byte-store.o -o byte-store mt19937.a $(LIBS)
+
+debug-byte-store:
+	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
+	$(AR) rcs mt19937.a mt19937.o
+	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I$(INCLUDES) byte-store.o -o byte-store mt19937.a $(LIBS)
 
 # -----------------
 # Performance tests
@@ -129,7 +136,7 @@ test-pearsonr-sqr-raw-split-5K-create-bs512: byte-store test-pearsonr-sqr-raw-5K
 test-pearsonr-sqr-raw-5K-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
 #	sample -k 5000 --cstdio --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test5K.bed
 
-test-pearsonr-sqr-raw-5K-create-bs512: byte-store test-pearsonr-sqr-raw-5K-prep
+test-pearsonr-sqr-raw-5K-create-bs512: debug-byte-store test-pearsonr-sqr-raw-5K-prep
 	$(PWD)/byte-store -t pearson-r-sqr-split -c -l $(SAMPLEDIR)/vec_test5K.bed -s $(SAMPLEDIR)/vec_test5K.sqr.bs512.rbs -r 512
 
 test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create-bs512

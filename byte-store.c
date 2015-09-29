@@ -2644,7 +2644,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = pow(floor(l->nelems / n) + 1, 2);
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
@@ -2653,17 +2653,19 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     uint32_t offset_idx = 0;
     
     /* iterate through l->nelems, one block of rows at a time; write a raw stream buffer for each block */
+    uint64_t bytes_written = 0;
     uint64_t cumulative_bytes_written = 0;
     uint32_t block_idx = 0;
     char *block_dest_fn = NULL;
     
-    /* write out a buffer of scores to output stream */
+    /* write out a buffer of n^2 scores to output stream */
     byte_t* buf = NULL;
-    buf = malloc(l->nelems * sizeof(*buf));
+    size_t buf_size = n * n;
+    buf = malloc(buf_size * sizeof(*buf));
     size_t buf_idx = 0;
     
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
-        if ((row_idx - 1) % l->nelems == 0) {
+        if (((row_idx - 1) % n == 0) && (!os)) {
             /* open handle to output sqr matrix store */
             block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
             os = fopen(block_dest_fn, "wb");
@@ -2672,6 +2674,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
+	    buf_idx = 0;
             free(block_dest_fn), block_dest_fn = NULL;
             offsets[offset_idx++] = cumulative_bytes_written;
         }
@@ -2689,37 +2692,43 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 score = self_correlation_score;
             }            
             buf[buf_idx++] = score;
-            if (buf_idx == l->nelems) {
-                offsets[offset_idx++] = cumulative_bytes_written;
-                /* write buf[] to output stream */
-                if (fwrite(buf, sizeof(*buf), buf_idx, os) != buf_idx) {
-                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (A)\n");
-                    exit(EXIT_FAILURE);
-                }
-                cumulative_bytes_written += l->nelems;
-                buf_idx = 0;
-            }
+	    
+	    /* if buf is full, write its contents to output stream, close stream, reopen new stream */
+	    if (buf_idx % buf_size == 0) {
+		bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+		if (bytes_written != buf_idx) {
+		    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+		    exit(EXIT_FAILURE);
+		}
+		cumulative_bytes_written += bytes_written;
+		fclose(os), os = NULL;
+		/* open new handle to output sqr matrix store */
+		block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
+		os = fopen(block_dest_fn, "wb");
+		if (ferror(os)) {
+		    fprintf(stderr, "Error: Could not open new handle to output square matrix store within-column!\n");
+		    bs_print_usage(stderr);
+		    exit(EXIT_FAILURE);
+		}
+		free(block_dest_fn), block_dest_fn = NULL;
+		buf_idx = 0;
+		offsets[offset_idx++] = cumulative_bytes_written;
+	    }
         }
+        /* if row index is last index in matrix, write final buf to output stream, and close output stream */	
         if (row_idx == s->attr->nelems) {
-            offsets[offset_idx++] = cumulative_bytes_written;
-            /* write buf[] to output stream */
-            if (fwrite(buf, sizeof(*buf), buf_idx, os) != buf_idx) {
-                fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (B)\n");
+            /* write buf to output stream */
+	    bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+            if (bytes_written != buf_idx) {
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
                 exit(EXIT_FAILURE);
             }
-            fclose(os);
-        }
-        else if (row_idx % n == 0) {
-            offsets[offset_idx++] = cumulative_bytes_written;
-            /* write buf[] to output stream */
-            if (fwrite(buf, sizeof(*buf), buf_idx, os) != buf_idx) {
-                fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (C)\n");
-                exit(EXIT_FAILURE);
-            }
-            fclose(os);
+	    cumulative_bytes_written += bytes_written;
+            fclose(os), os = NULL;
+	    offsets[offset_idx++] = cumulative_bytes_written;
         }
     }
-    
+
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
     md_str = bs_init_metadata_str(offsets, offset_idx, n);
@@ -2728,20 +2737,18 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         exit(EXIT_FAILURE);
     }
     char* md_dest_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_dest_dir);
-    os = fopen(md_dest_fn, "wb");
-    if (ferror(os)) {
+    FILE* md_os = fopen(md_dest_fn, "wb");
+    if (ferror(md_os)) {
         fprintf(stderr, "Error: Could not open handle to output metadata!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    fwrite(md_str, 1, strlen(md_str), os);
-    fclose(os);
+    fwrite(md_str, 1, strlen(md_str), md_os);
+    fclose(md_os), md_os = NULL;
     
-    /* cleanup */
-    free(offsets), offsets = NULL;
     free(block_dest_dir), block_dest_dir = NULL;
-    free(md_dest_fn), md_dest_fn = NULL;
-    free(md_str), md_str = NULL;
+    free(offsets), offsets = NULL;
+    free(md_str), md_str = NULL;    
 }
 
 /**
@@ -2784,7 +2791,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = pow(floor(l->nelems / n) + 1, 2);
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
@@ -2976,7 +2983,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = pow(floor(l->nelems / n) + 1, 2);
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
