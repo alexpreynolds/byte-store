@@ -2693,7 +2693,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 offsets[offset_idx++] = cumulative_bytes_written;
                 /* write buf[] to output stream */
                 if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
-                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (A)\n");
                     exit(EXIT_FAILURE);
                 }
                 cumulative_bytes_written += l->nelems;
@@ -2704,7 +2704,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             offsets[offset_idx++] = cumulative_bytes_written;
             /* write buf[] to output stream */
             if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
-                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (B)\n");
                 exit(EXIT_FAILURE);
             }
             fclose(os);
@@ -2713,7 +2713,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             offsets[offset_idx++] = cumulative_bytes_written;
             /* write buf[] to output stream */
             if (fwrite(buf, l->nelems, buf_idx, os) != buf_idx) {
-                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store! (C)\n");
                 exit(EXIT_FAILURE);
             }
             fclose(os);
