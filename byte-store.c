@@ -3595,8 +3595,10 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         uint32_t col_idx = 0;
         ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
-	/* first offset the number of rows required to get to the starting point within the split block */
-	fseek(is, (row_idx % md->block_row_size) * l->nelems, SEEK_SET);
+	/* first offset the number of bytes required to get to the starting point within the split block */
+	if (row_idx < bs_globals.store_query_idx_start) {
+	    fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
+	}
 
         do {
 	    /* read a row of bytes */
