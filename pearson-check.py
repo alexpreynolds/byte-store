@@ -3,14 +3,16 @@
 import getopt, sys, math
 
 def main():
+
+    a_vec = None
+    b_vec = None
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "a:b:", ["a-vector=", "b-vector="])
     except getopt.GetoptError as err:
         print str(err)
         usage()
         sys.exit(-1)
-    a_vec = None
-    b_vec = None
     for o, argval in opts:
         if o in ("-a", "--a-vector"):
             a_vec = map(lambda x: int(x), argval.split(","))
@@ -22,7 +24,6 @@ def main():
     if a_vec is None or b_vec is None:
         usage()
         sys.exit(-1)
-
     if len(a_vec) != len(b_vec):
         usage()
         assert False, "Vectors A and B have unequal lengths"
