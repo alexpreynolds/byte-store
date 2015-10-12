@@ -474,6 +474,7 @@ extern "C" {
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_bzip2_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os);

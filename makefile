@@ -125,9 +125,9 @@ test-sample-graphs-frequencies:
 	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sut
 	$(TESTDIR)/graph_frequencies.sh $(TESTDIR)/graph_frequencies.Rscript $(SAMPLEDIR) pearson-r-sqr
 
-# -------------
-# Special tests
-# -------------
+# -----------------
+# Special raw tests
+# -----------------
 
 test-pearsonr-sqr-raw-split-5K: test-pearsonr-sqr-raw-split-5K-create-bs512
 
@@ -141,6 +141,23 @@ test-pearsonr-sqr-raw-5K-create-bs512: debug-byte-store test-pearsonr-sqr-raw-5K
 
 test-pearsonr-sqr-raw-5K-query-bs512: 
 	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test5K.bed -s $(SAMPLEDIR)/vec_test5K.sqr.bs512.rbs -i 0-0
+
+test-pearsonr-sqr-raw-split-1M: test-pearsonr-sqr-raw-split-1M-create-bs512
+
+test-pearsonr-sqr-raw-split-1M-create-bs512: byte-store test-pearsonr-sqr-raw-1M-prep
+
+test-pearsonr-sqr-raw-1M-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
+#	sample -k 1000000 --cstdio --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
+
+test-pearsonr-sqr-raw-1M-create-bs512: debug-byte-store test-pearsonr-sqr-raw-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs -r 512
+
+test-pearsonr-sqr-raw-1M-query-bs512:
+	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs -i 0-0
+
+# ------------------------
+# Special compressed tests
+# ------------------------
 
 test-pearsonr-sqr-bzip2-1M: test-pearsonr-sqr-bzip2-1M-create-bs512
 
@@ -162,7 +179,7 @@ test-pearsonr-sqr-bzip2-split-1M-create-bs512: byte-store test-pearsonr-sqr-bzip
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs512.cbs -r 512
 
 test-pearsonr-sqr-bzip2-split-1M-query-bs512:
-	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs512.cbs -i 0-0
+	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs512.rbs -i 0-0
 
 test-pearsonr-sqr-bzip2-split-1M-create-bs256: byte-store test-pearsonr-sqr-bzip2-split-1M-prep
 	$(PWD)/byte-store -t pearson-r-sqr-bzip2-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.split.bs256.cbs -r 256
