@@ -1130,7 +1130,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi
     e->start = start;
     e->stop = stop;
     e->id = NULL;
-    if (strlen(id) > 0) {
+    if ((strlen(id) > 0) && pi) {
         e->id = malloc(sizeof(*id) * strlen(id) + 1);
         if (!e->id) {
             fprintf(stderr,"Error: Could not allocate space for element id!\n");
@@ -2679,13 +2679,6 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
         bs_encode_double_to_byte(kSelfCorrelationScore);
     
-    /* test bounds of row-chunk size */
-    if (n > kCompressionRowChunkMaximumSize) {
-        fprintf(stderr, "Error: Number of specified rows within a chunk cannot be larger than the chunk size maximum!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }    
-    
     /* create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
     block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
@@ -2712,9 +2705,9 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     uint32_t block_idx = 0;
     char *block_dest_fn = NULL;
     
-    /* write out a buffer of n rows (n * l->nelems bytes) to output stream */
+    /* write out a buffer of 1 row (l->nelems bytes) to output stream */
     byte_t* buf = NULL;
-    size_t buf_size = n * l->nelems;
+    size_t buf_size = l->nelems;
     buf = malloc(buf_size * sizeof(*buf));
     size_t buf_idx = 0;
     
@@ -2747,7 +2740,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             }            
             buf[buf_idx++] = score;
 	    
-	    /* if buf is full, write its contents to output stream, close stream, reopen new stream */
+	    /* if buf is full, write its contents to output stream */
 	    if (buf_idx % buf_size == 0) {
 		bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
 		if (bytes_written != buf_idx) {
@@ -2755,6 +2748,11 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		    exit(EXIT_FAILURE);
 		}
 		cumulative_bytes_written += bytes_written;
+		buf_idx = 0;		
+	    }
+	    
+	    /* if file is size of n * l->elems, close stream, open new stream */
+	    if (cumulative_bytes_written == (l->nelems * n)) {
 		fclose(os), os = NULL;
 		/* open new handle to output sqr matrix store */
 		block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
@@ -2769,6 +2767,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 		offsets[offset_idx++] = cumulative_bytes_written;
 	    }
         }
+	
         /* if row index is last index in matrix, write final buf to output stream, and close output stream */	
         if (row_idx == s->attr->nelems) {
             /* write buf to output stream */

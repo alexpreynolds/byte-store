@@ -150,7 +150,7 @@ test-pearsonr-sqr-raw-split-1M: test-pearsonr-sqr-raw-split-1M-create-bs512
 test-pearsonr-sqr-raw-split-1M-create-bs512: byte-store test-pearsonr-sqr-raw-1M-prep
 
 test-pearsonr-sqr-raw-1M-prep: test/sample_bs_input.starch test/sample_bs_input.bed test-sample-performance-prep
-	sample -k 1000000 --cstdio --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
+#	sample -k 1000000 --cstdio --preserve-order test/sample_bs_input.bed > $(SAMPLEDIR)/vec_test1M.bed
 
 test-pearsonr-sqr-raw-1M-create-bs512: debug-byte-store test-pearsonr-sqr-raw-1M-prep
 	$(PWD)/byte-store -t pearson-r-sqr-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs -r 512
@@ -159,7 +159,16 @@ test-pearsonr-sqr-raw-1M-query-bs512:
 	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs -i 0-0
 
 test-pearsonr-sqr-raw-1M-query-range-bs512:
-	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs --query-range chr1:10000-chr1:50000
+	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs512.rbs --range-query chr1:10000-chr1:50000
+
+test-pearsonr-sqr-raw-1M-create-bs1048576: debug-byte-store test-pearsonr-sqr-raw-1M-prep
+	$(PWD)/byte-store -t pearson-r-sqr-split -c -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs1048576.rbs -r 1048576
+
+test-pearsonr-sqr-raw-1M-query-bs1048576:
+	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs1048576.rbs -i 0-0
+
+test-pearsonr-sqr-raw-1M-query-range-bs1048576:
+	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(SAMPLEDIR)/vec_test1M.bed -s $(SAMPLEDIR)/vec_test1M.sqr.bs1048576.rbs --range-query chr1:10000-chr1:50000
 
 # ------------------------
 # Special compressed tests
