@@ -1319,6 +1319,9 @@ bs_init_globals()
     bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
+    bs_globals.store_row_chunk_offset = kRowChunkDefaultOffset;
+    bs_globals.store_chunk_size_specified_flag = kFalse;
+    bs_globals.store_one_chunk_flag = kFalse;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
     bs_globals.rng_seed_flag = kFalse;
@@ -1410,13 +1413,22 @@ bs_init_command_line_options(int argc, char** argv)
             bs_output_flag_counter++;
             break;
         case 'r':
-            bs_globals.store_compression_flag = kTrue;
+            bs_globals.store_chunk_size_specified_flag = kTrue;
             if (!optarg) {
                 fprintf(stderr, "Error: Store chunk size parameter specified without chunk size value!\n");
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
             sscanf(optarg, "%u", &bs_globals.store_row_chunk_size);
+            break;
+        case 'k':
+            bs_globals.store_one_chunk_flag = kTrue;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store chunk offset parameter specified without chunk offset value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%u", &bs_globals.store_row_chunk_offset);
             break;
         case '2':
             bs_globals.store_filter = kScoreFilterGtEq;
@@ -1644,8 +1656,14 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && (bs_globals.store_row_chunk_size == kRowChunkDefaultSize)) {
+    if (bs_globals.store_create_flag && bs_globals.store_compression_flag && !bs_globals.store_chunk_size_specified_flag) {
         fprintf(stderr, "Error: Must specify --store-compression-row-chunk-size parameter when used with pearson-r-sqr-bzip2 or pearson-r-sqr-bzip2-split encoding type!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (bs_globals.store_one_chunk_flag && !bs_globals.store_chunk_size_specified_flag) {
+        fprintf(stderr, "Error: Must specify both chunk size and offset when encoding one raw chunk!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1666,7 +1684,7 @@ bs_print_usage(FILE* os)
             "\n" \
             " Usage: \n\n" \
             "   Create data store:\n\n" \
-            "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int ]\n\n" \
+            "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int [ --store-compression-row-chunk-offset=int ] ]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --range-query=str ] [ --score-filter-gteq=float | --score-filter-gt=float | --score-filter-eq=float | --score-filter-lteq=float | --score-filter-lt=float ]\n\n" \
             "   Bin-frequency on data store:\n\n"                          \
@@ -2721,7 +2739,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-	    buf_idx = 0;
+            buf_idx = 0;
             free(block_dest_fn), block_dest_fn = NULL;
             offsets[offset_idx++] = cumulative_bytes_written;
         }
@@ -2735,50 +2753,50 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
                     bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
-            else if (row_idx == col_idx) {
+            else {
                 score = self_correlation_score;
             }            
             buf[buf_idx++] = score;
 	    
-	    /* if buf is full, write its contents to output stream */
-	    if (buf_idx % buf_size == 0) {
-		bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
-		if (bytes_written != buf_idx) {
-		    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
-		    exit(EXIT_FAILURE);
-		}
-		cumulative_bytes_written += bytes_written;
-		buf_idx = 0;		
-	    }
+            /* if buf is full, write its contents to output stream */
+            if (buf_idx % buf_size == 0) {
+                bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+                if (bytes_written != buf_idx) { 
+                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                    exit(EXIT_FAILURE);
+                }
+                cumulative_bytes_written += bytes_written;
+                buf_idx = 0;		
+	        }
 	    
-	    /* if file is size of n * l->elems, close stream, open new stream */
-	    if (cumulative_bytes_written == (l->nelems * n)) {
-		fclose(os), os = NULL;
-		/* open new handle to output sqr matrix store */
-		block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
-		os = fopen(block_dest_fn, "wb");
-		if (ferror(os)) {
-		    fprintf(stderr, "Error: Could not open new handle to output square matrix store within-column!\n");
-		    bs_print_usage(stderr);
-		    exit(EXIT_FAILURE);
-		}
-		free(block_dest_fn), block_dest_fn = NULL;
-		buf_idx = 0;
-		offsets[offset_idx++] = cumulative_bytes_written;
-	    }
+	        /* if file is size of n * l->elems, close stream, open new stream */
+	        if (cumulative_bytes_written == (l->nelems * n)) {
+                fclose(os), os = NULL;
+                /* open new handle to output sqr matrix store */
+                block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
+                os = fopen(block_dest_fn, "wb");
+                if (ferror(os)) {
+                    fprintf(stderr, "Error: Could not open new handle to output square matrix store within-column!\n");
+                    bs_print_usage(stderr);
+                    exit(EXIT_FAILURE);
+                }
+                free(block_dest_fn), block_dest_fn = NULL;
+                buf_idx = 0;
+                offsets[offset_idx++] = cumulative_bytes_written;
+            }
         }
 	
         /* if row index is last index in matrix, write final buf to output stream, and close output stream */	
         if (row_idx == s->attr->nelems) {
             /* write buf to output stream */
-	    bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+            bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
             if (bytes_written != buf_idx) {
                 fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
                 exit(EXIT_FAILURE);
             }
-	    cumulative_bytes_written += bytes_written;
+            cumulative_bytes_written += bytes_written;
             fclose(os), os = NULL;
-	    offsets[offset_idx++] = cumulative_bytes_written;
+            offsets[offset_idx++] = cumulative_bytes_written;
         }
     }
 
@@ -2802,6 +2820,101 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     free(block_dest_dir), block_dest_dir = NULL;
     free(offsets), offsets = NULL;
     free(md_str), md_str = NULL;    
+}
+
+/**
+ * @brief      bs_populate_sqr_split_store_chunk_with_pearsonr_scores(s, l, n, o)
+ *
+ * @details    Write one raw block of encoded Pearson's r correlation scores to 
+ *             a FILE* handle associated with the specified square matrix store 
+ *             filename. Each block and a metadata file are stored in a folder, 
+ *             its name determined by the store filename. The folder is created 
+ *             if it does not already exist.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ *             n      (uint32_t) number of rows within a raw chunk
+ *             o      (uint32_t) offset to starting row (zero-indexed)  
+ */
+
+void
+bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o)
+{
+    byte_t score = 0;
+    FILE* os = NULL;
+    byte_t self_correlation_score =
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_double_to_byte(kSelfCorrelationScore);
+    
+    /* if necessary, create an owner read/write/executable directory to contain block files */
+    char* block_dest_dir = NULL;
+    block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_dest_dir)) {
+        mkdir(block_dest_dir, S_IRUSR | S_IWUSR | S_IXUSR);
+    }
+    
+    /* iterate through l->nelems for one block of rows; write a raw stream buffer for that block */
+    if (n == 0) {
+        fprintf(stderr, "Error: Block size cannot be zero elements in length!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    if (o % n != 0) {
+        fprintf(stderr, "Error: Row offset must be exact multiple of block size!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t block_idx = o / n;
+    uint64_t bytes_written = 0;
+    char *block_dest_fn = NULL;
+    block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx);
+    if (bs_path_exists(block_dest_fn)) {
+        fprintf(stderr, "Error: Block file already exists! [%s]\n", block_dest_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    os = fopen(block_dest_fn, "wb");
+    if (ferror(os)) {
+        fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    free(block_dest_fn), block_dest_fn = NULL;
+    free(block_dest_dir), block_dest_dir = NULL;
+    
+    /* write out a buffer of 1 row (l->nelems bytes) to output stream */
+    byte_t* buf = NULL;
+    size_t buf_size = l->nelems;
+    buf = malloc(buf_size * sizeof(*buf));
+    size_t buf_idx = 0;
+    
+    for (uint32_t row_idx = (o + 1); row_idx <= (o + n); row_idx++) {
+        signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
+        for (uint32_t col_idx = 1; col_idx <= l->nelems; col_idx++) {
+            signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
+            if (row_idx != col_idx) {
+                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score = 
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
+                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            }
+            else {
+                score = self_correlation_score;
+            }
+            buf[buf_idx++] = score;
+        }
+        /* at the end of a row, we write out the bytes */
+        bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+        if (bytes_written != buf_idx) { 
+            fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk)!\n");
+            exit(EXIT_FAILURE);
+        }
+        buf_idx = 0;
+    }
+    fclose(os), os = NULL;
 }
 
 /**

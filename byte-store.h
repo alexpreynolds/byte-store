@@ -168,7 +168,9 @@ extern "C" {
     const double kEncodingStrategyDefaultCutoff = -DBL_MAX;
     
     extern const uint32_t kRowChunkDefaultSize;
+    extern const uint32_t kRowChunkDefaultOffset;
     const uint32_t kRowChunkDefaultSize = UINT32_MAX;
+    const uint32_t kRowChunkDefaultOffset = UINT32_MAX;
     
     extern const char* kRawMetadataSplitFn;
     extern const char* kRawMetadataSplitDirSuffix;
@@ -280,6 +282,9 @@ extern "C" {
         double encoding_cutoff_zero_min;
         double encoding_cutoff_zero_max;
         uint32_t store_row_chunk_size;
+        uint32_t store_row_chunk_offset;
+        boolean_t store_chunk_size_specified_flag;
+        boolean_t store_one_chunk_flag;
         boolean_t store_compression_flag;
         boolean_t lookup_frequency_flag;
         boolean_t permutation_test_flag;
@@ -295,6 +300,7 @@ extern "C" {
         { "store-query",                      no_argument,       NULL, 'q' },
         { "store-frequency",                  no_argument,       NULL, 'f' },
         { "store-row-chunk-size",             required_argument, NULL, 'r' },
+        { "store-row-chunk-offset",           required_argument, NULL, 'k' },
         { "score-filter-gteq",                required_argument, NULL, '2' },
         { "score-filter-gt",                  required_argument, NULL, '3' },
         { "score-filter-eq",                  required_argument, NULL, '4' },
@@ -319,7 +325,7 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:2:3:4:5:6:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
     static const char* bs_name = "byte-store";
     
@@ -456,6 +462,7 @@ extern "C" {
     char*                        bs_init_sqr_split_store_dir_str(char* p);
     char*                        bs_init_sqr_split_store_metadata_fn_str(char* d);    
     void                         bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
+    void                         bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o);
     void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
