@@ -28,6 +28,7 @@ main(int argc, char** argv)
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
             case kStorePearsonRSquareMatrixSplit:
+            case kStorePearsonRSquareMatrixSplitSingleChunk:
             case kStorePearsonRSquareMatrixBzip2:
             case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreUndefined:
@@ -63,6 +64,7 @@ main(int argc, char** argv)
         break;
     case kStorePearsonRSquareMatrix:
     case kStorePearsonRSquareMatrixSplit:
+    case kStorePearsonRSquareMatrixSplitSingleChunk:
     case kStorePearsonRSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
     case kStoreRandomSquareMatrix:
@@ -81,6 +83,9 @@ main(int argc, char** argv)
                 break;
             case kStorePearsonRSquareMatrixSplit:
                 bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                break;
+            case kStorePearsonRSquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
                 bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
@@ -143,6 +148,7 @@ main(int argc, char** argv)
                     break;
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
+                case kStorePearsonRSquareMatrixSplitSingleChunk:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C)\n");
                     exit(EXIT_FAILURE);
@@ -167,6 +173,7 @@ main(int argc, char** argv)
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
+            case kStorePearsonRSquareMatrixSplitSingleChunk:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
@@ -1321,7 +1328,7 @@ bs_init_globals()
     bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
     bs_globals.store_row_chunk_offset = kRowChunkDefaultOffset;
     bs_globals.store_chunk_size_specified_flag = kFalse;
-    bs_globals.store_one_chunk_flag = kFalse;
+    bs_globals.store_single_chunk_flag = kFalse;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
     bs_globals.rng_seed_flag = kFalse;
@@ -1391,6 +1398,7 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSUTStr) == 0) ? kStorePearsonRSUT :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitStr) == 0) ? kStorePearsonRSquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitSingleChunkStr) == 0) ? kStorePearsonRSquareMatrixSplitSingleChunk :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :                
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
@@ -1422,7 +1430,7 @@ bs_init_command_line_options(int argc, char** argv)
             sscanf(optarg, "%u", &bs_globals.store_row_chunk_size);
             break;
         case 'k':
-            bs_globals.store_one_chunk_flag = kTrue;
+            bs_globals.store_single_chunk_flag = kTrue;
             if (!optarg) {
                 fprintf(stderr, "Error: Store chunk offset parameter specified without chunk offset value!\n");
                 bs_print_usage(stderr);
@@ -1662,8 +1670,9 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
     
-    if (bs_globals.store_one_chunk_flag && !bs_globals.store_chunk_size_specified_flag) {
-        fprintf(stderr, "Error: Must specify both chunk size and offset when encoding one raw chunk!\n");
+    if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk && !bs_globals.store_single_chunk_flag) || 
+        (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk && bs_globals.store_single_chunk_flag && !bs_globals.store_chunk_size_specified_flag)) {
+        fprintf(stderr, "Error: Must specify both chunk size and offset when encoding a single raw chunk!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1697,11 +1706,12 @@ bs_print_usage(FILE* os)
             " - pearson-r-sut\n"                                        \
             " - pearson-r-sqr\n"                                        \
             " - pearson-r-sqr-split\n"                                  \
+            " - pearson-r-sqr-split-single-chunk\n"                     \
             " - pearson-r-sqr-bzip2\n"                                  \
             " - pearson-r-sqr-bzip2-split\n"                            \
-            " - random-sut\n" \
-            " - random-sqr\n"            \
-            " - random-buffered-sqr\n\n" \
+            " - random-sut\n"                                           \
+            " - random-sqr\n"                                           \
+            " - random-buffered-sqr\n\n"                                \
             " Notes:\n\n"                                               \
             " - Store type describes either a strictly upper triangular (SUT) or square matrix\n" \
             "   and how it is created and populated.\n\n"               \

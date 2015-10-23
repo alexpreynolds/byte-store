@@ -126,6 +126,7 @@ extern "C" {
         kStorePearsonRSUT = 0,
         kStorePearsonRSquareMatrix,
         kStorePearsonRSquareMatrixSplit,
+        kStorePearsonRSquareMatrixSplitSingleChunk,
         kStorePearsonRSquareMatrixBzip2,
         kStorePearsonRSquareMatrixBzip2Split,
         kStoreRandomSUT,
@@ -137,6 +138,7 @@ extern "C" {
     extern const char* kStorePearsonRSUTStr;
     extern const char* kStorePearsonRSquareMatrixStr;
     extern const char* kStorePearsonRSquareMatrixSplitStr;
+    extern const char* kStorePearsonRSquareMatrixSplitSingleChunkStr;
     extern const char* kStorePearsonRSquareMatrixBzip2Str;
     extern const char* kStorePearsonRSquareMatrixBzip2SplitStr;
     extern const char* kStoreRandomSUTStr;
@@ -145,6 +147,7 @@ extern "C" {
     const char* kStorePearsonRSUTStr = "pearson-r-sut";
     const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
     const char* kStorePearsonRSquareMatrixSplitStr = "pearson-r-sqr-split";
+    const char* kStorePearsonRSquareMatrixSplitSingleChunkStr = "pearson-r-sqr-split-single-chunk";
     const char* kStorePearsonRSquareMatrixBzip2Str = "pearson-r-sqr-bzip2";
     const char* kStorePearsonRSquareMatrixBzip2SplitStr = "pearson-r-sqr-bzip2-split";
     const char* kStoreRandomSUTStr = "random-sut";
@@ -284,7 +287,7 @@ extern "C" {
         uint32_t store_row_chunk_size;
         uint32_t store_row_chunk_offset;
         boolean_t store_chunk_size_specified_flag;
-        boolean_t store_one_chunk_flag;
+        boolean_t store_single_chunk_flag;
         boolean_t store_compression_flag;
         boolean_t lookup_frequency_flag;
         boolean_t permutation_test_flag;
