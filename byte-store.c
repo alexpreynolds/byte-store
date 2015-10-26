@@ -3112,7 +3112,6 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
         }
         cumulative_bytes_written += bytes_written;
     }
-    offsets[offset_idx++] = cumulative_bytes_written;
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
