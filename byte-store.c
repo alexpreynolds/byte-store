@@ -2918,12 +2918,12 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             }
             cumulative_bytes_written += bytes_written;
             fprintf(stderr, "cumulative_bytes_written [%d] bytes\n", cumulative_bytes_written);
-            buf_idx = 0;		
+            buf_idx = 0;
 	    }
 	    
-	    /* if file is size of n * l->elems, close stream, open new stream */
+	    /* if file is multiple of n * l->elems, close stream, open new stream */
         fprintf(stderr, "l->nelems * n [%d] bytes\n", l->nelems * n);
-	    if ((cumulative_bytes_written == (l->nelems * n)) && (row_idx != s->attr->nelems)) {
+	    if ((cumulative_bytes_written % (l->nelems * n) == 0) && (row_idx != s->attr->nelems)) {
             fclose(os), os = NULL;
             /* open new handle to output sqr matrix store */
             block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
