@@ -3058,6 +3058,10 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
             fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk)!\n");
             exit(EXIT_FAILURE);
         }
+        /* if we are at the end of the array, we break out */
+        if (row_idx == l->nelems) {
+            break;
+        }
         buf_idx = 0;
     }
     fclose(os), os = NULL;
