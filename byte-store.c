@@ -3107,11 +3107,12 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     /* create dummy offsets from chunk size */
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
         bytes_written = l->nelems;
-        cumulative_bytes_written += bytes_written;
         if ((row_idx - 1) % n == 0) {
             offsets[offset_idx++] = cumulative_bytes_written;
-        } 
+        }
+        cumulative_bytes_written += bytes_written;
     }
+    offsets[offset_idx++] = cumulative_bytes_written;
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
