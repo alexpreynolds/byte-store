@@ -2906,47 +2906,49 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
                 score = self_correlation_score;
             }            
             buf[buf_idx++] = score;
-	    
-            /* if buf is full, write its contents to output stream */
-            if (buf_idx % buf_size == 0) {
-                fprintf(stderr, "writing [%d] bytes\n", buf_idx);
-                bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
-                if (bytes_written != buf_idx) { 
-                    fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
-                    exit(EXIT_FAILURE);
-                }
-                cumulative_bytes_written += bytes_written;
-                buf_idx = 0;		
-	        }
-	    
-	        /* if file is size of n * l->elems, close stream, open new stream */
-            fprintf(stderr, "cumulative_bytes_written [%d] bytes\n", cumulative_bytes_written);
-            fprintf(stderr, "l->nelems * n [%d] bytes\n", l->nelems * n);
-	        if (cumulative_bytes_written == (l->nelems * n)) {
-                fclose(os), os = NULL;
-                /* open new handle to output sqr matrix store */
-                block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
-                os = fopen(block_dest_fn, "wb");
-                if (ferror(os)) {
-                    fprintf(stderr, "Error: Could not open new handle to output square matrix store within-column!\n");
-                    bs_print_usage(stderr);
-                    exit(EXIT_FAILURE);
-                }
-                free(block_dest_fn), block_dest_fn = NULL;
-                buf_idx = 0;
-                offsets[offset_idx++] = cumulative_bytes_written;
+        }
+            
+        /* if buf is full, write its contents to output stream */
+        if (buf_idx % buf_size == 0) {
+            fprintf(stderr, "writing [%d] bytes\n", buf_idx);
+            bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
+            if (bytes_written != buf_idx) { 
+                fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
+                exit(EXIT_FAILURE);
             }
+            cumulative_bytes_written += bytes_written;
+            fprintf(stderr, "cumulative_bytes_written [%d] bytes\n", cumulative_bytes_written);
+            buf_idx = 0;		
+	    }
+	    
+	    /* if file is size of n * l->elems, close stream, open new stream */
+        fprintf(stderr, "l->nelems * n [%d] bytes\n", l->nelems * n);
+	    if ((cumulative_bytes_written == (l->nelems * n)) && (row_idx != s->attr->nelems)) {
+            fclose(os), os = NULL;
+            /* open new handle to output sqr matrix store */
+            block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
+            os = fopen(block_dest_fn, "wb");
+            if (ferror(os)) {
+                fprintf(stderr, "Error: Could not open new handle to output square matrix store within-column!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            free(block_dest_fn), block_dest_fn = NULL;
+            buf_idx = 0;
+            offsets[offset_idx++] = cumulative_bytes_written;
         }
 	
         /* if row index is last index in matrix, write final buf to output stream, and close output stream */	
-        if (row_idx == s->attr->nelems) {
+        else if (row_idx == s->attr->nelems) {
             /* write buf to output stream */
+            fprintf(stderr, "writing [%d] bytes\n", buf_idx);
             bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
             if (bytes_written != buf_idx) {
                 fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
                 exit(EXIT_FAILURE);
             }
             cumulative_bytes_written += bytes_written;
+            fprintf(stderr, "cumulative_bytes_written [%d] bytes\n", cumulative_bytes_written);
             fclose(os), os = NULL;
             offsets[offset_idx++] = cumulative_bytes_written;
         }
