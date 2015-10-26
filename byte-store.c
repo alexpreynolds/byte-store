@@ -11,6 +11,8 @@ main(int argc, char** argv)
     lookup_t* lookup = NULL;
 
     lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
+    
+    bs_print_lookup(lookup, stdout);
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
