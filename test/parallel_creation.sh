@@ -12,9 +12,11 @@ $PWD/../byte-store -t pearson-r-sqr-split -c -l $PWD/vec_test1000.bed -s $PWD/ve
 
 # create data store from qsub'ed tasks, each chunk made on one computational node
 rm -rf $PWD/vec_test1000.sqr.bs250.rbs.qsub.blocks
-qsub -N bs-test-0 -b y -cwd -o "bs_test_0_run.out" -e "bs_test_0_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs250.rbs.qsub -r 250 -k 0
-qsub -N bs-test-1 -b y -cwd -o "bs_test_1_run.out" -e "bs_test_1_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs250.rbs.qsub -r 250 -k 250
-qsub -N bs-test-2 -b y -cwd -o "bs_test_2_run.out" -e "bs_test_2_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs250.rbs.qsub -r 250 -k 500
-qsub -N bs-test-3 -b y -cwd -o "bs_test_3_run.out" -e "bs_test_3_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs250.rbs.qsub -r 250 -k 750
-qsub -hold_jid bs-test-0,bs-test-1,bs-test-2,bs-test-3 -N bs-test-md -b y -cwd -o "bs_test_md_run.out" -e "bs_test_md_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk-metadata -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs250.rbs.qsub -r 250
+qsub -N bs-test-0 -b y -cwd -o "bs_test_0_run.out" -e "bs_test_0_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs300.rbs.qsub -r 300 -k 0
+qsub -N bs-test-1 -b y -cwd -o "bs_test_1_run.out" -e "bs_test_1_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs300.rbs.qsub -r 300 -k 300
+qsub -N bs-test-2 -b y -cwd -o "bs_test_2_run.out" -e "bs_test_2_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs300.rbs.qsub -r 300 -k 600
+qsub -N bs-test-3 -b y -cwd -o "bs_test_3_run.out" -e "bs_test_3_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs300.rbs.qsub -r 300 -k 900
+qsub -hold_jid bs-test-0,bs-test-1,bs-test-2,bs-test-3 -N bs-test-md -b y -cwd -o "bs_test_md_run.out" -e "bs_test_md_run.err" -notify -V $PWD/../byte-store -t pearson-r-sqr-split-single-chunk-metadata -c -l $PWD/vec_test1000.bed -s $PWD/vec_test1000.sqr.bs300.rbs.qsub -r 300
+
+# test difference between stores
 qsub -hold_jid bs-test-md -N bs-test-diff -S /bin/bash -cwd -o "bs_test_diff_run.out" -e "bs_test_diff_run.err" -notify -V $PWD/parallel_creation_test_diff.sh
