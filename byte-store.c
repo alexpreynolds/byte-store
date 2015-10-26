@@ -29,6 +29,7 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrix:
             case kStorePearsonRSquareMatrixSplit:
             case kStorePearsonRSquareMatrixSplitSingleChunk:
+            case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
             case kStorePearsonRSquareMatrixBzip2:
             case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreUndefined:
@@ -48,6 +49,7 @@ main(int argc, char** argv)
                                                       &bs_globals.store_query_idx_start,
                                                       &bs_globals.store_query_idx_end);
                 break;
+            case kQueryKindMultipleIndices:
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
@@ -65,6 +67,7 @@ main(int argc, char** argv)
     case kStorePearsonRSquareMatrix:
     case kStorePearsonRSquareMatrixSplit:
     case kStorePearsonRSquareMatrixSplitSingleChunk:
+    case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
     case kStoreRandomSquareMatrix:
@@ -87,6 +90,9 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixSplitSingleChunk:
                 bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset);
                 break;
+            case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                break;
             case kStorePearsonRSquareMatrixBzip2:
                 bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
                 break;
@@ -102,22 +108,26 @@ main(int argc, char** argv)
         }
         else if (bs_globals.store_query_flag) {
             /* set up query type */
-            boolean_t rows_found = kFalse;
+            boolean_t contiguous_rows_found = kFalse;
+            boolean_t separate_rows_found = kFalse;
             switch (bs_globals.store_query_kind) {
             case kQueryKindIndex:
-                rows_found = bs_parse_query_index_str(lookup);
+                contiguous_rows_found = bs_parse_query_index_str(lookup);
                 break;
             case kQueryKindRange:
-                rows_found = bs_parse_query_range_str(lookup,
-                                                      bs_globals.store_query_str,
-                                                      &bs_globals.store_query_idx_start,
-                                                      &bs_globals.store_query_idx_end);
+                contiguous_rows_found = bs_parse_query_range_str(lookup,
+                                                                 bs_globals.store_query_str,
+                                                                 &bs_globals.store_query_idx_start,
+                                                                 &bs_globals.store_query_idx_end);
+                break;
+            case kQueryKindMultipleIndices:
+                separate_rows_found = bs_parse_query_multiple_index_str(lookup, bs_globals.store_query_str);
                 break;
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
             }
-            if (rows_found) {
+            if (contiguous_rows_found) {
                 /* extract from raw or uncompressed square matrix */
                 switch (bs_globals.store_type) {
                 case kStoreRandomBufferedSquareMatrix:
@@ -149,8 +159,31 @@ main(int argc, char** argv)
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
                 case kStorePearsonRSquareMatrixSplitSingleChunk:
+                case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
                 case kStoreUndefined:
-                    fprintf(stderr, "Error: You should never see this error! (C)\n");
+                    fprintf(stderr, "Error: You should never see this error! (C1)\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            if (separate_rows_found) {
+                switch (bs_globals.store_type) {
+                case kStorePearsonRSquareMatrixSplit:
+                    if (bs_globals.store_filter == kScoreFilterNone)
+                        bs_print_sqr_split_store_separate_rows_to_bed7(lookup, sqr_store, stdout);
+                    else
+                        bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);		    
+                    break;
+                case kStoreRandomBufferedSquareMatrix:
+                case kStoreRandomSquareMatrix:
+                case kStorePearsonRSquareMatrix:
+                case kStorePearsonRSquareMatrixSplitSingleChunk:
+                case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+                case kStorePearsonRSquareMatrixBzip2:
+                case kStorePearsonRSquareMatrixBzip2Split:
+                case kStorePearsonRSUT:
+                case kStoreRandomSUT:
+                case kStoreUndefined:
+                    fprintf(stderr, "Error: You should never see this error! (C2)\n");
                     exit(EXIT_FAILURE);
                 }
             }
@@ -174,6 +207,7 @@ main(int argc, char** argv)
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStorePearsonRSquareMatrixSplitSingleChunk:
+            case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
@@ -535,6 +569,94 @@ bs_parse_query_index_str(lookup_t* l)
     
     return (((bs_globals.store_query_idx_start + 1) > l->nelems) || ((bs_globals.store_query_idx_end + 1) > l->nelems)) ? kFalse : kTrue;        
 }
+
+/**
+ * @brief      bs_parse_query_multiple_index_str(l)
+ *
+ * @details    Parses multiple-index-query string and performs some validation
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             qs     (char*) string to parse into indices
+ *
+ * @return     (boolean_t) if rows are found or not
+ */
+
+boolean_t
+bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
+{
+    boolean_t index_found_flag = kFalse;
+    
+    /* populate store_query_indices copy from qs */    
+    char* start = qs;
+    char* end = qs;
+    char entry_buf[ENTRY_MAX_LEN];
+    uint32_t entry_idx = 0;
+    int32_t* entries = NULL;
+    boolean_t finished = kFalse;
+    entries = malloc(sizeof(*entries) * MULT_IDX_MAX_NUM);
+    if (!entries) {
+        fprintf(stderr, "Error: Could not allocate space for temporary multiple indices!\n");
+        exit(EXIT_FAILURE);
+    }
+    do {
+        end = strchr(start, kQueryIndexDelim);
+        if (!end) {
+            end = qs + strlen(qs);
+            finished = kTrue;
+        }
+        memcpy(entry_buf, start, end - start);
+        entry_buf[end - start] = '\0';
+        sscanf(entry_buf, "%d", &entries[entry_idx++]);
+        start = end + 1;
+    } while (!finished);
+    
+    /* check that all indices are between 0 and l->nelems-1 */
+    uint32_t current_idx = 0;
+    int32_t max_entry = INT32_MIN;
+    do {
+        if (entries[current_idx] > max_entry) {
+            max_entry = entries[current_idx];
+        }
+        current_idx++;
+    } while (current_idx < entry_idx);
+    if (max_entry > ((int32_t) l->nelems - 1)) {
+        fprintf(stderr, "Error: Entry in multiple indices is greater than the number of elements in the input index file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* copy entries array to bs_globals.store_query_indices */
+    bs_globals.store_query_indices = NULL;
+    bs_globals.store_query_indices = malloc(sizeof(*bs_globals.store_query_indices) * entry_idx);
+    if (!bs_globals.store_query_indices) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices!\n");
+        exit(EXIT_FAILURE);
+    }
+    current_idx = 0;
+    do {
+        bs_globals.store_query_indices[current_idx] = entries[current_idx];
+    } while (++current_idx < entry_idx);
+    bs_globals.store_query_indices_num = entry_idx;
+    
+    /* clean up entries */
+    free(entries), entries = NULL;
+    
+    /* sort entries array copy */
+    qsort(bs_globals.store_query_indices, 
+          bs_globals.store_query_indices_num, 
+          sizeof(*bs_globals.store_query_indices), 
+          bs_parse_query_multiple_index_str_comparator);
+    
+    return index_found_flag;
+}
+
+int32_t 
+bs_parse_query_multiple_index_str_comparator(const void *a, const void *b) 
+{ 
+    const int32_t *ia = (const int32_t *)a; // casting pointer types 
+    const int32_t *ib = (const int32_t *)b;
+    return *ia  - *ib;
+} 
 
 /**
  * @brief      bs_parse_query_str_to_indices(qs, start, end)
@@ -1323,6 +1445,7 @@ bs_init_globals()
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
+    bs_globals.store_query_indices = NULL;
     bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
@@ -1357,6 +1480,7 @@ bs_init_globals()
 void
 bs_delete_globals()
 {
+    if (bs_globals.store_query_indices) { free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL; }
     bs_delete_bed(&bs_globals.store_query_range_start);
     bs_delete_bed(&bs_globals.store_query_range_end);
 }
@@ -1399,6 +1523,7 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixStr) == 0) ? kStorePearsonRSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitStr) == 0) ? kStorePearsonRSquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitSingleChunkStr) == 0) ? kStorePearsonRSquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStorePearsonRSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :                
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
@@ -1496,6 +1621,15 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.store_query_kind = kQueryKindIndex;
             if (!optarg) {
                 fprintf(stderr, "Error: Index query parameter specified without index value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
+            break;
+        case 'w':
+            bs_globals.store_query_kind = kQueryKindMultipleIndices;
+            if (!optarg) {
+                fprintf(stderr, "Error: Multiple index query parameter specified without multiple index string value!\n");
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
@@ -1671,8 +1805,9 @@ bs_init_command_line_options(int argc, char** argv)
     }
     
     if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk && !bs_globals.store_single_chunk_flag) || 
-        (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk && bs_globals.store_single_chunk_flag && !bs_globals.store_chunk_size_specified_flag)) {
-        fprintf(stderr, "Error: Must specify both chunk size and offset when encoding a single raw chunk!\n");
+        (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk && bs_globals.store_single_chunk_flag && !bs_globals.store_chunk_size_specified_flag) ||
+        (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata && !bs_globals.store_chunk_size_specified_flag)) {
+        fprintf(stderr, "Error: Must specify both chunk size and offset when encoding a single raw chunk! Or specify chunk size when writing simulated metadata record!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
@@ -1707,6 +1842,7 @@ bs_print_usage(FILE* os)
             " - pearson-r-sqr\n"                                        \
             " - pearson-r-sqr-split\n"                                  \
             " - pearson-r-sqr-split-single-chunk\n"                     \
+            " - pearson-r-sqr-split-single-chunk-metadata\n"            \
             " - pearson-r-sqr-bzip2\n"                                  \
             " - pearson-r-sqr-bzip2-split\n"                            \
             " - random-sut\n"                                           \
@@ -2928,6 +3064,73 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 }
 
 /**
+ * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n, o)
+ *
+ * @details    Write metadata to FILE* handle associated with the specified 
+ *             per-chunk square matrix store. Metadata are stored in a folder, 
+ *             its name determined by the store filename. The folder is created 
+ *             if it does not already exist.
+ *
+ * @param      s      (sqr_store_t*) pointer to square matrix store
+ *             l      (lookup_t*) pointer to lookup table
+ *             n      (uint32_t) number of rows within a raw chunk
+ */
+
+void
+bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t n)
+{
+    /* if necessary, create an owner read/write/executable directory to contain block files */
+    char* block_dest_dir = NULL;
+    block_dest_dir = bs_init_sqr_bzip2_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_dest_dir)) {
+        mkdir(block_dest_dir, S_IRUSR | S_IWUSR | S_IXUSR);
+    }
+    
+    /* init offset array */
+    off_t* offsets = NULL;
+    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    offsets = malloc(num_offsets * sizeof(*offsets));
+    if (!offsets) {
+        fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t offset_idx = 0;
+    
+    uint64_t bytes_written = 0;
+    uint64_t cumulative_bytes_written = 0;
+    
+    /* create dummy offsets from chunk size */
+    for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
+        bytes_written = l->nelems;
+        cumulative_bytes_written += bytes_written;
+        if ((row_idx - 1) % n == 0) {
+            offsets[offset_idx++] = cumulative_bytes_written;
+        } 
+    }
+    
+    /* convert offsets to formatted metadata string and write to output stream */
+    char* md_str = NULL;
+    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    if (!md_str) {
+        fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
+        exit(EXIT_FAILURE);
+    }
+    char* md_dest_fn = bs_init_sqr_bzip2_split_store_metadata_fn_str(block_dest_dir);
+    FILE* md_os = fopen(md_dest_fn, "wb");
+    if (ferror(md_os)) {
+        fprintf(stderr, "Error: Could not open handle to output metadata!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fwrite(md_str, 1, strlen(md_str), md_os);
+    fclose(md_os), md_os = NULL;
+    
+    free(block_dest_dir), block_dest_dir = NULL;
+    free(offsets), offsets = NULL;
+    free(md_str), md_str = NULL;    
+}
+
+/**
  * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l, n)
  *
  * @details    Write bzip2-compressed chunks of encoded Pearson's r 
@@ -3713,20 +3916,20 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             exit(EXIT_FAILURE);
         }
 	
-	/* set up bounds */
+       /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
         ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
-	/* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-	if (row_idx < bs_globals.store_query_idx_start) {
-	    fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-	    row_idx = bs_globals.store_query_idx_start;
-	}
+        /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
+        if (row_idx < bs_globals.store_query_idx_start) {
+            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
+            row_idx = bs_globals.store_query_idx_start;
+        }
 
         do {
-	    /* read a row of bytes */
-	    fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            /* read a row of bytes */
+            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     bs_print_pair(os, 
@@ -3748,7 +3951,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         } while (row_idx <= end_of_block_row_idx);
         
         /* at end of block, close input streams */
-	fclose(is);
+        fclose(is);
     }
     
     /* clean up */
@@ -3861,20 +4064,20 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
             exit(EXIT_FAILURE);
         }
 	
-	/* set up bounds */
+        /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
         ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
-	/* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-	if (row_idx < bs_globals.store_query_idx_start) {
-	    fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-	    row_idx = bs_globals.store_query_idx_start;
-	}
+        /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
+        if (row_idx < bs_globals.store_query_idx_start) {
+            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
+            row_idx = bs_globals.store_query_idx_start;
+        }
 
         do {
-	    /* read a row of bytes */
-	    fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            /* read a row of bytes */
+            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
@@ -3893,7 +4096,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                                       l->elems[col_idx]->start,
                                       l->elems[col_idx]->stop,
                                       d);
-		    }
+                    }
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
@@ -3902,7 +4105,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
         } while (row_idx <= end_of_block_row_idx);
         
         /* at end of block, close input streams */
-	fclose(is);
+        fclose(is);
     }
     
     /* clean up */
@@ -3911,6 +4114,46 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
     free(md_string), md_string = NULL;
     free(md), md = NULL;
     free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7(l, s, os)
+ *
+ * @details    Queries raw square matrix store folder for
+ *             provided multiple-index globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+{
+    /* iterate through separate rows, calculating associated block */
+    /* if the new block is the same as current block, keep reading from current block */
+    /* else, close block file and open new block */
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, fc, fo)
+ *
+ * @details    Queries raw split square matrix store for 
+ *             provided multiple-index globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             os     (FILE*) pointer to output stream
+ *             fc     (double) score filter cutoff
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo) 
+{
+    
 }
 
 /**

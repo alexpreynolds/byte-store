@@ -29,6 +29,7 @@ extern "C" {
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
+#define MULT_IDX_MAX_NUM 4096
 
 #define swap(x,y) do                                                    \
         { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -73,6 +74,9 @@ extern "C" {
 
     extern const int kQueryRangeWithinDelim;
     const int kQueryRangeWithinDelim = (int) ':';
+    
+    extern const int kQueryMultipleIndexDelim;
+    const int kQueryMultipleIndexDelim = (int) ',';
     
     extern const int kSignalDelim;
     const int kSignalDelim = (int) ',';
@@ -127,6 +131,7 @@ extern "C" {
         kStorePearsonRSquareMatrix,
         kStorePearsonRSquareMatrixSplit,
         kStorePearsonRSquareMatrixSplitSingleChunk,
+        kStorePearsonRSquareMatrixSplitSingleChunkMetadata,
         kStorePearsonRSquareMatrixBzip2,
         kStorePearsonRSquareMatrixBzip2Split,
         kStoreRandomSUT,
@@ -139,6 +144,7 @@ extern "C" {
     extern const char* kStorePearsonRSquareMatrixStr;
     extern const char* kStorePearsonRSquareMatrixSplitStr;
     extern const char* kStorePearsonRSquareMatrixSplitSingleChunkStr;
+    extern const char* kStorePearsonRSquareMatrixSplitSingleChunkMetadataStr;
     extern const char* kStorePearsonRSquareMatrixBzip2Str;
     extern const char* kStorePearsonRSquareMatrixBzip2SplitStr;
     extern const char* kStoreRandomSUTStr;
@@ -148,6 +154,7 @@ extern "C" {
     const char* kStorePearsonRSquareMatrixStr = "pearson-r-sqr";
     const char* kStorePearsonRSquareMatrixSplitStr = "pearson-r-sqr-split";
     const char* kStorePearsonRSquareMatrixSplitSingleChunkStr = "pearson-r-sqr-split-single-chunk";
+    const char* kStorePearsonRSquareMatrixSplitSingleChunkMetadataStr = "pearson-r-sqr-split-single-chunk-metadata";
     const char* kStorePearsonRSquareMatrixBzip2Str = "pearson-r-sqr-bzip2";
     const char* kStorePearsonRSquareMatrixBzip2SplitStr = "pearson-r-sqr-bzip2-split";
     const char* kStoreRandomSUTStr = "random-sut";
@@ -240,6 +247,7 @@ extern "C" {
 
     typedef enum query_kind {
         kQueryKindIndex,
+        kQueryKindMultipleIndices,
         kQueryKindRange,
         kQueryKindUndefined
     } query_kind_t;
@@ -270,6 +278,8 @@ extern "C" {
         char store_query_str[QUERY_MAX_LEN];
         uint32_t store_query_idx_start;
         uint32_t store_query_idx_end;
+        int32_t* store_query_indices;
+        uint32_t store_query_indices_num;
         bed_t* store_query_range_start;
         bed_t* store_query_range_end;
         score_filter_t store_filter;
@@ -310,6 +320,7 @@ extern "C" {
         { "score-filter-lteq",                required_argument, NULL, '5' },
         { "score-filter-lt",                  required_argument, NULL, '6' },
         { "index-query",                      required_argument, NULL, 'i' },
+        { "multiple-index-query",             required_argument, NULL, 'w' },
         { "range-query",                      required_argument, NULL, 'g' },
         { "lookup",                           required_argument, NULL, 'l' },
         { "store",                            required_argument, NULL, 's' },
@@ -328,7 +339,7 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:w:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
     static const char* bs_name = "byte-store";
     
@@ -421,6 +432,8 @@ extern "C" {
     static inline double         bs_decode_byte_to_double_custom(byte_t uc, double min, double max);
     boolean_t                    bs_parse_query_range_str(lookup_t* l, char* rs, uint32_t* start, uint32_t* end);
     boolean_t                    bs_parse_query_index_str(lookup_t* l);
+    boolean_t                    bs_parse_query_multiple_index_str(lookup_t* l, char* qs);
+    int32_t                      bs_parse_query_multiple_index_str_comparator(const void *a, const void *b); 
     void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
     bed_t*                       bs_init_bed(const char* chr, uint64_t start, uint64_t end);
     void                         bs_delete_bed(bed_t** b);
@@ -466,6 +479,7 @@ extern "C" {
     char*                        bs_init_sqr_split_store_metadata_fn_str(char* d);    
     void                         bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o);
+    void                         bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
@@ -476,7 +490,9 @@ extern "C" {
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);    
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
