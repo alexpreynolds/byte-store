@@ -3086,6 +3086,9 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
         mkdir(block_dest_dir, S_IRUSR | S_IWUSR | S_IXUSR);
     }
     
+    uint64_t bytes_written = 0;
+    uint64_t cumulative_bytes_written = 0;
+    
     /* init offset array */
     off_t* offsets = NULL;
     uint32_t num_offsets = floor(l->nelems / n) + 1;
@@ -3095,9 +3098,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
         exit(EXIT_FAILURE);
     }
     uint32_t offset_idx = 0;
-    
-    uint64_t bytes_written = 0;
-    uint64_t cumulative_bytes_written = 0;
+    offsets[offset_idx++] = cumulative_bytes_written;
     
     /* create dummy offsets from chunk size */
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
