@@ -11,8 +11,6 @@ main(int argc, char** argv)
     lookup_t* lookup = NULL;
 
     lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
-    
-    bs_print_lookup(lookup, stdout);
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -2877,10 +2875,13 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     buf = malloc(buf_size * sizeof(*buf));
     size_t buf_idx = 0;
     
+    fprintf(stderr, "s->attr->nelems: [%d]\n", s->attr->nelems);
+    
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
         if (((row_idx - 1) % n == 0) && (!os)) {
             /* open handle to output sqr matrix store */
             block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
+            fprintf(stderr, "opening block [%s]\n", block_dest_fn);
             os = fopen(block_dest_fn, "wb");
             if (ferror(os)) {
                 fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
@@ -2908,6 +2909,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	    
             /* if buf is full, write its contents to output stream */
             if (buf_idx % buf_size == 0) {
+                fprintf(stderr, "writing [%d] bytes\n", buf_idx);
                 bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
                 if (bytes_written != buf_idx) { 
                     fprintf(stderr, "Error: Could not write score buffer to output square matrix store!\n");
@@ -2918,6 +2920,8 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 	        }
 	    
 	        /* if file is size of n * l->elems, close stream, open new stream */
+            fprintf(stderr, "cumulative_bytes_written [%d] bytes\n", cumulative_bytes_written);
+            fprintf(stderr, "l->nelems * n [%d] bytes\n", l->nelems * n);
 	        if (cumulative_bytes_written == (l->nelems * n)) {
                 fclose(os), os = NULL;
                 /* open new handle to output sqr matrix store */
