@@ -312,6 +312,8 @@ clean:
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
 	rm -rf $(TESTDIR)/*.bs.blocks
+	rm -rf $(TESTDIR)/*.rbs
+	rm -rf $(TESTDIR)/*.rbs.blocks
 	rm -rf $(TESTDIR)/*.cbs
 	rm -rf $(TESTDIR)/*.cbs.blocks
 	rm -rf $(PDFDIR)

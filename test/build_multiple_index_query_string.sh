@@ -7,4 +7,4 @@
 #           indices of index elements that overlap reference elements, which
 #           can be passed to byte-store --multiple-index-query=str option
 
-bedmap --echo-map-id-uniq $1 $2 | tr '\n' ',' | awk '{ print substr($0, 0, length($0)-1); }'
+bedmap --echo-map-id-uniq $1 $2 | sort -n | uniq | tr '\n' ',' | awk '{ print substr($0, 0, length($0)-1); }'
