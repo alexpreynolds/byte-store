@@ -3071,7 +3071,7 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         /* at the end of a row, we write out the bytes */
         bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
         if (bytes_written != buf_idx) { 
-            fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk)!\n");
+            fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk; bytes written [%lld] buffer size [%zu])!\n", bytes_written, buf_size);
             exit(EXIT_FAILURE);
         }
         /* if we are at the end of the array, we break out */
