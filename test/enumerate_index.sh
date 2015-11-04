@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # input:  BED3 or greater
 # output: BED4, fourth column is zero-indexed row index ("row enumeration")
