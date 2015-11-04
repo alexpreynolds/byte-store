@@ -10,7 +10,10 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
-    lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
+    if (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata)
+        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse);
+    else 
+        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -778,11 +781,11 @@ bs_init_lookup(char* fn, boolean_t pi)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
-    char buf[BUF_MAX_LEN];
-    char chr_str[BUF_MAX_LEN];
-    char start_str[BUF_MAX_LEN];
-    char stop_str[BUF_MAX_LEN];
-    char id_str[BUF_MAX_LEN];
+    char buf[BUF_MAX_LEN] = {0};
+    char chr_str[BUF_MAX_LEN] = {0};
+    char start_str[BUF_MAX_LEN] = {0};
+    char stop_str[BUF_MAX_LEN] = {0};
+    char id_str[BUF_MAX_LEN] = {0};
     uint64_t start_val = 0;
     uint64_t stop_val = 0;
 
@@ -1275,7 +1278,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi
     e->start = start;
     e->stop = stop;
     e->id = NULL;
-    if ((strlen(id) > 0) && pi) {
+    if (id && (strlen(id) > 0) && pi) {
         e->id = malloc(sizeof(*id) * strlen(id) + 1);
         if (!e->id) {
             fprintf(stderr,"Error: Could not allocate space for element id!\n");
@@ -3043,8 +3046,6 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    free(block_dest_fn), block_dest_fn = NULL;
-    free(block_dest_dir), block_dest_dir = NULL;
     
     /* write out a buffer of 1 row (l->nelems bytes) to output stream */
     byte_t* buf = NULL;
@@ -3081,10 +3082,12 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         buf_idx = 0;
     }
     fclose(os), os = NULL;
+    free(block_dest_fn), block_dest_fn = NULL;
+    free(block_dest_dir), block_dest_dir = NULL;
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n, o)
+ * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n)
  *
  * @details    Write metadata to FILE* handle associated with the specified 
  *             per-chunk square matrix store. Metadata are stored in a folder, 
@@ -3111,7 +3114,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = floor(l->nelems / n) + 2;
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
