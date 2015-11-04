@@ -4249,13 +4249,19 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
             /* adjust row_idx so that byte offset calculation is relative to current block */
             row_idx = block_row_size * new_block_idx;
         }
-        /* offset some number of bytes from current position of is, if necessary */
-        /* note that we subtract a row unit, if we have already read through the input stream by one row */
-        int32_t row_diff = query_row - row_idx - ((current_block_idx == -1) ? 0 : 1);
-        int32_t bytes_to_go = row_diff * l->nelems;
+
+        /* we offset some number of bytes from current position of input stream, as necessary */
+        /* note that we subtract a row unit, if we are in the same block and so have already */ 
+        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+        /* otherwise we will almost certainly overflow and run into byte offset problems that */
+        /* cause garbage output */
+
+        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+        int64_t bytes_to_go = row_diff * l->nelems;
         if (bytes_to_go > 0) {
             fseek(is, bytes_to_go, SEEK_CUR);
         }
+
         /* read a row from current block and print its signal to the output stream os */
         row_idx = (uint32_t) query_row;
         col_idx = 0;
