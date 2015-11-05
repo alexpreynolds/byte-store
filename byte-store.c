@@ -130,6 +130,7 @@ main(int argc, char** argv)
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
             }
+
             if (contiguous_rows_found) {
                 /* extract from raw or uncompressed square matrix */
                 switch (bs_globals.store_type) {
@@ -596,7 +597,7 @@ bs_parse_query_index_str(lookup_t* l)
 
 boolean_t
 bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
-{    
+{
     boolean_t index_not_found_flag = kFalse;
     boolean_t indices_found_flag = kTrue;
     
@@ -643,7 +644,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    
+
     /* copy entries array to bs_globals.store_query_indices */
     bs_globals.store_query_indices = NULL;
     bs_globals.store_query_indices = malloc(sizeof(*bs_globals.store_query_indices) * entry_idx);
@@ -656,7 +657,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
         bs_globals.store_query_indices[current_idx] = entries[current_idx];
     } while (++current_idx < entry_idx);
     bs_globals.store_query_indices_num = entry_idx;
-    
+
     /* clean up entries */
     free(entries), entries = NULL;
     
@@ -665,7 +666,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
           bs_globals.store_query_indices_num, 
           sizeof(*bs_globals.store_query_indices), 
           bs_parse_query_multiple_index_str_comparator);
-    
+
     return indices_found_flag;
 }
 
@@ -1788,6 +1789,10 @@ bs_init_command_line_options(int argc, char** argv)
         fprintf(stderr, "Error: Cannot specify more than one filter operation!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
+    }
+
+    if (bs_score_filter_counter == 0) {
+        bs_globals.store_filter = kScoreFilterNone;
     }
 
     if (strlen(bs_globals.lookup_fn) == 0) {
@@ -4223,7 +4228,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
         exit(EXIT_FAILURE);
     }
-    
+
     /* iterate through separate rows, calculating associated block */
     int32_t block_row_size = (int32_t) md->block_row_size;
     int32_t current_block_idx = -1;

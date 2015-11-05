@@ -24,7 +24,7 @@ extern "C" {
 
 #define BUF_MAX_LEN 4096
 #define FN_MAX_LEN 1024
-#define QUERY_MAX_LEN 128
+#define QUERY_MAX_LEN 524288
 #define ENTRY_MAX_LEN 20
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
@@ -257,7 +257,7 @@ extern "C" {
     const query_kind_t kQueryKindDefaultKind = kQueryKindUndefined;
 
     typedef enum score_filter {
-        kScoreFilterNone,
+        kScoreFilterNone = 0,
         kScoreFilterGtEq,
         kScoreFilterGt,
         kScoreFilterEq,
