@@ -1,8 +1,9 @@
 SHELL       := /bin/bash
 PWD         := $(shell pwd)
+CC           = gcc
 BLDFLAGS     = -Wall -Wextra -pedantic -std=c99
 CFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-CDFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
+CDFLAGS      = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
 LIBS         = -lm -lbz2
 .PHONY       = test
 SAMPLE      := $(shell `which sample` --help 2> /dev/null)
