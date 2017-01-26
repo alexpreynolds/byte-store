@@ -127,11 +127,9 @@ main(int argc, char** argv)
             case kQueryKindMultipleIndices:
                 separate_rows_found = bs_parse_query_multiple_index_str(lookup, bs_globals.store_query_str);
                 break;
-// sjn-beg
             case kQueryKindMultipleIndicesFromFile:
                 separate_rows_found = kTrue;
                 break;
-// sjn-end
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
