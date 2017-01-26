@@ -1,25 +1,25 @@
-SHELL        := /bin/bash
-PWD          := $(shell pwd)
-CC            = gcc
-BLDFLAGS      = -Wall -Wextra -pedantic -std=c99
-CFLAGS        = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-CDFLAGS       = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
-LIBS          = -lm -lbz2
-.PHONY        = test
-SAMPLE       := $(shell `which sample` --help 2> /dev/null)
-TESTDIR       = $(PWD)/test
-PDFDIR        = $(TESTDIR)/pdf
-#SAMPLEDIR    = /Volumes/Data/byte-store
-SAMPLEDIR     = /tmp/byte-store
-UNAME        := $(shell uname -s)
-INCLUDES      = /usr/include
-AWK_VERSION  := $(shell awk --version | grep "GNU Awk")
-THIRD_PARTY   = $(PWD)/third-party
-BZIP2_ARC     = $(THIRD_PARTY)/bzip2-1.0.6.tar.gz
-BZIP2_DIR     = $(THIRD_PARTY)/bzip2-1.0.6
-BZIP2_SYM_DIR = $(THIRD_PARTY)/bzip2
-BZIP2_INC_DIR = $(BZIP2_SYM_DIR)
-BZIP2_LIB_DIR = $(BZIP2_SYM_DIR)
+SHELL           := /bin/bash
+PWD             := $(shell pwd)
+CC               = gcc
+BLDFLAGS         = -Wall -Wextra -pedantic -std=c99
+CFLAGS           = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+CDFLAGS          = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
+LIBS             = -lm -lbz2
+.PHONY           = test
+SAMPLE          := $(shell `which sample` --help 2> /dev/null)
+TESTDIR          = $(PWD)/test
+PDFDIR           = $(TESTDIR)/pdf
+#SAMPLEDIR       = /Volumes/Data/byte-store
+SAMPLEDIR        = /tmp/byte-store
+UNAME           := $(shell uname -s)
+INCLUDES         = /usr/include
+AWK_VERSION     := $(shell awk --version | grep "GNU Awk")
+THIRD_PARTY      = $(PWD)/third-party
+BZIP2_ARC        = $(THIRD_PARTY)/bzip2-1.0.6.tar.gz
+BZIP2_DIR        = $(THIRD_PARTY)/bzip2-1.0.6
+BZIP2_SYM_DIR    = $(THIRD_PARTY)/bzip2
+BZIP2_INC_DIR    = $(BZIP2_SYM_DIR)
+BZIP2_LIB_DIR    = $(BZIP2_SYM_DIR)
 
 ifeq ($(UNAME),Darwin)
 	CC = clang
@@ -27,7 +27,7 @@ ifeq ($(UNAME),Darwin)
 	FLAGS += -Weverything
 endif
 
-all: prep byte-store
+all: byte-store
 
 # -----------
 # Application
@@ -43,17 +43,36 @@ bzip2:
 		${MAKE} -C ${BZIP2_SYM_DIR} libbz2.a CC=${CC}; \
 	fi
 
-byte-store: bzip2
+byte-store: prep
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
-debug-byte-store: bzip2
+debug-byte-store: prep
 	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
 	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+
+clean:
+	rm -rf byte-store
+	rm -rf *.a
+	rm -rf *.o
+	rm -rf *~
+	rm -rf ${BZIP2_DIR}
+	rm -rf ${BZIP2_SYM_DIR}
+	rm -rf $(TESTDIR)/*~
+	rm -rf $(TESTDIR)/*.bs
+	rm -rf $(TESTDIR)/*.bs.blocks
+	rm -rf $(TESTDIR)/*.rbs
+	rm -rf $(TESTDIR)/*.rbs.blocks
+	rm -rf $(TESTDIR)/*.cbs
+	rm -rf $(TESTDIR)/*.cbs.blocks
+	rm -rf $(PDFDIR)
+#	rm -rf test/sample_bs_input.starch
+#	rm -rf test/sample_bs_input.bed
+#	rm -rf $(SAMPLEDIR)
 
 # -----------------
 # Performance tests
@@ -320,22 +339,3 @@ test-random-sqr:
 test-random-buffered-sqr:
 	$(PWD)/byte-store -t random-buffered-sqr -c -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sqr.bs
 	$(PWD)/byte-store -t random-buffered-sqr -q -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sqr.bs -i 0-999 | awk '$$7>=0.99'
-
-clean:
-	rm -rf byte-store
-	rm -rf *.a
-	rm -rf *.o
-	rm -rf *~
-	rm -rf ${BZIP2_DIR}
-	rm -rf ${BZIP2_SYM_DIR}
-	rm -rf $(TESTDIR)/*~
-	rm -rf $(TESTDIR)/*.bs
-	rm -rf $(TESTDIR)/*.bs.blocks
-	rm -rf $(TESTDIR)/*.rbs
-	rm -rf $(TESTDIR)/*.rbs.blocks
-	rm -rf $(TESTDIR)/*.cbs
-	rm -rf $(TESTDIR)/*.cbs.blocks
-	rm -rf $(PDFDIR)
-#	rm -rf test/sample_bs_input.starch
-#	rm -rf test/sample_bs_input.bed
-#	rm -rf $(SAMPLEDIR)

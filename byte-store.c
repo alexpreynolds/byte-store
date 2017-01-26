@@ -321,6 +321,9 @@ bs_truncate_double_to_precision(double d, int prec)
 inline byte_t
 bs_encode_double_to_byte(double d) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }
     d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
@@ -342,6 +345,9 @@ bs_encode_double_to_byte(double d)
 inline byte_t
 bs_encode_double_to_byte_mqz(double d) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }    
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_double_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
@@ -367,6 +373,9 @@ bs_encode_double_to_byte_mqz(double d)
 byte_t
 bs_encode_double_to_byte_custom(double d, double min, double max) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }    
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     min += (min < 0) ? -kEpsilon : kEpsilon;
     max += (max < 0) ? -kEpsilon : kEpsilon;
@@ -858,14 +867,16 @@ bs_init_lookup(char* fn, boolean_t pi)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
-    char buf[BUF_MAX_LEN] = {0};
-    char chr_str[BUF_MAX_LEN] = {0};
-    char start_str[BUF_MAX_LEN] = {0};
-    char stop_str[BUF_MAX_LEN] = {0};
-    char id_str[BUF_MAX_LEN] = {0};
+    char* buf = NULL;
+    size_t buf_len = 0;
+    ssize_t buf_read = 0;
+    char chr_str[CHR_MAX_LEN] = {0};
+    char start_str[COORD_MAX_LEN] = {0};
+    char stop_str[COORD_MAX_LEN] = {0};
+    char id_str[ID_MAX_LEN] = {0};
     uint64_t start_val = 0;
     uint64_t stop_val = 0;
-
+    
     l = malloc(sizeof(lookup_t));
     if (!l) {
         fprintf(stderr, "Error: Could not allocate space for lookup table!\n");
@@ -883,7 +894,7 @@ bs_init_lookup(char* fn, boolean_t pi)
     }
 
     /* parse BED element into element_t* and push to lookup table */
-    while (fgets(buf, BUF_MAX_LEN, lf)) { /* TODO: replace fgets() call with getline() call and check bounds */
+    while ((buf_read = getline(&buf, &buf_len, lf)) != -1) {
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
@@ -891,6 +902,7 @@ bs_init_lookup(char* fn, boolean_t pi)
         bs_push_elem_to_lookup(e, &l, pi);
     }
 
+    free(buf);
     fclose(lf);
 
     return l;
@@ -1292,13 +1304,11 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
         exit(EXIT_FAILURE);
     }
     if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
-        /*
-          fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
-          bs_print_signal(a, stderr);
-          bs_print_signal(b, stderr);
-          exit(EXIT_FAILURE);
-        */
-        return 0.0f; /* TODO: Handle this case with a special NAN bin? */
+        if (!bs_globals.zero_sd_warning_issued) {
+            fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+            bs_globals.zero_sd_warning_issued = kTrue;
+        }
+        return NAN;
     }
     double s = 0.0f;
     for (uint32_t idx = 0; idx < a->n; idx++)
@@ -1447,29 +1457,51 @@ bs_test_pearsons_r()
         fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
-
+    signal_t* c = NULL;
+    c = bs_init_signal((char*) kPearsonRTestVectorC);
+    if (!c) {
+        fprintf(stderr, "Error: Could not allocate space for test (C) Pearson's r vector!\n");
+        exit(EXIT_FAILURE);
+    }
+    
     fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
-    double unencoded_observed_score = bs_pearson_r_signal(a, b);
-    fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestCorrelationUnencoded);
-    fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_score);
-    double absolute_diff_unencoded_scores = fabs(kPearsonRTestCorrelationUnencoded - unencoded_observed_score);
-    assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
-    fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
+    double unencoded_observed_ab_score = bs_pearson_r_signal(a, b);
+    fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestABCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_ab_score);
+    double absolute_diff_unencoded_ab_scores = fabs(kPearsonRTestABCorrelationUnencoded - unencoded_observed_ab_score);
+    assert(absolute_diff_unencoded_ab_scores + kEpsilon > 0 && absolute_diff_unencoded_ab_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed AB scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ab_score_byte = bs_encode_double_to_byte(kPearsonRTestABCorrelationUnencoded);
+    byte_t encoded_observed_ab_score_byte = bs_encode_double_to_byte(unencoded_observed_ab_score);
+    fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestABCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_ab_score_byte);
+    fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_ab_score_byte);
+    assert(kPearsonRTestABCorrelationEncodedByte == encoded_expected_ab_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed AB scores do not differ\n");
+    assert(kPearsonRTestABCorrelationEncodedByte == encoded_observed_ab_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AB scores do not differ\n");
+    assert(encoded_expected_ab_score_byte == encoded_observed_ab_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
-    byte_t encoded_expected_score_byte = bs_encode_double_to_byte(kPearsonRTestCorrelationUnencoded);
-    byte_t encoded_observed_score_byte = bs_encode_double_to_byte(unencoded_observed_score);
-    fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
-    fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_score_byte);
-    fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_score_byte);
-    assert(kPearsonRTestCorrelationEncodedByte == encoded_expected_score_byte);
-    fprintf(stderr, "\t-> Expected precomputed and computed scores do not differ\n");
-    assert(kPearsonRTestCorrelationEncodedByte == encoded_observed_score_byte);
-    fprintf(stderr, "\t-> Expected precomputed and observed computed scores do not differ\n");
-    assert(encoded_expected_score_byte == encoded_observed_score_byte);
-    fprintf(stderr, "\t-> Expected computed and observed computed scores do not differ\n");
+    fprintf(stderr, "Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorC);
+    double unencoded_observed_ac_score = bs_pearson_r_signal(a, c);
+    fprintf(stderr, "Expected - unencoded AC Pearson's r score: %3.6f\n", kPearsonRTestACCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AC Pearson's r score: %3.6f\n", unencoded_observed_ac_score);
+    byte_t encoded_expected_ac_score_byte = bs_encode_double_to_byte(kPearsonRTestACCorrelationUnencoded);
+    byte_t encoded_observed_ac_score_byte = bs_encode_double_to_byte(unencoded_observed_ac_score);
+    fprintf(stderr, "Expected - encoded, precomputed AC Pearson's r score: 0x%02x\n", kPearsonRTestACCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AC Pearson's r score: 0x%02x\n", encoded_expected_ac_score_byte);
+    fprintf(stderr, "Observed - encoded, computed AC Pearson's r score: 0x%02x\n", encoded_observed_ac_score_byte);
+    assert(kPearsonRTestACCorrelationEncodedByte == encoded_expected_ac_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed AC scores do not differ\n");
+    assert(kPearsonRTestACCorrelationEncodedByte == encoded_observed_ac_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AC scores do not differ\n");
+    assert(encoded_expected_ac_score_byte == encoded_observed_ac_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed AC scores do not differ\n");    
 
     bs_delete_signal(&a);
     bs_delete_signal(&b);
+    bs_delete_signal(&c);    
 }
 
 /**
@@ -1568,6 +1600,7 @@ bs_init_globals()
     bs_globals.permutation_precision = kPermutationTestDefaultPrecision;
     bs_globals.permutation_alpha = kPermutationTestDefaultAlpha;
     bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
+    bs_globals.zero_sd_warning_issued = kFalse;
 }
 
 /**

@@ -4,6 +4,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif /* getline() support */
     
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,7 +26,10 @@ extern "C" {
 #include <bzlib.h>
 #include "mt19937.h"
 
-#define BUF_MAX_LEN 524288
+#define BUF_MAX_LEN 4096
+#define CHR_MAX_LEN 256
+#define COORD_MAX_LEN 20
+#define ID_MAX_LEN 524288
 #define FN_MAX_LEN 1024
 #define QUERY_MAX_LEN 524288
 #define ENTRY_MAX_LEN 20
@@ -39,17 +46,28 @@ extern "C" {
         } while(0)
 
     typedef unsigned char byte_t;
+
+    extern const byte_t kNANEncodedByte;
+    const byte_t kNANEncodedByte = 0xca;
     
     extern const char* kPearsonRTestVectorA;
     extern const char* kPearsonRTestVectorB;
-    extern const double kPearsonRTestCorrelationUnencoded;
-    extern const double kPearsonRTestCorrelationEncoded;
-    extern const byte_t kPearsonRTestCorrelationEncodedByte;
+    extern const char* kPearsonRTestVectorC;
+    extern const double kPearsonRTestABCorrelationUnencoded;
+    extern const double kPearsonRTestABCorrelationEncoded;
+    extern const byte_t kPearsonRTestABCorrelationEncodedByte;
+    extern const double kPearsonRTestACCorrelationUnencoded;
+    extern const double kPearsonRTestACCorrelationEncoded;
+    extern const byte_t kPearsonRTestACCorrelationEncodedByte;    
     const char* kPearsonRTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kPearsonRTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
-    const double kPearsonRTestCorrelationUnencoded = 0.4134264f;
-    const double kPearsonRTestCorrelationEncoded = 0.41f;
-    const byte_t kPearsonRTestCorrelationEncodedByte = 0x8e;
+    const char* kPearsonRTestVectorC = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    const double kPearsonRTestABCorrelationUnencoded = 0.4134264f;
+    const double kPearsonRTestABCorrelationEncoded = 0.41f;
+    const byte_t kPearsonRTestABCorrelationEncodedByte = 0x8e;
+    const double kPearsonRTestACCorrelationUnencoded = NAN;
+    const double kPearsonRTestACCorrelationEncoded = NAN;
+    const byte_t kPearsonRTestACCorrelationEncodedByte = 0xca;
     
     typedef int boolean_t;
     extern const boolean_t kTrue;
@@ -306,6 +324,7 @@ extern "C" {
         double permutation_precision;
         double permutation_alpha;
         uint32_t permutation_significance_level;
+        boolean_t zero_sd_warning_issued;
     } bs_globals;
     
     static struct option bs_client_long_options[] = {
@@ -379,7 +398,7 @@ extern "C" {
          +0.80, +0.81, +0.82, +0.83, +0.84, +0.85, +0.86, +0.87, +0.88, +0.89,
          +0.90, +0.91, +0.92, +0.93, +0.94, +0.95, +0.96, +0.97, +0.98, +0.99,
          +1.00, 
-         +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
+           NAN, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
@@ -416,7 +435,7 @@ extern "C" {
          +0.80, +0.81, +0.82, +0.83, +0.84, +0.85, +0.86, +0.87, +0.88, +0.89,
          +0.90, +0.91, +0.92, +0.93, +0.94, +0.95, +0.96, +0.97, +0.98, +0.99,
          +1.00, 
-         +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
+           NAN, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
