@@ -43,17 +43,17 @@ bzip2:
 		${MAKE} -C ${BZIP2_SYM_DIR} libbz2.a CC=${CC}; \
 	fi
 
-byte-store:
+byte-store: bzip2
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
-debug-byte-store:
+debug-byte-store: bzip2
 	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I$(INCLUDES) byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 # -----------------
 # Performance tests

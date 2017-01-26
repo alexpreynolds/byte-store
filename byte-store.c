@@ -807,7 +807,7 @@ bs_init_lookup(char* fn, boolean_t pi)
     }
 
     /* parse BED element into element_t* and push to lookup table */
-    while (fgets(buf, BUF_MAX_LEN, lf)) {
+    while (fgets(buf, BUF_MAX_LEN, lf)) { /* TODO: replace fgets() call with getline() call and check bounds */
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
@@ -1216,10 +1216,13 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
         exit(EXIT_FAILURE);
     }
     if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
-        fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
-        bs_print_signal(a, stderr);
-        bs_print_signal(b, stderr);
-        exit(EXIT_FAILURE);
+        /*
+          fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
+          bs_print_signal(a, stderr);
+          bs_print_signal(b, stderr);
+          exit(EXIT_FAILURE);
+        */
+        return 0.0f; /* TODO: Handle this case with a special NAN bin? */
     }
     double s = 0.0f;
     for (uint32_t idx = 0; idx < a->n; idx++)

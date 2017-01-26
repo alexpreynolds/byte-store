@@ -22,7 +22,7 @@ extern "C" {
 #include <bzlib.h>
 #include "mt19937.h"
 
-#define BUF_MAX_LEN 4096
+#define BUF_MAX_LEN 524288
 #define FN_MAX_LEN 1024
 #define QUERY_MAX_LEN 524288
 #define ENTRY_MAX_LEN 20
