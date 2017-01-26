@@ -248,6 +248,7 @@ extern "C" {
     typedef enum query_kind {
         kQueryKindIndex,
         kQueryKindMultipleIndices,
+        kQueryKindMultipleIndicesFromFile,
         kQueryKindRange,
         kQueryKindUndefined
     } query_kind_t;
@@ -339,7 +340,7 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:w:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:1h?";
     
     static const char* bs_name = "byte-store";
     
@@ -492,7 +493,9 @@ extern "C" {
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
