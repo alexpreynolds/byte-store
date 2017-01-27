@@ -144,25 +144,25 @@ main(int argc, char** argv)
                     if (bs_globals.store_filter == kScoreFilterNone) 
                         bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
                     else 
-                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff2, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);		    
+                        bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff2, bs_globals.store_filter);		    
                     break;
                 case kStorePearsonRSquareMatrixBzip2:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff2, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixBzip2Split:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff2, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
@@ -190,6 +190,7 @@ main(int argc, char** argv)
                                                                                          bs_globals.store_query_str,
                                                                                          stdout,
                                                                                          bs_globals.score_filter_cutoff,
+                                                                                         bs_globals.score_filter_cutoff2,
                                                                                          bs_globals.store_filter);
                         break;
                     default:
@@ -205,7 +206,8 @@ main(int argc, char** argv)
                                                                                     stdout, 
                                                                                     bs_globals.store_query_indices, 
                                                                                     bs_globals.store_query_indices_num, 
-                                                                                    bs_globals.score_filter_cutoff, 
+                                                                                    bs_globals.score_filter_cutoff,
+                                                                                    bs_globals.score_filter_cutoff2,
                                                                                     bs_globals.store_filter);
                         break;
                     }
@@ -1585,6 +1587,8 @@ bs_init_globals()
     bs_globals.store_single_chunk_flag = kFalse;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
+    bs_globals.score_filter_cutoff = 0;
+    bs_globals.score_filter_cutoff2 = 0;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
     bs_globals.lookup_fn[0] = '\0';
@@ -1743,6 +1747,26 @@ bs_init_command_line_options(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
             sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            bs_score_filter_counter++;
+            break;
+        case '7':
+            bs_globals.store_filter = kScoreFilterRangedWithin;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf:%lf", &bs_globals.score_filter_cutoff, &bs_globals.score_filter_cutoff2);
+            bs_score_filter_counter++;
+            break;
+        case '8':
+            bs_globals.store_filter = kScoreFilterRangedOutside;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%lf:%lf", &bs_globals.score_filter_cutoff, &bs_globals.score_filter_cutoff2);
             bs_score_filter_counter++;
             break;
         case 'f':
@@ -1914,6 +1938,10 @@ bs_init_command_line_options(int argc, char** argv)
 
     if (bs_score_filter_counter == 0) {
         bs_globals.store_filter = kScoreFilterNone;
+    }
+
+    if (bs_globals.score_filter_cutoff > bs_globals.score_filter_cutoff2) {
+        swap(bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff2);
     }
 
     if (strlen(bs_globals.lookup_fn) == 0) {
@@ -3883,7 +3911,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, fd, fo)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -3896,11 +3924,12 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -3944,7 +3973,9 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, doubl
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                      ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ) {
+                     ((fo == kScoreFilterLt) && (d < fc)) ||
+                     ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                     ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                     bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -4113,7 +4144,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, fd, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -4123,11 +4154,12 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -4237,7 +4269,9 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                         ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
@@ -4511,7 +4545,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
         int32_t last = 0;
         int count = 0;
 
-        count = fscanf(qptr, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
+        count = fscanf(qptr, "%" SCNd32 "-%" SCNd32 " ", &first, &last); /* ending ' ' eats any white space */
         if ( count != 2 ) {
             fprintf(stderr, "found something not a range of A-B in the input index file!\n");
             exit(EXIT_FAILURE);
@@ -4597,7 +4631,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, os, fc, fd, fo)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -4608,11 +4642,12 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
  *             qf     (char*) query file name to parse
  *             os     (FILE*) pointer to output stream
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, double fc, double fd, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -4750,7 +4785,9 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                         ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                         bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -4766,7 +4803,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
                 }
                 col_idx++;
             } while (col_idx < l->nelems);
-        
+
             /* set current block index */
             current_block_idx = new_block_idx;
         } /* for */
@@ -4782,7 +4819,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, r, fc, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, r, fc, fd, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -4794,11 +4831,12 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
  *             r      (int32_t*) pointer to list of query rows of interest  
  *             rn     (uint32_t) number of query rows of interest
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 when ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, double fd, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -4912,7 +4950,9 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                      ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ) {
+                     ((fo == kScoreFilterLt) && (d < fc)) ||
+                     ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                     ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                     bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -5101,7 +5141,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_bzip2_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_bzip2_store_to_bed7(l, s, os, fc, fd, fo)
  *
  * @details    Queries bzip2-compressed square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -5111,11 +5151,12 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo)
 {
     if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
@@ -5234,7 +5275,9 @@ bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                         ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
@@ -5447,7 +5490,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_bzip2_split_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_bzip2_split_store_to_bed7(l, s, os, fc, fd, fo)
  *
  * @details    Queries bzip2-compressed square matrix store folder 
  *             for provided index range globals and prints BED7 (BED3 
@@ -5457,11 +5500,12 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (double) score filter cutoff
+ *             fd     (double) score filter cutoff2 for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -5593,7 +5637,9 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {                    
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithin) && (d > fc) && (d < fd)) ||
+                         ((fo == kScoreFilterRangedOutside) && ((d <= fc) || (d >= fd))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
