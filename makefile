@@ -1,9 +1,10 @@
 SHELL           := /bin/bash
 PWD             := $(shell pwd)
 CC               = gcc
-BLDFLAGS         = -Wall -Wextra -pedantic -std=c99
-CFLAGS           = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-CDFLAGS          = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
+BLDFLAGS         = -Wall -Wextra -std=c99
+BLDDFLAGS        = -Wall -Wextra -std=c99 -pendantic
+CFLAGS           = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3 -static
+CDFLAGS          = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O -static
 LIBS             = -lm -lbz2
 .PHONY           = test
 SAMPLE          := $(shell `which sample` --help 2> /dev/null)
@@ -50,10 +51,10 @@ byte-store: prep
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 debug-byte-store: prep
-	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
+	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 clean:
 	rm -rf byte-store
