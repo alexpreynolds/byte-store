@@ -352,6 +352,7 @@ extern "C" {
         { "score-filter-ranged-outside-inclusive",      required_argument, NULL, '0' },
         { "index-query",                                required_argument, NULL, 'i' },
         { "multiple-index-query",                       required_argument, NULL, 'w' },
+        { "multiple-index-query-from-file",             required_argument, NULL, 'z' },
         { "range-query",                                required_argument, NULL, 'g' },
         { "lookup",                                     required_argument, NULL, 'l' },
         { "store",                                      required_argument, NULL, 's' },

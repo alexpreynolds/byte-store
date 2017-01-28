@@ -55,7 +55,7 @@ main(int argc, char** argv)
             case kQueryKindMultipleIndices:
             case kQueryKindMultipleIndicesFromFile:
             case kQueryKindUndefined:
-                fprintf(stderr, "Error: Query type unsupported!\n");
+                fprintf(stderr, "Error: Query type unsupported with SUT!\n");
                 exit(EXIT_FAILURE);
             }
             if (rows_found && (bs_globals.store_filter == kScoreFilterNone))
@@ -4516,9 +4516,10 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
     }
 
     /* check that the query regions file exists */
-    FILE* qptr = fopen(qf, "r");
-    if ( !qptr ) {
-        fprintf(stderr, "found something not a range of A-B in the input index file!\n");
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
         exit(EXIT_FAILURE);
     }
     
@@ -4530,7 +4531,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
         exit(EXIT_FAILURE);
     }
     ssize_t md_fn_size = bs_file_size(md_src_fn);
-    FILE *is = NULL;
+    FILE* is = NULL;
     is = fopen(md_src_fn, "rb");
     if (ferror(is)) {
         fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
@@ -4545,7 +4546,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
     }
     uint32_t md_string_length = 0;
     sscanf(md_length, "%u", &md_string_length);
-    char *md_string = NULL;
+    char* md_string = NULL;
     md_string = malloc(md_string_length);
     if (!md_string) {
         fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
@@ -4574,19 +4575,19 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
     }
 
     int32_t block_row_size = (int32_t) md->block_row_size;
-    while ( !feof(qptr) ) {
+    while (!feof(qs)) {
         int32_t first = 1;
         int32_t last = 0;
         int count = 0;
 
-        count = fscanf(qptr, "%" SCNd32 "-%" SCNd32 " ", &first, &last); /* ending ' ' eats any white space */
-        if ( count != 2 ) {
-            fprintf(stderr, "found something not a range of A-B in the input index file!\n");
+        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 " ", &first, &last); /* ending ' ' eats any white space */
+        if (count != 2) {
+            fprintf(stderr, "Error: Found something not a range of A-B in the input index file!\n");
             exit(EXIT_FAILURE);
-        } else if ( first > last ) {
-            fprintf(stderr, "end-range ID less than start-range ID in the input index file!\n");
+        } else if (first > last) {
+            fprintf(stderr, "Error: End-range ID less than start-range ID in the input index file!\n");
             exit(EXIT_FAILURE);
-        } else if ( last >= (int32_t) l->nelems ) {
+        } else if (last >= (int32_t) l->nelems) {
             fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
@@ -4657,6 +4658,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
     
     /* clean up */
     fclose(is), is = NULL;
+    fclose(qs), qs = NULL;
     free(block_src_dir), block_src_dir = NULL;
     free(md_src_fn), md_src_fn = NULL;
     free(md_string), md_string = NULL;
@@ -4694,9 +4696,10 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     }
 
     /* check that the query regions file exists */
-    FILE* qptr = fopen(qf, "r");
-    if ( !qptr ) {
-        fprintf(stderr, "found something not a range of A-B in the input index file!\n");
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
         exit(EXIT_FAILURE);
     }
     
@@ -4708,7 +4711,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
         exit(EXIT_FAILURE);
     }
     ssize_t md_fn_size = bs_file_size(md_src_fn);
-    FILE *is = NULL;
+    FILE* is = NULL;
     is = fopen(md_src_fn, "rb");
     if (ferror(is)) {
         fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
@@ -4723,7 +4726,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     }
     uint32_t md_string_length = 0;
     sscanf(md_length, "%u", &md_string_length);
-    char *md_string = NULL;
+    char* md_string = NULL;
     md_string = malloc(md_string_length);
     if (!md_string) {
         fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
@@ -4752,19 +4755,19 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     }
 
     int32_t block_row_size = (int32_t) md->block_row_size;
-    while ( !feof(qptr) ) {
+    while (!feof(qs)) {
         int32_t first = 1;
         int32_t last = 0;
         int count = 0;
 
-        count = fscanf(qptr, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
-        if ( count != 2 ) {
-            fprintf(stderr, "found something not a range of A-B in the input index file!\n");
+        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
+        if (count != 2) {
+            fprintf(stderr, "Error: Found something not a range of A-B in the input index file!\n");
             exit(EXIT_FAILURE);
-        } else if ( first > last ) {
-            fprintf(stderr, "end-range ID less than start-range ID in the input index file!\n");
+        } else if (first > last) {
+            fprintf(stderr, "Error: End-range ID less than start-range ID in the input index file!\n");
             exit(EXIT_FAILURE);
-        } else if ( last >= (int32_t) l->nelems ) {
+        } else if (last >= (int32_t) l->nelems) {
             fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
@@ -4848,6 +4851,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     
     /* clean up */
     fclose(is), is = NULL;
+    fclose(qs), qs = NULL;
     free(block_src_dir), block_src_dir = NULL;
     free(md_src_fn), md_src_fn = NULL;
     free(md_string), md_string = NULL;
