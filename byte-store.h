@@ -282,6 +282,8 @@ extern "C" {
         kScoreFilterEq,
         kScoreFilterLtEq,
         kScoreFilterLt,
+        kScoreFilterRangedWithin,
+        kScoreFilterRangedOutside,
         kScoreFilterUndefined
     } score_filter_t;
 
@@ -303,6 +305,7 @@ extern "C" {
         bed_t* store_query_range_end;
         score_filter_t store_filter;
         double score_filter_cutoff;
+        double score_filter_cutoff2; /* for threshold ranges */
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -326,7 +329,7 @@ extern "C" {
         uint32_t permutation_significance_level;
         boolean_t zero_sd_warning_issued;
     } bs_globals;
-    
+
     static struct option bs_client_long_options[] = {
         { "store-type",                       required_argument, NULL, 't' },
         { "store-create",                     no_argument,       NULL, 'c' },
@@ -339,6 +342,8 @@ extern "C" {
         { "score-filter-eq",                  required_argument, NULL, '4' },
         { "score-filter-lteq",                required_argument, NULL, '5' },
         { "score-filter-lt",                  required_argument, NULL, '6' },
+        { "score-filter-ranged-within",       required_argument, NULL, '7' },
+        { "score-filter-ranged-outside",      required_argument, NULL, '8' },
         { "index-query",                      required_argument, NULL, 'i' },
         { "multiple-index-query",             required_argument, NULL, 'w' },
         { "range-query",                      required_argument, NULL, 'g' },
@@ -359,8 +364,8 @@ extern "C" {
         { NULL,                               no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:1h?";
-    
+    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:7:8:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+
     static const char* bs_name = "byte-store";
     
     /**
@@ -508,17 +513,17 @@ extern "C" {
     char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo);
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
-    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, score_filter_t fo);
-    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, double fd, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, double fc, double fd, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, double fd, score_filter_t fo);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);
