@@ -4,6 +4,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif /* getline() support */
     
 #include <stdlib.h>
 #include <stdio.h>
@@ -23,8 +27,11 @@ extern "C" {
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 4096
+#define CHR_MAX_LEN 256
+#define COORD_MAX_LEN 20
+#define ID_MAX_LEN 524288
 #define FN_MAX_LEN 1024
-#define QUERY_MAX_LEN 128
+#define QUERY_MAX_LEN 524288
 #define ENTRY_MAX_LEN 20
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
@@ -40,17 +47,28 @@ extern "C" {
 
     typedef unsigned char byte_t;
     typedef float score_t;
-    
+
+    extern const byte_t kNANEncodedByte;
+    const byte_t kNANEncodedByte = 0xca;
+
     extern const char* kPearsonRTestVectorA;
     extern const char* kPearsonRTestVectorB;
-    extern const score_t kPearsonRTestCorrelationUnencoded;
-    extern const score_t kPearsonRTestCorrelationEncoded;
-    extern const byte_t kPearsonRTestCorrelationEncodedByte;
+    extern const char* kPearsonRTestVectorC;
+    extern const score_t kPearsonRTestABCorrelationUnencoded;
+    extern const score_t kPearsonRTestABCorrelationEncoded;
+    extern const byte_t kPearsonRTestABCorrelationEncodedByte;
+    extern const score_t kPearsonRTestACCorrelationUnencoded;
+    extern const score_t kPearsonRTestACCorrelationEncoded;
+    extern const byte_t kPearsonRTestACCorrelationEncodedByte;    
     const char* kPearsonRTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kPearsonRTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
-    const score_t kPearsonRTestCorrelationUnencoded = 0.4134264f;
-    const score_t kPearsonRTestCorrelationEncoded = 0.41f;
-    const byte_t kPearsonRTestCorrelationEncodedByte = 0x8e;
+    const char* kPearsonRTestVectorC = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0";
+    const score_t kPearsonRTestABCorrelationUnencoded = 0.4134264f;
+    const score_t kPearsonRTestABCorrelationEncoded = 0.41f;
+    const byte_t kPearsonRTestABCorrelationEncodedByte = 0x8e;
+    const score_t kPearsonRTestACCorrelationUnencoded = NAN;
+    const score_t kPearsonRTestACCorrelationEncoded = NAN;
+    const byte_t kPearsonRTestACCorrelationEncodedByte = 0xca;
     
     typedef int boolean_t;
     extern const boolean_t kTrue;
@@ -249,6 +267,7 @@ extern "C" {
     typedef enum query_kind {
         kQueryKindIndex,
         kQueryKindMultipleIndices,
+        kQueryKindMultipleIndicesFromFile,
         kQueryKindRange,
         kQueryKindUndefined
     } query_kind_t;
@@ -258,12 +277,16 @@ extern "C" {
     const query_kind_t kQueryKindDefaultKind = kQueryKindUndefined;
 
     typedef enum score_filter {
-        kScoreFilterNone,
+        kScoreFilterNone = 0,
         kScoreFilterGtEq,
         kScoreFilterGt,
         kScoreFilterEq,
         kScoreFilterLtEq,
         kScoreFilterLt,
+        kScoreFilterRangedWithinExclusive,
+        kScoreFilterRangedWithinInclusive,
+        kScoreFilterRangedOutsideExclusive,
+        kScoreFilterRangedOutsideInclusive,
         kScoreFilterUndefined
     } score_filter_t;
 
@@ -285,6 +308,9 @@ extern "C" {
         bed_t* store_query_range_end;
         score_filter_t store_filter;
         score_t score_filter_cutoff;
+        score_t score_filter_cutoff_lower_bound;
+        score_t score_filter_cutoff_upper_bound; /* for threshold ranges */
+        boolean_t score_filter_range_set;
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -306,42 +332,48 @@ extern "C" {
         score_t permutation_precision;
         score_t permutation_alpha;
         uint32_t permutation_significance_level;
+        boolean_t zero_sd_warning_issued;
     } bs_globals;
-    
+
     static struct option bs_client_long_options[] = {
-        { "store-type",                       required_argument, NULL, 't' },
-        { "store-create",                     no_argument,       NULL, 'c' },
-        { "store-query",                      no_argument,       NULL, 'q' },
-        { "store-frequency",                  no_argument,       NULL, 'f' },
-        { "store-row-chunk-size",             required_argument, NULL, 'r' },
-        { "store-row-chunk-offset",           required_argument, NULL, 'k' },
-        { "score-filter-gteq",                required_argument, NULL, '2' },
-        { "score-filter-gt",                  required_argument, NULL, '3' },
-        { "score-filter-eq",                  required_argument, NULL, '4' },
-        { "score-filter-lteq",                required_argument, NULL, '5' },
-        { "score-filter-lt",                  required_argument, NULL, '6' },
-        { "index-query",                      required_argument, NULL, 'i' },
-        { "multiple-index-query",             required_argument, NULL, 'w' },
-        { "range-query",                      required_argument, NULL, 'g' },
-        { "lookup",                           required_argument, NULL, 'l' },
-        { "store",                            required_argument, NULL, 's' },
-        { "encoding-strategy",                required_argument, NULL, 'e' },
-        { "encoding-cutoff-zero-min",         required_argument, NULL, 'n' },
-        { "encoding-cutoff-zero-max",         required_argument, NULL, 'x' },
-        { "lookup-frequency",                 no_argument,       NULL, 'u' },
-        { "permutation-test",                 no_argument,       NULL, 'm' },
-        { "permutation-count",                required_argument, NULL, 'o' },
-        { "permutation-precision",            required_argument, NULL, 'p' },
-        { "permutation-alpha",                required_argument, NULL, 'a' },
-        { "permutation-significance-level",   required_argument, NULL, 'v' },
-        { "rng-seed",                         required_argument, NULL, 'd' },
-        { "test-pearson-r",                   no_argument,       NULL, '1' },
-        { "help",                             no_argument,       NULL, 'h' },
-        { NULL,                               no_argument,       NULL,  0  }
+        { "store-type",                                 required_argument, NULL, 't' },
+        { "store-create",                               no_argument,       NULL, 'c' },
+        { "store-query",                                no_argument,       NULL, 'q' },
+        { "store-frequency",                            no_argument,       NULL, 'f' },
+        { "store-row-chunk-size",                       required_argument, NULL, 'r' },
+        { "store-row-chunk-offset",                     required_argument, NULL, 'k' },
+        { "score-filter-gteq",                          required_argument, NULL, '2' },
+        { "score-filter-gt",                            required_argument, NULL, '3' },
+        { "score-filter-eq",                            required_argument, NULL, '4' },
+        { "score-filter-lteq",                          required_argument, NULL, '5' },
+        { "score-filter-lt",                            required_argument, NULL, '6' },
+        { "score-filter-ranged-within-exclusive",       required_argument, NULL, '7' },
+        { "score-filter-ranged-within-inclusive",       required_argument, NULL, '8' },
+        { "score-filter-ranged-outside-exclusive",      required_argument, NULL, '9' },
+        { "score-filter-ranged-outside-inclusive",      required_argument, NULL, '0' },
+        { "index-query",                                required_argument, NULL, 'i' },
+        { "multiple-index-query",                       required_argument, NULL, 'w' },
+        { "multiple-index-query-from-file",             required_argument, NULL, 'z' },
+        { "range-query",                                required_argument, NULL, 'g' },
+        { "lookup",                                     required_argument, NULL, 'l' },
+        { "store",                                      required_argument, NULL, 's' },
+        { "encoding-strategy",                          required_argument, NULL, 'e' },
+        { "encoding-cutoff-zero-min",                   required_argument, NULL, 'n' },
+        { "encoding-cutoff-zero-max",                   required_argument, NULL, 'x' },
+        { "lookup-frequency",                           no_argument,       NULL, 'u' },
+        { "permutation-test",                           no_argument,       NULL, 'm' },
+        { "permutation-count",                          required_argument, NULL, 'o' },
+        { "permutation-precision",                      required_argument, NULL, 'p' },
+        { "permutation-alpha",                          required_argument, NULL, 'a' },
+        { "permutation-significance-level",             required_argument, NULL, 'v' },
+        { "rng-seed",                                   required_argument, NULL, 'd' },
+        { "test-pearson-r",                             no_argument,       NULL, '1' },
+        { "help",                                       no_argument,       NULL, 'h' },
+        { NULL,                                         no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:i:w:g:l:s:e:n:x:umo:p:a:v:d:1h?";
-    
+    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:1h?";
+
     static const char* bs_name = "byte-store";
     
     /**
@@ -379,7 +411,7 @@ extern "C" {
          +0.80, +0.81, +0.82, +0.83, +0.84, +0.85, +0.86, +0.87, +0.88, +0.89,
          +0.90, +0.91, +0.92, +0.93, +0.94, +0.95, +0.96, +0.97, +0.98, +0.99,
          +1.00, 
-         +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
+           NAN, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
@@ -416,7 +448,7 @@ extern "C" {
          +0.80, +0.81, +0.82, +0.83, +0.84, +0.85, +0.86, +0.87, +0.88, +0.89,
          +0.90, +0.91, +0.92, +0.93, +0.94, +0.95, +0.96, +0.97, +0.98, +0.99,
          +1.00, 
-         +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
+           NAN, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
@@ -489,15 +521,17 @@ extern "C" {
     char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
-    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_filter_t fo);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);

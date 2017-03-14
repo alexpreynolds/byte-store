@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # input 1:  reference file (e.g., genes of interest)
 # input 2:  row-enumerated index file (see "enumerate_index.sh")

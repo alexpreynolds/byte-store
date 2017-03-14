@@ -10,7 +10,10 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
-    lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
+    if (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata)
+        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse);
+    else 
+        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -50,8 +53,9 @@ main(int argc, char** argv)
                                                       &bs_globals.store_query_idx_end);
                 break;
             case kQueryKindMultipleIndices:
+            case kQueryKindMultipleIndicesFromFile:
             case kQueryKindUndefined:
-                fprintf(stderr, "Error: Query type unsupported!\n");
+                fprintf(stderr, "Error: Query type unsupported with SUT!\n");
                 exit(EXIT_FAILURE);
             }
             if (rows_found && (bs_globals.store_filter == kScoreFilterNone))
@@ -123,10 +127,14 @@ main(int argc, char** argv)
             case kQueryKindMultipleIndices:
                 separate_rows_found = bs_parse_query_multiple_index_str(lookup, bs_globals.store_query_str);
                 break;
+            case kQueryKindMultipleIndicesFromFile:
+                separate_rows_found = kTrue;
+                break;
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
             }
+
             if (contiguous_rows_found) {
                 /* extract from raw or uncompressed square matrix */
                 switch (bs_globals.store_type) {
@@ -136,29 +144,30 @@ main(int argc, char** argv)
                     if (bs_globals.store_filter == kScoreFilterNone) 
                         bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
                     else 
-                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);		    
+                        bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);            
                     break;
                 case kStorePearsonRSquareMatrixBzip2:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixBzip2Split:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
                 case kStorePearsonRSquareMatrixSplitSingleChunk:
+                
                 case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C1)\n");
@@ -168,20 +177,42 @@ main(int argc, char** argv)
             if (separate_rows_found) {
                 switch (bs_globals.store_type) {
                 case kStorePearsonRSquareMatrixSplit:
-                    if (bs_globals.store_filter == kScoreFilterNone)
-                        bs_print_sqr_split_store_separate_rows_to_bed7(lookup, 
-                                                                       sqr_store, 
-                                                                       stdout, 
-                                                                       bs_globals.store_query_indices, 
-                                                                       bs_globals.store_query_indices_num);
-                    else
-                        bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup, 
-                                                                                sqr_store, 
-                                                                                stdout, 
-                                                                                bs_globals.store_query_indices, 
-                                                                                bs_globals.store_query_indices_num, 
-                                                                                bs_globals.score_filter_cutoff, 
-                                                                                bs_globals.store_filter);		    
+                    switch (bs_globals.store_query_kind) {
+                    case kQueryKindMultipleIndicesFromFile:
+                        if (bs_globals.store_filter == kScoreFilterNone)
+                            bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup, 
+                                                                                sqr_store,
+                                                                                bs_globals.store_query_str,
+                                                                                stdout);
+                        else
+                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup, 
+                                                                                         sqr_store,
+                                                                                         bs_globals.store_query_str,
+                                                                                         stdout,
+                                                                                         bs_globals.score_filter_cutoff,
+                                                                                         bs_globals.score_filter_cutoff_lower_bound,
+                                                                                         bs_globals.score_filter_cutoff_upper_bound,
+                                                                                         bs_globals.store_filter);
+                        break;
+                    default:
+                        if (bs_globals.store_filter == kScoreFilterNone)
+                            bs_print_sqr_split_store_separate_rows_to_bed7(lookup, 
+                                                                           sqr_store, 
+                                                                           stdout, 
+                                                                           bs_globals.store_query_indices, 
+                                                                           bs_globals.store_query_indices_num);
+                        else
+                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup, 
+                                                                                    sqr_store, 
+                                                                                    stdout, 
+                                                                                    bs_globals.store_query_indices, 
+                                                                                    bs_globals.store_query_indices_num, 
+                                                                                    bs_globals.score_filter_cutoff,
+                                                                                    bs_globals.score_filter_cutoff_lower_bound,
+                                                                                    bs_globals.score_filter_cutoff_upper_bound,
+                                                                                    bs_globals.store_filter);
+                        break;
+                    }
                     break;
                 case kStoreRandomBufferedSquareMatrix:
                 case kStoreRandomSquareMatrix:
@@ -206,7 +237,7 @@ main(int argc, char** argv)
                 bs_print_sqr_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixSplit:
-		bs_print_sqr_split_store_frequency_to_txt(lookup, sqr_store, stdout);
+                bs_print_sqr_split_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
                 bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
@@ -294,6 +325,9 @@ bs_truncate_score_to_precision(score_t d, int prec)
 inline byte_t
 bs_encode_score_to_byte(score_t d) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }
     d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
     d = bs_truncate_score_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
@@ -316,6 +350,9 @@ bs_encode_score_to_byte(score_t d)
 inline byte_t
 bs_encode_score_to_byte_mqz(score_t d) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }    
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     d = bs_truncate_score_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
@@ -341,6 +378,9 @@ bs_encode_score_to_byte_mqz(score_t d)
 byte_t
 bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max) 
 {
+    if (isnan(d)) {
+        return kNANEncodedByte;
+    }    
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     min += (min < 0) ? -kEpsilon : kEpsilon;
     max += (max < 0) ? -kEpsilon : kEpsilon;
@@ -594,7 +634,7 @@ bs_parse_query_index_str(lookup_t* l)
 
 boolean_t
 bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
-{    
+{
     boolean_t index_not_found_flag = kFalse;
     boolean_t indices_found_flag = kTrue;
     
@@ -641,7 +681,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    
+
     /* copy entries array to bs_globals.store_query_indices */
     bs_globals.store_query_indices = NULL;
     bs_globals.store_query_indices = malloc(sizeof(*bs_globals.store_query_indices) * entry_idx);
@@ -654,7 +694,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
         bs_globals.store_query_indices[current_idx] = entries[current_idx];
     } while (++current_idx < entry_idx);
     bs_globals.store_query_indices_num = entry_idx;
-    
+
     /* clean up entries */
     free(entries), entries = NULL;
     
@@ -663,7 +703,60 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
           bs_globals.store_query_indices_num, 
           sizeof(*bs_globals.store_query_indices), 
           bs_parse_query_multiple_index_str_comparator);
-    
+
+    return indices_found_flag;
+}
+
+/**
+ * @brief      bs_parse_query_multiple_index_file()
+ *
+ * @details    Parses multiple-index values from file and performs some validation
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ * @param      qf     (char*) query file to parse
+ *
+ * @return     (int) if file and rows are found or not; check formatting
+ */
+
+int
+bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
+{
+    int indices_found_flag = 0;
+    int index_not_found_flag = -1;
+    FILE* fptr = fopen(qf, "r");
+    if ( !fptr )
+        return index_not_found_flag;
+
+    bs_globals.store_query_indices = NULL;
+    bs_globals.store_query_indices = calloc(MULT_IDX_MAX_NUM, sizeof(*bs_globals.store_query_indices));
+    if (!bs_globals.store_query_indices) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int32_t first = 0;
+    int32_t last = 0;
+    int count = 0;
+    uint32_t current_idx = 0;
+    while ( !feof(fptr) ) {
+        count = fscanf(fptr, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
+        if ( count != 2 ) {
+            fprintf(stderr, "found something not a range of A-B in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if ( first > last ) {
+            fprintf(stderr, "end-range ID less than start-range ID in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if ( last >= (int32_t) l->nelems ) {
+            fprintf(stderr, "Error: Entry in multiple indices is greater than the number of elements in the input index file!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+
+        /* mark start and end (inclusive) in group of 2 */
+        bs_globals.store_query_indices[current_idx++] = first;
+        bs_globals.store_query_indices[current_idx++] = last;
+        bs_globals.store_query_indices_num++;
+    }
     return indices_found_flag;
 }
 
@@ -779,14 +872,16 @@ bs_init_lookup(char* fn, boolean_t pi)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
-    char buf[BUF_MAX_LEN];
-    char chr_str[BUF_MAX_LEN];
-    char start_str[BUF_MAX_LEN];
-    char stop_str[BUF_MAX_LEN];
-    char id_str[BUF_MAX_LEN];
+    char* buf = NULL;
+    size_t buf_len = 0;
+    ssize_t buf_read = 0;
+    char chr_str[CHR_MAX_LEN] = {0};
+    char start_str[COORD_MAX_LEN] = {0};
+    char stop_str[COORD_MAX_LEN] = {0};
+    char id_str[ID_MAX_LEN] = {0};
     uint64_t start_val = 0;
     uint64_t stop_val = 0;
-
+    
     l = malloc(sizeof(lookup_t));
     if (!l) {
         fprintf(stderr, "Error: Could not allocate space for lookup table!\n");
@@ -804,7 +899,7 @@ bs_init_lookup(char* fn, boolean_t pi)
     }
 
     /* parse BED element into element_t* and push to lookup table */
-    while (fgets(buf, BUF_MAX_LEN, lf)) {
+    while ((buf_read = getline(&buf, &buf_len, lf)) != -1) {
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
@@ -812,6 +907,7 @@ bs_init_lookup(char* fn, boolean_t pi)
         bs_push_elem_to_lookup(e, &l, pi);
     }
 
+    free(buf);
     fclose(lf);
 
     return l;
@@ -1213,10 +1309,11 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
         exit(EXIT_FAILURE);
     }
     if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
-        fprintf(stderr, "Error: Vectors must have non-zero standard deviation!\n");
-        bs_print_signal(a, stderr);
-        bs_print_signal(b, stderr);
-        exit(EXIT_FAILURE);
+        if (!bs_globals.zero_sd_warning_issued) {
+            fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+            bs_globals.zero_sd_warning_issued = kTrue;
+        }
+        return NAN;
     }
     score_t s = 0.0f;
     for (uint32_t idx = 0; idx < a->n; idx++)
@@ -1276,7 +1373,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi
     e->start = start;
     e->stop = stop;
     e->id = NULL;
-    if ((strlen(id) > 0) && pi) {
+    if (id && (strlen(id) > 0) && pi) {
         e->id = malloc(sizeof(*id) * strlen(id) + 1);
         if (!e->id) {
             fprintf(stderr,"Error: Could not allocate space for element id!\n");
@@ -1365,29 +1462,51 @@ bs_test_pearsons_r()
         fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
-
+    signal_t* c = NULL;
+    c = bs_init_signal((char*) kPearsonRTestVectorC);
+    if (!c) {
+        fprintf(stderr, "Error: Could not allocate space for test (C) Pearson's r vector!\n");
+        exit(EXIT_FAILURE);
+    }
+    
     fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
-    score_t unencoded_observed_score = bs_pearson_r_signal(a, b);
-    fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestCorrelationUnencoded);
-    fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_score);
-    score_t absolute_diff_unencoded_scores = fabs(kPearsonRTestCorrelationUnencoded - unencoded_observed_score);
-    assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
-    fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
+    score_t unencoded_observed_ab_score = bs_pearson_r_signal(a, b);
+    fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestABCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_ab_score);
+    score_t absolute_diff_unencoded_ab_scores = fabs(kPearsonRTestABCorrelationUnencoded - unencoded_observed_ab_score);
+    assert(absolute_diff_unencoded_ab_scores + kEpsilon > 0 && absolute_diff_unencoded_ab_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed AB scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ab_score_byte = bs_encode_score_to_byte(kPearsonRTestABCorrelationUnencoded);
+    byte_t encoded_observed_ab_score_byte = bs_encode_score_to_byte(unencoded_observed_ab_score);
+    fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestABCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_ab_score_byte);
+    fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_ab_score_byte);
+    assert(kPearsonRTestABCorrelationEncodedByte == encoded_expected_ab_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed AB scores do not differ\n");
+    assert(kPearsonRTestABCorrelationEncodedByte == encoded_observed_ab_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AB scores do not differ\n");
+    assert(encoded_expected_ab_score_byte == encoded_observed_ab_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
-    byte_t encoded_expected_score_byte = bs_encode_score_to_byte(kPearsonRTestCorrelationUnencoded);
-    byte_t encoded_observed_score_byte = bs_encode_score_to_byte(unencoded_observed_score);
-    fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
-    fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_score_byte);
-    fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_score_byte);
-    assert(kPearsonRTestCorrelationEncodedByte == encoded_expected_score_byte);
-    fprintf(stderr, "\t-> Expected precomputed and computed scores do not differ\n");
-    assert(kPearsonRTestCorrelationEncodedByte == encoded_observed_score_byte);
-    fprintf(stderr, "\t-> Expected precomputed and observed computed scores do not differ\n");
-    assert(encoded_expected_score_byte == encoded_observed_score_byte);
-    fprintf(stderr, "\t-> Expected computed and observed computed scores do not differ\n");
+    fprintf(stderr, "Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorC);
+    score_t unencoded_observed_ac_score = bs_pearson_r_signal(a, c);
+    fprintf(stderr, "Expected - unencoded AC Pearson's r score: %3.6f\n", kPearsonRTestACCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AC Pearson's r score: %3.6f\n", unencoded_observed_ac_score);
+    byte_t encoded_expected_ac_score_byte = bs_encode_score_to_byte(kPearsonRTestACCorrelationUnencoded);
+    byte_t encoded_observed_ac_score_byte = bs_encode_score_to_byte(unencoded_observed_ac_score);
+    fprintf(stderr, "Expected - encoded, precomputed AC Pearson's r score: 0x%02x\n", kPearsonRTestACCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AC Pearson's r score: 0x%02x\n", encoded_expected_ac_score_byte);
+    fprintf(stderr, "Observed - encoded, computed AC Pearson's r score: 0x%02x\n", encoded_observed_ac_score_byte);
+    assert(kPearsonRTestACCorrelationEncodedByte == encoded_expected_ac_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed AC scores do not differ\n");
+    assert(kPearsonRTestACCorrelationEncodedByte == encoded_observed_ac_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AC scores do not differ\n");
+    assert(encoded_expected_ac_score_byte == encoded_observed_ac_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed AC scores do not differ\n");    
 
     bs_delete_signal(&a);
     bs_delete_signal(&b);
+    bs_delete_signal(&c);    
 }
 
 /**
@@ -1471,6 +1590,10 @@ bs_init_globals()
     bs_globals.store_single_chunk_flag = kFalse;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
+    bs_globals.score_filter_cutoff = 0;
+    bs_globals.score_filter_cutoff_lower_bound = 0;
+    bs_globals.score_filter_cutoff_upper_bound = 0;
+    bs_globals.score_filter_range_set = kFalse;
     bs_globals.rng_seed_flag = kFalse;
     bs_globals.rng_seed_value = 0;
     bs_globals.lookup_fn[0] = '\0';
@@ -1486,6 +1609,7 @@ bs_init_globals()
     bs_globals.permutation_precision = kPermutationTestDefaultPrecision;
     bs_globals.permutation_alpha = kPermutationTestDefaultAlpha;
     bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
+    bs_globals.zero_sd_warning_issued = kFalse;
 }
 
 /**
@@ -1630,6 +1754,50 @@ bs_init_command_line_options(int argc, char** argv)
             sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
+        case '7':
+            bs_globals.store_filter = kScoreFilterRangedWithinExclusive;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff range value (i:j)!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%f:%f", &bs_globals.score_filter_cutoff_lower_bound, &bs_globals.score_filter_cutoff_upper_bound);
+            bs_globals.score_filter_range_set = kTrue;
+            bs_score_filter_counter++;
+            break;
+        case '8':
+            bs_globals.store_filter = kScoreFilterRangedWithinInclusive;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff range value (i:j)!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%f:%f", &bs_globals.score_filter_cutoff_lower_bound, &bs_globals.score_filter_cutoff_upper_bound);
+            bs_globals.score_filter_range_set = kTrue;
+            bs_score_filter_counter++;
+            break;            
+        case '9':
+            bs_globals.store_filter = kScoreFilterRangedOutsideExclusive;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff range value (i:j)!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%f:%f", &bs_globals.score_filter_cutoff_lower_bound, &bs_globals.score_filter_cutoff_upper_bound);
+            bs_globals.score_filter_range_set = kTrue;
+            bs_score_filter_counter++;
+            break;
+        case '0':
+            bs_globals.store_filter = kScoreFilterRangedOutsideInclusive;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store filter operation parameter specified without filter cutoff range value (i:j)!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%f:%f", &bs_globals.score_filter_cutoff_lower_bound, &bs_globals.score_filter_cutoff_upper_bound);
+            bs_globals.score_filter_range_set = kTrue;
+            bs_score_filter_counter++;
+            break;
         case 'f':
             bs_globals.store_frequency_flag = kTrue;
             bs_output_flag_counter++;
@@ -1645,6 +1813,15 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'w':
             bs_globals.store_query_kind = kQueryKindMultipleIndices;
+            if (!optarg) {
+                fprintf(stderr, "Error: Multiple index query parameter specified without multiple index string value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
+            break;
+        case 'z':
+            bs_globals.store_query_kind = kQueryKindMultipleIndicesFromFile;
             if (!optarg) {
                 fprintf(stderr, "Error: Multiple index query parameter specified without multiple index string value!\n");
                 bs_print_usage(stderr);
@@ -1788,6 +1965,14 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
+    if (bs_score_filter_counter == 0) {
+        bs_globals.store_filter = kScoreFilterNone;
+    }
+
+    if ((bs_globals.score_filter_range_set == kTrue) && (bs_globals.score_filter_cutoff_lower_bound > bs_globals.score_filter_cutoff_upper_bound)) {
+        swap(bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound);
+    }
+
     if (strlen(bs_globals.lookup_fn) == 0) {
         fprintf(stderr, "Error: Must specify lookup table filename!\n");
         bs_print_usage(stderr);
@@ -1847,7 +2032,7 @@ bs_print_usage(FILE* os)
             "   Create data store:\n\n" \
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int [ --store-compression-row-chunk-offset=int ] ]\n\n" \
             "   Query data store:\n\n" \
-            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --multiple-index-query=str | --range-query=str ] [ --score-filter-gteq=float | --score-filter-gt=float | --score-filter-eq=float | --score-filter-lteq=float | --score-filter-lt=float ]\n\n" \
+            "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --multiple-index-query=str | --range-query=str ] [ --score-filter-gteq=float | --score-filter-gt=float | --score-filter-eq=float | --score-filter-lteq=float | --score-filter-lt=float | --score-filter-ranged-within-inclusive=float:float | --score-filter-ranged-within-exclusive=float:float | --score-filter-ranged-outside-inclusive=float:float | --score-filter-ranged-outside-exclusive=float:float ]\n\n" \
             "   Bin-frequency on data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency and permutation testing  on lookup table:\n\n" \
@@ -2931,10 +3116,10 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             }
             cumulative_bytes_written += bytes_written;
             buf_idx = 0;
-	    }
-	    
-	    /* if file is multiple of n * l->elems, close stream, open new stream */
-	    if ((cumulative_bytes_written % (l->nelems * n) == 0) && (row_idx != s->attr->nelems)) {
+        }
+        
+        /* if file is multiple of n * l->elems, close stream, open new stream */
+        if ((cumulative_bytes_written % (l->nelems * n) == 0) && (row_idx != s->attr->nelems)) {
             fclose(os), os = NULL;
             /* open new handle to output sqr matrix store */
             block_dest_fn = bs_init_sqr_split_store_fn_str(block_dest_dir, block_idx++);
@@ -2948,8 +3133,8 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             buf_idx = 0;
             offsets[offset_idx++] = cumulative_bytes_written;
         }
-	
-        /* if row index is last index in matrix, write final buf to output stream, and close output stream */	
+    
+        /* if row index is last index in matrix, write final buf to output stream, and close output stream */    
         else if (row_idx == s->attr->nelems) {
             /* write buf to output stream */
             bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
@@ -3044,8 +3229,6 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
-    free(block_dest_fn), block_dest_fn = NULL;
-    free(block_dest_dir), block_dest_dir = NULL;
     
     /* write out a buffer of 1 row (l->nelems bytes) to output stream */
     byte_t* buf = NULL;
@@ -3072,7 +3255,7 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         /* at the end of a row, we write out the bytes */
         bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
         if (bytes_written != buf_idx) { 
-            fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk)!\n");
+            fprintf(stderr, "Error: Could not write score buffer to output square matrix store (single chunk; bytes written [%" PRIu64 "] buffer size [%zu])!\n", bytes_written, buf_size);
             exit(EXIT_FAILURE);
         }
         /* if we are at the end of the array, we break out */
@@ -3082,10 +3265,12 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         buf_idx = 0;
     }
     fclose(os), os = NULL;
+    free(block_dest_fn), block_dest_fn = NULL;
+    free(block_dest_dir), block_dest_dir = NULL;
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n, o)
+ * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n)
  *
  * @details    Write metadata to FILE* handle associated with the specified 
  *             per-chunk square matrix store. Metadata are stored in a folder, 
@@ -3112,7 +3297,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = floor(l->nelems / n) + 2;
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
@@ -3308,7 +3493,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
             case BZ_SEQUENCE_ERROR:
                 fprintf(stderr, "Error: Could not close bzip2 output stream! (row block)\n");
                 exit(EXIT_FAILURE);
-	        }
+            }
             bzf = BZ2_bzWriteOpen(&bzf_error, os, kCompressionBzip2BlockSize100k, kCompressionBzip2Verbosity, kCompressionBzip2WorkFactor);
             switch (bzf_error) {
             case BZ_OK:
@@ -3755,7 +3940,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, flb, fub, fo)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -3768,11 +3953,13 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -3816,7 +4003,11 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                      ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ) {
+                     ((fo == kScoreFilterLt) && (d < fc)) ||
+                     ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                     ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                     ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                     ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
                     bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -3937,7 +4128,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
         }
-	
+    
        /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
@@ -3985,7 +4176,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, flb, fub, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -3995,11 +4186,13 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
+bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -4085,7 +4278,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
         }
-	
+    
         /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
@@ -4109,7 +4302,11 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
@@ -4221,7 +4418,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
         fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
         exit(EXIT_FAILURE);
     }
-    
+
     /* iterate through separate rows, calculating associated block */
     int32_t block_row_size = (int32_t) md->block_row_size;
     int32_t current_block_idx = -1;
@@ -4247,13 +4444,19 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
             /* adjust row_idx so that byte offset calculation is relative to current block */
             row_idx = block_row_size * new_block_idx;
         }
-        /* offset some number of bytes from current position of is, if necessary */
-        /* note that we subtract a row unit, if we have already read through the input stream by one row */
-        int32_t row_diff = query_row - row_idx - ((current_block_idx == -1) ? 0 : 1);
-        int32_t bytes_to_go = row_diff * l->nelems;
+
+        /* we offset some number of bytes from current position of input stream, as necessary */
+        /* note that we subtract a row unit, if we are in the same block and so have already */ 
+        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+        /* otherwise we will almost certainly overflow and run into byte offset problems that */
+        /* cause garbage output */
+
+        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+        int64_t bytes_to_go = row_diff * l->nelems;
         if (bytes_to_go > 0) {
             fseek(is, bytes_to_go, SEEK_CUR);
         }
+
         /* read a row from current block and print its signal to the output stream os */
         row_idx = (uint32_t) query_row;
         col_idx = 0;
@@ -4289,7 +4492,376 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, r, fc, fo)
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file(l, s, qf, os)
+ *
+ * @details    Queries raw square matrix store folder for
+ *             provided multiple-index globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             qf     (char*) query file name to parse
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* check that the query regions file exists */
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE* is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char* md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is), is = NULL;
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* allocate byte buffer -- we read in one row of bytes at a time */
+    byte_t* byte_buf = NULL;
+    ssize_t n_byte_buf = l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int32_t block_row_size = (int32_t) md->block_row_size;
+    while (!feof(qs)) {
+        int32_t first = 1;
+        int32_t last = 0;
+        int count = 0;
+
+        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 " ", &first, &last); /* ending ' ' eats any white space */
+        if (count != 2) {
+            fprintf(stderr, "Error: Found something not a range of A-B in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if (first > last) {
+            fprintf(stderr, "Error: End-range ID less than start-range ID in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if (last >= (int32_t) l->nelems) {
+            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+
+        /* iterate through separate rows, calculating associated block */
+        int32_t current_block_idx = -1;
+        int32_t new_block_idx = -1;
+        uint32_t row_idx = 0;
+        uint32_t col_idx = 0;
+
+        for ( int32_t query_row = first; query_row <= last; ++query_row ) {
+            new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+
+            /* test if we are in a new block */
+            if (new_block_idx > current_block_idx) {
+                /* close current block file, if one is already open, and then open a new block */
+                if (is) {
+                    fclose(is), is = NULL;
+                }
+                is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+                if (ferror(is)) {
+                    fprintf(stderr, "Error: Could not open handle to input store!\n");
+                    bs_print_usage(stderr);
+                    exit(EXIT_FAILURE);
+                }
+                /* adjust row_idx so that byte offset calculation is relative to current block */
+                row_idx = block_row_size * new_block_idx;
+            }
+
+            /* we offset some number of bytes from current position of input stream, as necessary */
+            /* note that we subtract a row unit, if we are in the same block and so have already */ 
+            /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+            /* otherwise we will almost certainly overflow and run into byte offset problems that */
+            /* cause garbage output */
+
+            int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+            int64_t bytes_to_go = row_diff * l->nelems;
+            if (bytes_to_go > 0) {
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
+
+            /* read a row from current block and print its signal to the output stream os */
+            row_idx = (uint32_t) query_row;
+            col_idx = 0;
+            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            do {
+                if (row_idx != col_idx) {
+                    bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  );
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+        
+            /* set current block index */
+            current_block_idx = new_block_idx;
+        } /* for */
+    } /* while */
+    
+    /* clean up */
+    fclose(is), is = NULL;
+    fclose(qs), qs = NULL;
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
+    free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, os, fc, flb, fub, fo)
+ *
+ * @details    Queries raw square matrix store folder for
+ *             provided multiple-index globals and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             qf     (char*) query file name to parse
+ *             os     (FILE*) pointer to output stream
+ *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* check that the query regions file exists */
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE* is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char* md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is), is = NULL;
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* allocate byte buffer -- we read in one row of bytes at a time */
+    byte_t* byte_buf = NULL;
+    ssize_t n_byte_buf = l->nelems;
+    byte_buf = malloc(n_byte_buf);
+    if (!byte_buf) {
+        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int32_t block_row_size = (int32_t) md->block_row_size;
+    while (!feof(qs)) {
+        int32_t first = 1;
+        int32_t last = 0;
+        int count = 0;
+
+        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
+        if (count != 2) {
+            fprintf(stderr, "Error: Found something not a range of A-B in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if (first > last) {
+            fprintf(stderr, "Error: End-range ID less than start-range ID in the input index file!\n");
+            exit(EXIT_FAILURE);
+        } else if (last >= (int32_t) l->nelems) {
+            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
+            bs_print_usage(stderr);
+            exit(EXIT_FAILURE);
+        }
+
+        /* iterate through separate rows, calculating associated block */
+        int32_t current_block_idx = -1;
+        int32_t new_block_idx = -1;
+        uint32_t row_idx = 0;
+        uint32_t col_idx = 0;
+
+        for ( int32_t query_row = first; query_row <= last; ++query_row ) {
+            new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+
+            /* test if we are in a new block */
+            if (new_block_idx > current_block_idx) {
+                /* close current block file, if one is already open, and then open a new block */
+                if (is) {
+                    fclose(is), is = NULL;
+                }
+                is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+                if (ferror(is)) {
+                    fprintf(stderr, "Error: Could not open handle to input store!\n");
+                    bs_print_usage(stderr);
+                    exit(EXIT_FAILURE);
+                }
+                /* adjust row_idx so that byte offset calculation is relative to current block */
+                row_idx = block_row_size * new_block_idx;
+            }
+
+            /* we offset some number of bytes from current position of input stream, as necessary */
+            /* note that we subtract a row unit, if we are in the same block and so have already */ 
+            /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+            /* otherwise we will almost certainly overflow and run into byte offset problems that */
+            /* cause garbage output */
+
+            int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+            int64_t bytes_to_go = row_diff * l->nelems;
+            if (bytes_to_go > 0) {
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
+
+            /* read a row from current block and print its signal to the output stream os */
+            row_idx = (uint32_t) query_row;
+            col_idx = 0;
+            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            do {
+                if (row_idx != col_idx) {
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                      (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                      bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                      );
+                    }
+                }
+                col_idx++;
+            } while (col_idx < l->nelems);
+
+            /* set current block index */
+            current_block_idx = new_block_idx;
+        } /* for */
+    } /* while */
+    
+    /* clean up */
+    fclose(is), is = NULL;
+    fclose(qs), qs = NULL;
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
+    free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, r, fc, flb, fub, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -4301,11 +4873,13 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
  *             r      (int32_t*) pointer to list of query rows of interest  
  *             rn     (uint32_t) number of query rows of interest
  *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound when ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound when ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -4401,8 +4975,8 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
         }
         /* offset some number of bytes from current position of is, if necessary */
         /* note that we subtract a row unit, if we have already read through the input stream by one row */
-        int32_t row_diff = query_row - row_idx - ((current_block_idx == -1) ? 0 : 1);
-        int32_t bytes_to_go = row_diff * l->nelems;
+        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+        int64_t bytes_to_go = row_diff * l->nelems;
         if (bytes_to_go > 0) {
             fseek(is, bytes_to_go, SEEK_CUR);
         }
@@ -4419,7 +4993,11 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                      ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ) {
+                     ((fo == kScoreFilterLt) && (d < fc)) ||
+                     ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                     ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                     ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                     ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
                     bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -4552,23 +5130,23 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         uint32_t col_idx = 0;
 
         do {
-	    /* read one row -- can require streaming through entire block to get elements at the end of a block! */
-	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-	    switch (bzf_error) {
-	    case BZ_OK:
-	    case BZ_STREAM_END:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_UNEXPECTED_EOF:
-	    case BZ_DATA_ERROR:
-	    case BZ_DATA_ERROR_MAGIC:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-		exit(EXIT_FAILURE);                
-	    }
-	    
+        /* read one row -- can require streaming through entire block to get elements at the end of a block! */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+        break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+        fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+        exit(EXIT_FAILURE);                
+        }
+        
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     bs_print_pair(os, 
@@ -4587,7 +5165,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
             } while (col_idx < l->nelems);
             col_idx = 0;
             row_idx++;
-	    
+        
         } while (row_idx <= end_row_idx);
         
         BZ2_bzReadClose(&bzf_error, bzf);
@@ -4608,7 +5186,7 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_bzip2_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_bzip2_store_to_bed7(l, s, os, fc, flb, fub, fo)
  *
  * @details    Queries bzip2-compressed square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -4618,11 +5196,13 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
@@ -4715,23 +5295,23 @@ bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
         uint32_t col_idx = 0;
 
         do {
-	    /* read one row -- can require streaming through entire block to get elements at the end of a block! */
-	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-	    switch (bzf_error) {
-	    case BZ_OK:
-	    case BZ_STREAM_END:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_UNEXPECTED_EOF:
-	    case BZ_DATA_ERROR:
-	    case BZ_DATA_ERROR_MAGIC:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-		exit(EXIT_FAILURE);                
-	    }
-	    
+        /* read one row -- can require streaming through entire block to get elements at the end of a block! */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+        break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+        fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+        exit(EXIT_FAILURE);                
+        }
+        
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -4741,7 +5321,11 @@ bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
@@ -4756,7 +5340,7 @@ bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
             } while (col_idx < l->nelems);
             col_idx = 0;
             row_idx++;
-	    
+        
         } while (row_idx <= end_row_idx);
         
         BZ2_bzReadClose(&bzf_error, bzf);
@@ -4896,22 +5480,22 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
         do {
-	    /* read in row */
-	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-	    switch (bzf_error) {
-	    case BZ_OK:
-	    case BZ_STREAM_END:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_UNEXPECTED_EOF:
-	    case BZ_DATA_ERROR:
-	    case BZ_DATA_ERROR_MAGIC:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-		exit(EXIT_FAILURE);                
-	    }
+        /* read in row */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+        break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+        fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+        exit(EXIT_FAILURE);                
+        }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     bs_print_pair(os, 
@@ -4954,7 +5538,7 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_bzip2_split_store_to_bed7(l, s, os, fc, fo)
+ * @brief      bs_print_sqr_filtered_bzip2_split_store_to_bed7(l, s, os, fc, flb, fub, fo)
  *
  * @details    Queries bzip2-compressed square matrix store folder 
  *             for provided index range globals and prints BED7 (BED3 
@@ -4964,11 +5548,13 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -5075,22 +5661,22 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
         ssize_t end_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
 
         do {
-	    /* read in row */
-	    BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
-	    switch (bzf_error) {
-	    case BZ_OK:
-	    case BZ_STREAM_END:
-		break;
-	    case BZ_PARAM_ERROR:
-	    case BZ_SEQUENCE_ERROR:
-	    case BZ_IO_ERROR:
-	    case BZ_UNEXPECTED_EOF:
-	    case BZ_DATA_ERROR:
-	    case BZ_DATA_ERROR_MAGIC:
-	    case BZ_MEM_ERROR:
-		fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
-		exit(EXIT_FAILURE);                
-	    }
+        /* read in row */
+        BZ2_bzRead(&bzf_error, bzf, byte_buf, n_byte_buf);
+        switch (bzf_error) {
+        case BZ_OK:
+        case BZ_STREAM_END:
+        break;
+        case BZ_PARAM_ERROR:
+        case BZ_SEQUENCE_ERROR:
+        case BZ_IO_ERROR:
+        case BZ_UNEXPECTED_EOF:
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+        case BZ_MEM_ERROR:
+        fprintf(stderr, "Error: Could not read from bzip2 block stream!\n");
+        exit(EXIT_FAILURE);                
+        }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -5100,7 +5686,11 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
                          ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ) {                    
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
                         bs_print_pair(os, 
                                       l->elems[row_idx]->chr,
                                       l->elems[row_idx]->start,
@@ -5168,52 +5758,52 @@ bs_parse_metadata_str(char* ms)
     memcpy(md_token, ms, md_delim_length);
     md_token[md_delim_length] = '\0';
     if (sscanf(md_token, "%lf", &md_version) == EOF) {
-	fprintf(stderr, "Error: Could not parse metadata version key!\n");
-	exit(EXIT_FAILURE);
+    fprintf(stderr, "Error: Could not parse metadata version key!\n");
+    exit(EXIT_FAILURE);
     }
 
     if (md_version == kCompressionMetadataVersion) { /* v1.0 */
-	/* row block size */
-	md_string_tok_start = ms + md_delim_length + 1;
-	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-	md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
-	memcpy(md_token, md_string_tok_start, md_delim_length);
-	md_token[md_delim_length] = '\0';
-	sscanf(md_token, "%zu", &md_block_row_size);
-	/* number of offsets */
-	md_string_tok_start = md_string_tok_start + md_delim_length + 1;
-	md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-	md_delim_length = md_delim_pos_ptr - md_string_tok_start;
-	memcpy(md_token, md_string_tok_start, md_delim_length);
-	md_token[md_delim_length] = '\0';
-	sscanf(md_token, "%zu", &md_num_offsets);
-	/* offsets */
-	md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
-	if (!md_offsets) {
-	    fprintf(stderr, "Error: Could not allocate space for offset data!\n");
-	    exit(EXIT_FAILURE);
-	}
-	for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+    /* row block size */
+    md_string_tok_start = ms + md_delim_length + 1;
+    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+    md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+    memcpy(md_token, md_string_tok_start, md_delim_length);
+    md_token[md_delim_length] = '\0';
+    sscanf(md_token, "%zu", &md_block_row_size);
+    /* number of offsets */
+    md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+    memcpy(md_token, md_string_tok_start, md_delim_length);
+    md_token[md_delim_length] = '\0';
+    sscanf(md_token, "%zu", &md_num_offsets);
+    /* offsets */
+    md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
+    if (!md_offsets) {
+        fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+        exit(EXIT_FAILURE);
+    }
+    for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
             md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
-	    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-	    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
-	    memcpy(md_token, md_string_tok_start, md_delim_length);
-	    md_token[md_delim_length] = '\0';
-	    sscanf(md_token, "%zd", &md_offsets[offset_idx]);
-	}
-	metadata = malloc(sizeof(metadata_t));
-	if (!metadata) {
-	    fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
-	    exit(EXIT_FAILURE);
-	}
-	metadata->offsets = md_offsets;
-	metadata->count = md_num_offsets;
-	metadata->block_row_size = md_block_row_size;
-	metadata->version = md_version;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+    }
+    metadata = malloc(sizeof(metadata_t));
+    if (!metadata) {
+        fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
+        exit(EXIT_FAILURE);
+    }
+    metadata->offsets = md_offsets;
+    metadata->count = md_num_offsets;
+    metadata->block_row_size = md_block_row_size;
+    metadata->version = md_version;
     }
     else {
-	fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
-	exit(EXIT_FAILURE);
+    fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
+    exit(EXIT_FAILURE);
     }
 
     return metadata;
