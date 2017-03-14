@@ -43,3 +43,6 @@
 # Intermediate files
 sample_bs_input.bed
 sample_bs_input.starch
+
+# OS X garbage
+.DS_Store

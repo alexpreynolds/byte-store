@@ -39,16 +39,17 @@ extern "C" {
         } while(0)
 
     typedef unsigned char byte_t;
+    typedef float score_t;
     
     extern const char* kPearsonRTestVectorA;
     extern const char* kPearsonRTestVectorB;
-    extern const double kPearsonRTestCorrelationUnencoded;
-    extern const double kPearsonRTestCorrelationEncoded;
+    extern const score_t kPearsonRTestCorrelationUnencoded;
+    extern const score_t kPearsonRTestCorrelationEncoded;
     extern const byte_t kPearsonRTestCorrelationEncodedByte;
     const char* kPearsonRTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kPearsonRTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
-    const double kPearsonRTestCorrelationUnencoded = 0.4134264f;
-    const double kPearsonRTestCorrelationEncoded = 0.41f;
+    const score_t kPearsonRTestCorrelationUnencoded = 0.4134264f;
+    const score_t kPearsonRTestCorrelationEncoded = 0.41f;
     const byte_t kPearsonRTestCorrelationEncodedByte = 0x8e;
     
     typedef int boolean_t;
@@ -57,14 +58,14 @@ extern "C" {
     const boolean_t kTrue = 1;
     const boolean_t kFalse = 0;
     
-    extern const double kEpsilon;
-    const double kEpsilon = 0.0000001f;
+    extern const score_t kEpsilon;
+    const score_t kEpsilon = 0.0000001f;
     
-    extern const double kSelfCorrelationScore;
-    const double kSelfCorrelationScore = +1.0f;
+    extern const score_t kSelfCorrelationScore;
+    const score_t kSelfCorrelationScore = +1.0f;
     
-    extern const double kNoCorrelationScore;
-    const double kNoCorrelationScore = +0.0f;
+    extern const score_t kNoCorrelationScore;
+    const score_t kNoCorrelationScore = +0.0f;
     
     extern const int kQueryIndexDelim;
     const int kQueryIndexDelim = (int) '-';
@@ -83,9 +84,9 @@ extern "C" {
     
     typedef struct signal {
         uint32_t n;
-        double* data;
-        double mean;
-        double sd;
+        score_t* data;
+        score_t mean;
+        score_t sd;
     } signal_t;
     
     typedef struct element {
@@ -171,11 +172,11 @@ extern "C" {
     extern const char* kEncodingStrategyFullStr;
     extern const char* kEncodingStrategyMidQuarterZeroStr;
     extern const char* kEncodingStrategyCustomStr;
-    extern const double kEncodingStrategyDefaultCutoff;
+    extern const score_t kEncodingStrategyDefaultCutoff;
     const char* kEncodingStrategyFullStr = "full";
     const char* kEncodingStrategyMidQuarterZeroStr = "mid-quarter-zero";
     const char* kEncodingStrategyCustomStr = "custom";
-    const double kEncodingStrategyDefaultCutoff = -DBL_MAX;
+    const score_t kEncodingStrategyDefaultCutoff = -DBL_MAX;
     
     extern const uint32_t kRowChunkDefaultSize;
     extern const uint32_t kRowChunkDefaultOffset;
@@ -195,7 +196,7 @@ extern "C" {
     extern const uint32_t kCompressionBzip2AbandonPolicy;
     extern const uint32_t kCompressionBzip2SmallPolicy;
     extern const char kCompressionMetadataDelimiter;
-    extern const double kCompressionMetadataVersion;
+    extern const score_t kCompressionMetadataVersion;
     extern const char* kCompressionMetadataSplitFn;
     extern const char* kCompressionMetadataSplitDirSuffix;
     const uint32_t kCompressionRowChunkMaximumSize = 512;
@@ -206,18 +207,18 @@ extern "C" {
     const uint32_t kCompressionBzip2AbandonPolicy = 0;
     const uint32_t kCompressionBzip2SmallPolicy = 0;
     const char kCompressionMetadataDelimiter = '|';
-    const double kCompressionMetadataVersion = 1.0f;
+    const score_t kCompressionMetadataVersion = 1.0f;
     const char* kCompressionMetadataSplitFn = "blocks.md";
     const char* kCompressionMetadataSplitDirSuffix = "blocks";
 
     extern const uint32_t kPermutationTestDefaultCount;
-    extern const double kPermutationTestDefaultPrecision;
-    extern const double kPermutationTestDefaultAlpha;
+    extern const score_t kPermutationTestDefaultPrecision;
+    extern const score_t kPermutationTestDefaultAlpha;
     extern const uint32_t kPermutationTestDefaultSignificanceLevel;
 
     const uint32_t kPermutationTestDefaultCount = 0;
-    const double kPermutationTestDefaultPrecision = 0.01f;
-    const double kPermutationTestDefaultAlpha = 0.01f;
+    const score_t kPermutationTestDefaultPrecision = 0.01f;
+    const score_t kPermutationTestDefaultAlpha = 0.01f;
     const uint32_t kPermutationTestDefaultSignificanceLevel = 3;
     
     typedef struct metadata {
@@ -283,7 +284,7 @@ extern "C" {
         bed_t* store_query_range_start;
         bed_t* store_query_range_end;
         score_filter_t store_filter;
-        double score_filter_cutoff;
+        score_t score_filter_cutoff;
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -292,8 +293,8 @@ extern "C" {
         store_type_t store_type;
         encoding_strategy_t encoding_strategy;
         char encoding_strategy_str[BUF_MAX_LEN];
-        double encoding_cutoff_zero_min;
-        double encoding_cutoff_zero_max;
+        score_t encoding_cutoff_zero_min;
+        score_t encoding_cutoff_zero_max;
         uint32_t store_row_chunk_size;
         uint32_t store_row_chunk_offset;
         boolean_t store_chunk_size_specified_flag;
@@ -302,8 +303,8 @@ extern "C" {
         boolean_t lookup_frequency_flag;
         boolean_t permutation_test_flag;
         uint32_t permutation_count;
-        double permutation_precision;
-        double permutation_alpha;
+        score_t permutation_precision;
+        score_t permutation_alpha;
         uint32_t permutation_significance_level;
     } bs_globals;
     
@@ -344,7 +345,7 @@ extern "C" {
     static const char* bs_name = "byte-store";
     
     /**
-     * @brief      bs_encode_byte_to_double_table[]
+     * @brief      bs_encode_byte_to_score_table[]
      *
      * @details    Converts encoded byte to assigned bin interval start, 
      *             e.g., 0x64 maps to -0.00 or (-0.01, -0.00], while 
@@ -355,7 +356,7 @@ extern "C" {
      *             be mapped to two seperate bytes.
      */
     
-    static const double bs_encode_byte_to_double_table[256] = 
+    static const score_t bs_encode_byte_to_score_table[256] = 
         {-1.00, 
          -0.99, -0.98, -0.97, -0.96, -0.95, -0.94, -0.93, -0.92, -0.91, -0.90,
          -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80,
@@ -386,13 +387,13 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00};
     
     /**
-     * @brief      bs_encode_unsigned_char_to_double_mqz_table[]
+     * @brief      bs_encode_unsigned_char_to_score_mqz_table[]
      *
      * @details    Converts encoded byte to assigned bin interval start, 
      *             but maps (-0.25, +0.25) to +0.00
      */
     
-    static const double bs_encode_byte_to_double_mqz_table[256] = 
+    static const score_t bs_encode_byte_to_score_mqz_table[256] = 
         {-1.00, 
          -0.99, -0.98, -0.97, -0.96, -0.95, -0.94, -0.93, -0.92, -0.91, -0.90,
          -0.89, -0.88, -0.87, -0.86, -0.85, -0.84, -0.83, -0.82, -0.81, -0.80,
@@ -422,14 +423,14 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00};
     
-    inline double                bs_truncate_double_to_precision(double d, int prec);
-    inline byte_t                bs_encode_double_to_byte(double d);
-    inline byte_t                bs_encode_double_to_byte_mqz(double d);
-    byte_t                       bs_encode_double_to_byte_custom(double d, double min, double max);
-    inline boolean_t             bs_signbit(double d);
-    static inline double         bs_decode_byte_to_double(byte_t uc);
-    static inline double         bs_decode_byte_to_double_mqz(byte_t uc);
-    static inline double         bs_decode_byte_to_double_custom(byte_t uc, double min, double max);
+    inline score_t               bs_truncate_score_to_precision(score_t d, int prec);
+    inline byte_t                bs_encode_score_to_byte(score_t d);
+    inline byte_t                bs_encode_score_to_byte_mqz(score_t d);
+    byte_t                       bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max);
+    inline boolean_t             bs_signbit(score_t d);
+    static inline score_t        bs_decode_byte_to_score(byte_t uc);
+    static inline score_t        bs_decode_byte_to_score_mqz(byte_t uc);
+    static inline score_t        bs_decode_byte_to_score_custom(byte_t uc, score_t min, score_t max);
     boolean_t                    bs_parse_query_range_str(lookup_t* l, char* rs, uint32_t* start, uint32_t* end);
     boolean_t                    bs_parse_query_index_str(lookup_t* l);
     boolean_t                    bs_parse_query_multiple_index_str(lookup_t* l, char* qs);
@@ -439,16 +440,16 @@ extern "C" {
     void                         bs_delete_bed(bed_t** b);
     lookup_t*                    bs_init_lookup(char* fn, boolean_t pi);
     void                         bs_permute_lookup(lookup_t *l, FILE* os);
-    void                         bs_shuffle_signal_data(double* d, size_t n);
+    void                         bs_shuffle_signal_data(score_t* d, size_t n);
     void                         bs_print_lookup(lookup_t* l, FILE* os);
     void                         bs_print_lookup_frequency(lookup_t* l, FILE* os);
     void                         bs_increment_lookup_frequency(uint64_t* t, lookup_t* l);
     void                         bs_delete_lookup(lookup_t** l);
     signal_t*                    bs_init_signal(char *cds);
     void                         bs_print_signal(signal_t* s, FILE* os);
-    double                       bs_mean_signal(double* d, uint32_t len);
-    double                       bs_sample_sd_signal(double* d, uint32_t len, double m);
-    double                       bs_pearson_r_signal(signal_t* a, signal_t* b);
+    score_t                      bs_mean_signal(score_t* d, uint32_t len);
+    score_t                      bs_sample_sd_signal(score_t* d, uint32_t len, score_t m);
+    score_t                      bs_pearson_r_signal(signal_t* a, signal_t* b);
     void                         bs_delete_signal(signal_t** s);
     element_t*                   bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi);
     void                         bs_delete_element(element_t** e);
@@ -461,13 +462,13 @@ extern "C" {
     void                         bs_print_usage(FILE* os);
     inline boolean_t             bs_path_exists(const char* p);
     inline ssize_t               bs_file_size(const char* fn);
-    inline void                  bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, double score);
+    inline void                  bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, score_t score);
     sut_store_t*                 bs_init_sut_store(uint32_t n);
     void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
     void                         bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l);
     off_t                        bs_sut_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os);
-    void                         bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, score_t fc, score_filter_t fo);
     void                         bs_print_sut_frequency_to_txt(lookup_t* l, sut_store_t* s, FILE* os);
     void                         bs_delete_sut_store(sut_store_t** s);
     sqr_store_t*                 bs_init_sqr_store(uint32_t n);
@@ -476,7 +477,7 @@ extern "C" {
     void                         bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l);
     char*                        bs_init_sqr_split_store_fn_str(char* d, uint32_t i);
     char*                        bs_init_sqr_split_store_dir_str(char* p);
-    char*                        bs_init_sqr_split_store_metadata_fn_str(char* d);    
+    char*                        bs_init_sqr_split_store_metadata_fn_str(char* d);
     void                         bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n);
     void                         bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o);
     void                         bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t n);
@@ -488,15 +489,15 @@ extern "C" {
     char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s);
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
-    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo);
+    void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);

@@ -247,27 +247,27 @@ main(int argc, char** argv)
 }
 
 /**
- * @brief      bs_truncate_double_to_precision(d, prec)
+ * @brief      bs_truncate_score_to_precision(d, prec)
  *
- * @details    Truncates double-type value to specified precision.
+ * @details    Truncates double-like score value to specified precision.
  *
- * @param      d      (double) value to be truncated
+ * @param      d      (score_t) value to be truncated
  *             prec   (int) value to determine precision of truncated value
  *
- * @return     (double) truncated value
+ * @return     (score_t) truncated value
  */
 
-inline double
-bs_truncate_double_to_precision(double d, int prec)
+inline score_t
+bs_truncate_score_to_precision(score_t d, int prec)
 {
-    double factor = powf(10, prec);
-    return (d < 0) ? ceil(d * factor)/factor : floor((d + kEpsilon) * factor)/factor;
+    score_t factor = (score_t) powf(10, prec);
+    return (d < 0) ? (score_t) ceil(d * factor)/factor : (score_t) floor((d + kEpsilon) * factor)/factor;
 }
 
 /**
- * @brief      bs_encode_double_to_byte(d)
+ * @brief      bs_encode_score_to_byte(d)
  *
- * @details    Encodes double-type value between -1 and +1 to 
+ * @details    Encodes double-like score value between -1 and +1 to 
  *             byte_t byte "bin".
  *
  *             (-1.01, -1.00] (-1.00, -0.99] (-0.99, -0.98] ...
@@ -278,45 +278,46 @@ bs_truncate_double_to_precision(double d, int prec)
  *
  *             { 0x00, 0x01, 0x02, ... , 0x64, 0x65, ... , 0xc8, 0xc9 }
  *
- * @param      d      (double) value to be encoded
+ * @param      d      (score_t) value to be encoded
  *
  * @return     (byte_t) encoded score byte value
  *
- * @example    bs_encode_double_to_byte(-0.010) = 0x63
- *             bs_encode_double_to_byte(-0.009) = 0x64
- *             bs_encode_double_to_byte(-0.000) = 0x64
- *             bs_encode_double_to_byte(+0.000) = 0x65
- *             bs_encode_double_to_byte(+0.139) = 0x72
- *             bs_encode_double_to_byte(+0.140) = 0x73
- *             bs_encode_double_to_byte(+0.142) = 0x73
+ * @example    bs_encode_score_to_byte(-0.010) = 0x63
+ *             bs_encode_score_to_byte(-0.009) = 0x64
+ *             bs_encode_score_to_byte(-0.000) = 0x64
+ *             bs_encode_score_to_byte(+0.000) = 0x65
+ *             bs_encode_score_to_byte(+0.139) = 0x72
+ *             bs_encode_score_to_byte(+0.140) = 0x73
+ *             bs_encode_score_to_byte(+0.142) = 0x73
  */
 
 inline byte_t
-bs_encode_double_to_byte(double d) 
+bs_encode_score_to_byte(score_t d) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
-    d = bs_truncate_double_to_precision(d, 2);
+    d = bs_truncate_score_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     return (byte_t) encode_d;
 }
 
 /**
- * @brief      bs_encode_double_to_byte_mqz(d)
+ * @brief      bs_encode_score_to_byte_mqz(d)
  *
- * @details    Encodes double-type value between -1 and +1 to 
- *             byte-type byte "bin". If value is between
- *             (-0.25, +0.25) then encoding returns +0.00.
+ * @details    Encodes double-like score value between -1 
+ *             and +1 to byte-type byte "bin". If value is 
+ *             between (-0.25, +0.25) then encoding returns 
+ *             +0.00.
  *
- * @param      d      (double) value to be encoded
+ * @param      d      (score_t) value to be encoded
  *
  * @return     (byte_t) encoded score byte value
  */
 
 inline byte_t
-bs_encode_double_to_byte_mqz(double d) 
+bs_encode_score_to_byte_mqz(score_t d) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
-    d = bs_truncate_double_to_precision(d, 2);
+    d = bs_truncate_score_to_precision(d, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     if ((encode_d > 76) && (encode_d < 127))
         encode_d = 100;
@@ -324,28 +325,28 @@ bs_encode_double_to_byte_mqz(double d)
 }
 
 /**
- * @brief      bs_encode_double_to_byte_custom(d, min, max)
+ * @brief      bs_encode_score_to_byte_custom(d, min, max)
  *
- * @details    Encodes double-type value between -1 and +1 to 
- *             byte-type byte "bin". If value is between
- *             (min, max) then encoding returns +0.00.
+ * @details    Encodes double-like score value between -1 
+ *             and +1 to byte-type byte "bin". If value is 
+ *             between (min, max) then encoding returns +0.00.
  *
- * @param      d      (double) value to be encoded
- *             min    (double) minimum cutoff value for zero-encoding
- *             max    (double) maximum cutoff value for zero-encoding
+ * @param      d      (score_t) value to be encoded
+ *             min    (score_t) minimum cutoff value for zero-encoding
+ *             max    (score_t) maximum cutoff value for zero-encoding
  *
  * @return     (byte_t) encoded score byte value
  */
 
 byte_t
-bs_encode_double_to_byte_custom(double d, double min, double max) 
+bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max) 
 {
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     min += (min < 0) ? -kEpsilon : kEpsilon;
     max += (max < 0) ? -kEpsilon : kEpsilon;
-    d = bs_truncate_double_to_precision(d, 2);
-    min = bs_truncate_double_to_precision(min, 2);
-    max = bs_truncate_double_to_precision(max, 2);
+    d = bs_truncate_score_to_precision(d, 2);
+    min = bs_truncate_score_to_precision(min, 2);
+    max = bs_truncate_score_to_precision(max, 2);
     int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
     int encode_min = (int) ((min < 0) ? (ceil(min * 1000.0f)/10.0f + 100) : (floor(min * 1000.0f)/10.0f + 100)) + bs_signbit(-min);
     int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + bs_signbit(-max);
@@ -361,72 +362,72 @@ bs_encode_double_to_byte_custom(double d, double min, double max)
  *             true and false results, clang signbit() returns either 0 or 1, while 
  *             GNU gcc appears to return either 0 or 128.
  *
- * @param      d      (double) value to have its sign evaluated
+ * @param      d      (score_t) value to have its sign evaluated
  *
  * @return     (boolean_t) true, if sign is negative; false, if sign is positive
  */
 
 inline boolean_t
-bs_signbit(double d)
+bs_signbit(score_t d)
 {
     return (signbit(d) > 0) ? kTrue : kFalse;
 }
 
 /**
- * @brief      bs_decode_byte_to_double(uc)
+ * @brief      bs_decode_byte_to_score(uc)
  *
  * @details    Decodes byte-type byte bin to
  *             equivalent score bin.
  *
  * @param      uc     (byte) value to be decoded
  *
- * @return     (double) decoded score bin start value
+ * @return     (score_t) decoded score bin start value
  *
- * @example    bs_decode_byte_to_double(0x64) = -0.00 -- or bin (-0.01, -0.00]
- *             bs_decode_byte_to_double(0x65) = +0.00 -- or bin [+0,00, +0.01)
- *             bs_decode_byte_to_double(0x73) = +0.14 -- or bin [+0,14, +0.15)
+ * @example    bs_decode_byte_to_score(0x64) = -0.00 -- or bin (-0.01, -0.00]
+ *             bs_decode_byte_to_score(0x65) = +0.00 -- or bin [+0,00, +0.01)
+ *             bs_decode_byte_to_score(0x73) = +0.14 -- or bin [+0,14, +0.15)
  */
 
-static inline double
-bs_decode_byte_to_double(byte_t uc)
+static inline score_t
+bs_decode_byte_to_score(byte_t uc)
 {
-    return bs_encode_byte_to_double_table[uc];
+    return bs_encode_byte_to_score_table[uc];
 }
 
 /**
- * @brief      bs_decode_byte_to_double_mqz(uc)
+ * @brief      bs_decode_byte_to_score_mqz(uc)
  *
  * @details    Decodes byte-type byte bin to
  *             equivalent mid-quarter-zero score bin.
  *
  * @param      uc     (byte_t) value to be decoded
  *
- * @return     (double) decoded score bin start value
+ * @return     (score_t) decoded score bin start value
  */
 
-static inline double
-bs_decode_byte_to_double_mqz(byte_t uc)
+static inline score_t
+bs_decode_byte_to_score_mqz(byte_t uc)
 {
-    return bs_encode_byte_to_double_mqz_table[uc];
+    return bs_encode_byte_to_score_mqz_table[uc];
 }
 
 /**
- * @brief      bs_decode_byte_to_double_custom(uc)
+ * @brief      bs_decode_byte_to_score_custom(uc)
  *
  * @details    Decodes byte-type byte bin to
  *             equivalent custom zero-ranged score bin.
  *
  * @param      uc     (byte_t) value to be decoded
- *             min    (double) minimum value to be decoded to zero byte
- *             max    (double) maximum value to be decoded to zero byte
+ *             min    (score_t) minimum value to be decoded to zero byte
+ *             max    (score_t) maximum value to be decoded to zero byte
  *
- * @return     (double) decoded score bin start value
+ * @return     (score_t) decoded score bin start value
  */
 
-static inline double
-bs_decode_byte_to_double_custom(byte_t uc, double min, double max)
+static inline score_t
+bs_decode_byte_to_score_custom(byte_t uc, score_t min, score_t max)
 {
-    double test = bs_encode_byte_to_double_table[uc];
+    score_t test = bs_encode_byte_to_score_table[uc];
     return ((min < test) && (test < max)) ? +0.00f : test;        
 }
 
@@ -921,8 +922,8 @@ bs_permute_lookup(lookup_t *l, FILE* os)
     }
     fprintf(os,
             "Non-significant interval         --   [%3.2f, %3.2f]\n",
-            bs_encode_byte_to_double_table[start_bin_idx],
-            bs_encode_byte_to_double_table[end_bin_idx]);
+            bs_encode_byte_to_score_table[start_bin_idx],
+            bs_encode_byte_to_score_table[end_bin_idx]);
 
     /*
        uint64_t n = (uint64_t) l->nelems * l->nelems * bs_globals.permutation_count;
@@ -936,20 +937,20 @@ bs_permute_lookup(lookup_t *l, FILE* os)
 /**
  * @brief      bs_shuffle_signal_data(d, n)
  *
- * @details    Apply unbiased Fisher-Yates shuffle on double array entries.
+ * @details    Apply unbiased Fisher-Yates shuffle on score_t array entries.
  *
- * @param      d      (double*) data pointer
+ * @param      d      (score_t*) data pointer
  *             n      (size_n) number of elements in data pointer
  */
 
 void
-bs_shuffle_signal_data(double* d, size_t n)
+bs_shuffle_signal_data(score_t* d, size_t n)
 {
     /* cf. http://blog.codinghorror.com/the-danger-of-naivete/ */
     if (n > 1) {
         for (size_t i = 0; i < n; i++) {   
             size_t s = i + (mt19937_generate_random_ulong() % (n - i));
-            double t = d[s];
+            score_t t = d[s];
             d[s] = d[i];
             d[i] = t;
         }
@@ -1021,21 +1022,21 @@ void
 bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
 {
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     for (uint32_t row_idx = 0; row_idx < l->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         t[self_correlation_score]++;
         for (uint32_t col_idx = row_idx + 1; col_idx < l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
-            double corr = bs_pearson_r_signal(row_signal, col_signal);
+            score_t corr = bs_pearson_r_signal(row_signal, col_signal);
             byte_t corr_uc =
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             t[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
         }
     }
@@ -1062,7 +1063,7 @@ bs_delete_lookup(lookup_t** l)
 /**
  * @brief      bs_init_signal(cds)
  *
- * @details    Initialize a signal_t pointer with a vector of doubles,
+ * @details    Initialize a signal_t pointer with a vector of score_t's,
  *             along with mean and sample standard deviation of the
  *             vector.
  *
@@ -1107,7 +1108,7 @@ bs_init_signal(char* cds)
         }
         memcpy(entry_buf, start, end - start);
         entry_buf[end - start] = '\0';
-        sscanf(entry_buf, "%lf", &s->data[entry_idx++]);
+        sscanf(entry_buf, "%f", &s->data[entry_idx++]);
         start = end + 1;
     } while (!finished);
     s->mean = bs_mean_signal(s->data, s->n);
@@ -1149,18 +1150,18 @@ bs_print_signal(signal_t* s, FILE* os)
  * @brief      bs_mean_signal(d, len)
  *
  * @details    Calculates the arithmetic mean of the 
- *             provided array of doubles of given length
+ *             provided array of score_t's of given length
  *
- * @param      d      (double*) pointer to doubles
- *             len    (uint32_t) length of double array
+ * @param      d      (score_t*) pointer to score_t's
+ *             len    (uint32_t) length of score_t array
  *
- * @return     (double) mean value of double array
+ * @return     (score_t) mean value of score_t array
  */
 
-double
-bs_mean_signal(double* d, uint32_t len)
+score_t
+bs_mean_signal(score_t* d, uint32_t len)
 {
-    double s = 0.0f;
+    score_t s = 0.0f;
     for (uint32_t idx = 0; idx < len; idx++) {
         s += d[idx];
     }
@@ -1171,19 +1172,19 @@ bs_mean_signal(double* d, uint32_t len)
  * @brief      bs_sample_sd_signal(d, len, m)
  *
  * @details    Calculates the sample standard deviation of the 
- *             provided array of doubles of given length and mean
+ *             provided array of score_t's of given length and mean
  *
- * @param      d      (double*) pointer to doubles
- *             len    (uint32_t) length of double array
- *             m      (double) arithmetic mean of double array
+ * @param      d      (score_t*) pointer to score_t's
+ *             len    (uint32_t) length of score_t array
+ *             m      (score_t) arithmetic mean of score_t array
  *
- * @return     (double) sample standard deviation value of double array
+ * @return     (score_t) sample standard deviation value of score_t array
  */
 
-double
-bs_sample_sd_signal(double* d, uint32_t len, double m)
+score_t
+bs_sample_sd_signal(score_t* d, uint32_t len, score_t m)
 {
-    double s = 0.0f;
+    score_t s = 0.0f;
     for (uint32_t idx = 0; idx < len; idx++) {
         s += (d[idx] - m) * (d[idx] - m);
     }
@@ -1199,10 +1200,10 @@ bs_sample_sd_signal(double* d, uint32_t len, double m)
  * @param      a      (signal_t*) pointer to first signal struct
  *             b      (signal_t*) pointer to second signal struct
  *
- * @return     (double) Pearson's r correlation score result
+ * @return     (score_t) Pearson's r correlation score result
  */
 
-double
+score_t
 bs_pearson_r_signal(signal_t* a, signal_t* b)
 {
     if (a->n != b->n) {
@@ -1217,7 +1218,7 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
         bs_print_signal(b, stderr);
         exit(EXIT_FAILURE);
     }
-    double s = 0.0f;
+    score_t s = 0.0f;
     for (uint32_t idx = 0; idx < a->n; idx++)
         s += (a->data[idx] - a->mean) * (b->data[idx] - b->mean);
     return s / ((a->n - 1.0f) * a->sd * b->sd);
@@ -1366,15 +1367,15 @@ bs_test_pearsons_r()
     }
 
     fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
-    double unencoded_observed_score = bs_pearson_r_signal(a, b);
+    score_t unencoded_observed_score = bs_pearson_r_signal(a, b);
     fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_score);
-    double absolute_diff_unencoded_scores = fabs(kPearsonRTestCorrelationUnencoded - unencoded_observed_score);
+    score_t absolute_diff_unencoded_scores = fabs(kPearsonRTestCorrelationUnencoded - unencoded_observed_score);
     assert(absolute_diff_unencoded_scores + kEpsilon > 0 && absolute_diff_unencoded_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed scores do not differ within %3.7f error\n", kEpsilon);
 
-    byte_t encoded_expected_score_byte = bs_encode_double_to_byte(kPearsonRTestCorrelationUnencoded);
-    byte_t encoded_observed_score_byte = bs_encode_double_to_byte(unencoded_observed_score);
+    byte_t encoded_expected_score_byte = bs_encode_score_to_byte(kPearsonRTestCorrelationUnencoded);
+    byte_t encoded_observed_score_byte = bs_encode_score_to_byte(unencoded_observed_score);
     fprintf(stderr, "Expected - encoded, precomputed AB Pearson's r score: 0x%02x\n", kPearsonRTestCorrelationEncodedByte);
     fprintf(stderr, "Expected - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_expected_score_byte);
     fprintf(stderr, "Observed - encoded, computed AB Pearson's r score: 0x%02x\n", encoded_observed_score_byte);
@@ -1397,21 +1398,21 @@ bs_test_pearsons_r()
  *
  *             Encoded scores are byte_t byte values 
  *             equivalent to the provided score value. Decoded 
- *             scores are the double-typed "bin" with which the 
+ *             scores are the double-like "bin" with which the 
  *             original score associates.
  */
 
 void
 bs_test_score_encoding()
 {
-    double d, decode_d;
+    score_t d, decode_d;
     int count;
     byte_t encode_d;
 
     if (bs_globals.encoding_strategy == kEncodingStrategyFull) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_byte(d);
-            decode_d = bs_decode_byte_to_double(encode_d);
+            encode_d = bs_encode_score_to_byte(d);
+            decode_d = bs_decode_byte_to_score(encode_d);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -1422,8 +1423,8 @@ bs_test_score_encoding()
     }
     else if (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_byte_mqz(d);
-            decode_d = bs_decode_byte_to_double_mqz(encode_d);
+            encode_d = bs_encode_score_to_byte_mqz(d);
+            decode_d = bs_decode_byte_to_score_mqz(encode_d);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -1434,8 +1435,8 @@ bs_test_score_encoding()
     }
     else if (bs_globals.encoding_strategy == kEncodingStrategyCustom) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
-            encode_d = bs_encode_double_to_byte_custom(d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-            decode_d = bs_decode_byte_to_double_custom(encode_d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            encode_d = bs_encode_score_to_byte_custom(d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            decode_d = bs_decode_byte_to_score_custom(encode_d, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             fprintf(stderr, 
                     "Test [%07d] [ %3.7f ]\t-> [ 0x%02x ]\t-> [ %3.7f ]\n",
                     count,
@@ -1586,7 +1587,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
         case '3':
@@ -1596,7 +1597,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
         case '4':
@@ -1606,7 +1607,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
         case '5':
@@ -1616,7 +1617,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
         case '6':
@@ -1626,7 +1627,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.score_filter_cutoff);
+            sscanf(optarg, "%f", &bs_globals.score_filter_cutoff);
             bs_score_filter_counter++;
             break;
         case 'f':
@@ -1700,7 +1701,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_min);
+            sscanf(optarg, "%f", &bs_globals.encoding_cutoff_zero_min);
             break;
         case 'x':
             if (!optarg) {
@@ -1708,7 +1709,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.encoding_cutoff_zero_max);
+            sscanf(optarg, "%f", &bs_globals.encoding_cutoff_zero_max);
             break;
         case 'm':
             bs_globals.permutation_test_flag = kTrue;
@@ -1729,7 +1730,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.permutation_precision);
+            sscanf(optarg, "%f", &bs_globals.permutation_precision);
             break;
         case 'a':
             bs_permutation_flag_counter++;
@@ -1738,7 +1739,7 @@ bs_init_command_line_options(int argc, char** argv)
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
-            sscanf(optarg, "%lf", &bs_globals.permutation_alpha);
+            sscanf(optarg, "%f", &bs_globals.permutation_alpha);
             break;
         case 'v':
             bs_permutation_flag_counter++;
@@ -1944,11 +1945,11 @@ bs_file_size(const char* fn)
  *             chr_b    (char*) chromosome B
  *             start_b  (uint64_t) start position B
  *             stop_b   (uint64_t) stop position B
- *             double   (double) correlation score
+ *             score_t  (score_t) correlation score
  */ 
 
 inline void
-bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, double score)
+bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, score_t score)
 {
     fprintf(os, 
             "%s\t%" PRIu64 "\t%" PRIu64"\t%s\t%" PRIu64 "\t%" PRIu64 "\t%3.2f\n",
@@ -2079,11 +2080,11 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
-            double corr = bs_pearson_r_signal(row_signal, col_signal);
+            score_t corr = bs_pearson_r_signal(row_signal, col_signal);
             buf[s_buf++] = 
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
                     fprintf(stderr, "Error: Could not write score buffer to output SUT store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
@@ -2173,7 +2174,7 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
                 fseek(is, new_offset, SEEK_SET);
                 cur_offset = new_offset;
             }
-            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double((byte_t) fgetc(is)) : bs_decode_byte_to_double_mqz((byte_t) fgetc(is));
+            score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score((byte_t) fgetc(is)) : bs_decode_byte_to_score_mqz((byte_t) fgetc(is));
             cur_offset++;
             bs_print_pair(os, 
                           l->elems[row_idx]->chr,
@@ -2202,12 +2203,12 @@ bs_print_sut_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sut_store_t*) pointer to SUT store
  *             os     (FILE*) pointer to output stream
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, score_t fc, score_filter_t fo)
 {
     if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
@@ -2239,7 +2240,7 @@ bs_print_sut_filtered_store_to_bed7(lookup_t* l, sut_store_t* s, FILE* os, doubl
                 fseek(is, new_offset, SEEK_SET);
                 cur_offset = new_offset;
             }
-            double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double((byte_t) fgetc(is)) : bs_decode_byte_to_double_mqz((byte_t) fgetc(is));
+            score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score((byte_t) fgetc(is)) : bs_decode_byte_to_score_mqz((byte_t) fgetc(is));
             cur_offset++;
 
             if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
@@ -2396,15 +2397,15 @@ bs_populate_sqr_store_with_random_scores(sqr_store_t* s)
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
     byte_t no_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kNoCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kNoCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kNoCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kNoCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kNoCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kNoCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kNoCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -2504,10 +2505,10 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
     
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -2707,10 +2708,10 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
 {
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     os = fopen(bs_globals.store_fn, "wb");
     if (ferror(os)) {
@@ -2731,11 +2732,11 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
-                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
                 buf[s_buf++] = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 buf[s_buf++] = self_correlation_score;
@@ -2854,10 +2855,10 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
     
     /* create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
@@ -2909,11 +2910,11 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else {
                 score = self_correlation_score;
@@ -3005,10 +3006,10 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
     
     /* if necessary, create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
@@ -3057,11 +3058,11 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         for (uint32_t col_idx = 1; col_idx <= l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else {
                 score = self_correlation_score;
@@ -3169,10 +3170,10 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -3235,11 +3236,11 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -3359,10 +3360,10 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     byte_t score = 0;
     FILE* os = NULL;
     byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_double_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_double_to_byte(kSelfCorrelationScore);
+        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
+        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
+        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -3440,11 +3441,11 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                double corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_double_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_double_to_byte_mqz(corr) : 
-                    bs_encode_double_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
+                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -3737,9 +3738,9 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                               l->elems[col_idx]->chr,
                               l->elems[col_idx]->start,
                               l->elems[col_idx]->stop,
-                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                              bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                              bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                               );
             }
             col_idx++;
@@ -3766,12 +3767,12 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -3808,9 +3809,9 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, doubl
         }
         do {
             if (row_idx != col_idx) {
-                double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                    bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                 if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
@@ -3960,9 +3961,9 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                                   l->elems[col_idx]->chr,
                                   l->elems[col_idx]->start,
                                   l->elems[col_idx]->stop,
-                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                                  bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                                   );
                 }
                 col_idx++;
@@ -3993,12 +3994,12 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -4101,9 +4102,9 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
             fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
-                    double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                     if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
@@ -4266,9 +4267,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
                               l->elems[col_idx]->chr,
                               l->elems[col_idx]->start,
                               l->elems[col_idx]->stop,
-                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                              bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                              bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                               );
             }
             col_idx++;
@@ -4299,12 +4300,12 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
  *             os     (FILE*) pointer to output stream
  *             r      (int32_t*) pointer to list of query rows of interest  
  *             rn     (uint32_t) number of query rows of interest
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, double fc, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -4411,9 +4412,9 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
         fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
         do {
             if (row_idx != col_idx) {
-                double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                    bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                 if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
                      ((fo == kScoreFilterGt) && (d > fc)) ||
                      ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
@@ -4577,9 +4578,9 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                                   l->elems[col_idx]->chr,
                                   l->elems[col_idx]->start,
                                   l->elems[col_idx]->stop,
-                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                                  bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                                   );
                 }
                 col_idx++;
@@ -4616,12 +4617,12 @@ bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
 {
     if (!bs_path_exists(s->attr->fn)) {
         fprintf(stderr, "Error: Store file [%s] does not exist!\n", s->attr->fn);
@@ -4733,9 +4734,9 @@ bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
 	    
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
-                    double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                     if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
@@ -4920,9 +4921,9 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                                   l->elems[col_idx]->chr,
                                   l->elems[col_idx]->start,
                                   l->elems[col_idx]->stop,
-                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                                  bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                                   );
                 }
                 col_idx++;
@@ -4962,12 +4963,12 @@ bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
- *             fc     (double) score filter cutoff
+ *             fc     (score_t) score filter cutoff
  *             fo     (score_filter_t) score filter operation
  */
 
 void
-bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, double fc, score_filter_t fo)
+bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -5092,9 +5093,9 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
 	    }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
-                    double d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_double(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_double_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_double_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                     if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
                          ((fo == kScoreFilterGt) && (d > fc)) ||
                          ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
@@ -5666,10 +5667,10 @@ bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os)
 {
     for (int bin_idx = 0; bin_idx <= 201; bin_idx++) {
         fprintf(os,
-                "%3.6f\t%" PRIu64 "\t%3.12f\n",
-                bs_decode_byte_to_double((byte_t) bin_idx),
+                "%3.6f\t%" PRIu64 "\t%3.6f\n",
+                bs_decode_byte_to_score((byte_t) bin_idx),
                 t[bin_idx],
-                (double) t[bin_idx] / n);
+                (score_t) t[bin_idx] / n);
     }    
 }
 
