@@ -443,8 +443,8 @@ extern "C" {
         { "permutation-alpha",                          required_argument, NULL, 'a' },
         { "permutation-significance-level",             required_argument, NULL, 'v' },
         { "rng-seed",                                   required_argument, NULL, 'd' },
-        { "test-pearson-r",                             no_argument,       NULL, '1' },
-        { "test-spearman-rho",                          no_argument,       NULL, '2' },
+        { "test-pearson-r",                             no_argument,       NULL, 'P' },
+        { "test-spearman-rho",                          no_argument,       NULL, 'S' },
         { "help",                                       no_argument,       NULL, 'h' },
         { NULL,                                         no_argument,       NULL,  0  }
     }; 
