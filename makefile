@@ -348,3 +348,13 @@ test-random-sqr:
 test-random-buffered-sqr:
 	$(PWD)/byte-store -t random-buffered-sqr -c -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sqr.bs
 	$(PWD)/byte-store -t random-buffered-sqr -q -l $(TESTDIR)/test1000.bed -s $(TESTDIR)/test1000.sqr.bs -i 0-999 | awk '$$7>=0.99'
+
+# ----------
+# More tests
+# ----------
+
+metadata-test-pearson-split:
+	$(PWD)/byte-store -t pearson-r-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.pearson.bs -r 512000
+
+metadata-test-spearman-split:
+	$(PWD)/byte-store -t spearman-rho-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.spearman.bs -r 512000

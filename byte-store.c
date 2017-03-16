@@ -10,10 +10,27 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
-    if (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata)
-        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse);
-    else 
-        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag);
+    if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) || 
+        (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata)) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse, kFalse);
+    }
+    else if ((bs_globals.store_type == kStorePearsonRSquareMatrix) ||
+             (bs_globals.store_type == kStorePearsonRSquareMatrixSplit) ||
+             (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) ||
+             (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
+    }
+    else if ((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kTrue);
+    }
+    else {
+        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
+    } 
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -35,6 +52,12 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
             case kStorePearsonRSquareMatrixBzip2:
             case kStorePearsonRSquareMatrixBzip2Split:
+            case kStoreSpearmanRhoSquareMatrix:
+            case kStoreSpearmanRhoSquareMatrixSplit:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+            case kStoreSpearmanRhoSquareMatrixBzip2:
+            case kStoreSpearmanRhoSquareMatrixBzip2Split:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (A)\n");
                 exit(EXIT_FAILURE);
@@ -74,6 +97,12 @@ main(int argc, char** argv)
     case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
@@ -86,22 +115,40 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_random_scores(sqr_store);
                 break;
             case kStorePearsonRSquareMatrix:
-                bs_populate_sqr_store_with_pearsonr_scores(sqr_store, lookup);
+                bs_populate_sqr_store(sqr_store, lookup, &bs_pearson_r_signal);
                 break;
             case kStorePearsonRSquareMatrixSplit:
-                bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                bs_populate_sqr_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixSplitSingleChunk:
-                bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset);
+                bs_populate_sqr_split_store_chunk(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset, &bs_pearson_r_signal);
                 break;
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
-                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size, kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                bs_populate_sqr_bzip2_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
-                bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store, lookup, bs_globals.store_row_chunk_size);
+                bs_populate_sqr_bzip2_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
+                break;
+            case kStoreSpearmanRhoSquareMatrix:
+                bs_populate_sqr_store(sqr_store, lookup, &bs_spearman_rho_signal_v2);
+                break;
+            case kStoreSpearmanRhoSquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
+                break;
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset, &bs_spearman_rho_signal_v2);
+                break;
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size, kScoreVarietySpearmanRho);
+                break;
+            case kStoreSpearmanRhoSquareMatrixBzip2:
+                bs_populate_sqr_bzip2_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
+                break;
+            case kStoreSpearmanRhoSquareMatrixBzip2Split:
+                bs_populate_sqr_bzip2_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -141,24 +188,28 @@ main(int argc, char** argv)
                 case kStoreRandomBufferedSquareMatrix:
                 case kStoreRandomSquareMatrix:
                 case kStorePearsonRSquareMatrix:
+                case kStoreSpearmanRhoSquareMatrix:
                     if (bs_globals.store_filter == kScoreFilterNone) 
                         bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
                     else 
                         bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
+                case kStoreSpearmanRhoSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
                         bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);            
                     break;
                 case kStorePearsonRSquareMatrixBzip2:
+                case kStoreSpearmanRhoSquareMatrixBzip2:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
                     else
                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixBzip2Split:
+                case kStoreSpearmanRhoSquareMatrixBzip2Split:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
                     else
@@ -167,8 +218,9 @@ main(int argc, char** argv)
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
                 case kStorePearsonRSquareMatrixSplitSingleChunk:
-                
                 case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+                case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+                case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C1)\n");
                     exit(EXIT_FAILURE);
@@ -177,6 +229,7 @@ main(int argc, char** argv)
             if (separate_rows_found) {
                 switch (bs_globals.store_type) {
                 case kStorePearsonRSquareMatrixSplit:
+                case kStoreSpearmanRhoSquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone)
@@ -222,6 +275,11 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixBzip2:
                 case kStorePearsonRSquareMatrixBzip2Split:
                 case kStorePearsonRSUT:
+                case kStoreSpearmanRhoSquareMatrix:
+                case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+                case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+                case kStoreSpearmanRhoSquareMatrixBzip2:
+                case kStoreSpearmanRhoSquareMatrixBzip2Split:
                 case kStoreRandomSUT:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C2)\n");
@@ -234,21 +292,27 @@ main(int argc, char** argv)
             case kStoreRandomBufferedSquareMatrix:
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
+            case kStoreSpearmanRhoSquareMatrix:
                 bs_print_sqr_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixSplit:
+            case kStoreSpearmanRhoSquareMatrixSplit:
                 bs_print_sqr_split_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
+            case kStoreSpearmanRhoSquareMatrixBzip2:
                 bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
+            case kStoreSpearmanRhoSquareMatrixBzip2Split:
                 bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, sqr_store, stdout);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStorePearsonRSquareMatrixSplitSingleChunk:
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
@@ -856,19 +920,20 @@ bs_delete_bed(bed_t** b)
 }
 
 /**
- * @brief      bs_init_lookup(fn, pi)
+ * @brief      bs_init_lookup(fn, pi, ir)
  *
  * @details    Read BED-formatted coordinates into a "lookup table" pointer.
  *             Function allocates memory to lookup table pointer, as needed.
  *
  * @param      fn     (char*) filename string
  *             pi     (boolean_t) flag to decide whether to parse ID string
+ *             ir     (boolean_t) flag to decide whether to store a rank
  *
  * @return     (lookup_t*) lookup table pointer referencing element data
  */
 
 lookup_t*
-bs_init_lookup(char* fn, boolean_t pi)
+bs_init_lookup(char* fn, boolean_t pi, boolean_t ir)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
@@ -903,8 +968,8 @@ bs_init_lookup(char* fn, boolean_t pi)
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
-        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str, pi);
-        bs_push_elem_to_lookup(e, &l, pi);
+        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str, pi, ir);
+        bs_push_elem_to_lookup(e, &l, pi, ir);
     }
 
     free(buf);
@@ -1163,14 +1228,17 @@ bs_delete_lookup(lookup_t** l)
  *             along with mean and sample standard deviation of the
  *             vector.
  *
- * @param      cds    (char*) pointer to comma-delimited string of numerical values
+ * @param      cds    (char*)     pointer to comma-delimited string of numerical values
+ *             ir     (boolean_t) parse ranks from cds
  *
  * @return     (signal_t*) pointer to signal struct populated with signal data
  */
 
 signal_t*
-bs_init_signal(char* cds)
+bs_init_signal(char* cds, boolean_t ir)
 {
+    rank_t rank_idx = 0;
+    rank_t* ranks_temp = NULL; /* TODO: perhaps move this to globals, so that we only allocate this once */
     signal_t* s = NULL;
     s = malloc(sizeof(signal_t));
     if (!s) {
@@ -1179,8 +1247,11 @@ bs_init_signal(char* cds)
     }
     s->n = 1;
     s->data = NULL;
-    s->mean = 0.0f;
-    s->sd = 0.0f;
+    s->ranks = NULL;
+    s->mean = NAN;
+    s->sd = NAN;
+    s->mean_ranks = NAN;
+    s->sd_ranks = NAN;
     for (uint32_t idx = 0; idx < strlen(cds); idx++) {
         if (cds[idx] == kSignalDelim) {
             s->n++;
@@ -1191,30 +1262,179 @@ bs_init_signal(char* cds)
         fprintf(stderr, "Error: Could not allocate space for signal data pointer!\n");
         exit(EXIT_FAILURE);
     }
+    if (ir) {
+        /* 
+            Until the ranks are readjusted to fractional values for duplicate data values, 
+            the ranks pointer contains values that can be cast as integers for the purpose 
+            of treating them as array indices, allow reordering of data and true rank arrays
+            without extra sorting, which we set a maximum number here of INT32_MAX.
+        */
+        if (s->n > INT32_MAX) {
+            fprintf(stderr, "Error: There are more signal data points than the ranks pointer can store!\n");
+            exit(EXIT_FAILURE);
+        }
+        ranks_temp = malloc(sizeof(*s->ranks) * s->n);
+        if (!ranks_temp) {
+            fprintf(stderr, "Error: Could not allocate space for temporary signal ranks pointer!\n");
+            exit(EXIT_FAILURE);
+        }
+        s->ranks = malloc(sizeof(*s->ranks) * s->n);
+        if (!s->ranks) {
+            fprintf(stderr, "Error: Could not allocate space for signal ranks pointer!\n");
+            exit(EXIT_FAILURE);
+        }
+        bs_globals.score_ptr = s->data;
+    }
     char* start = cds;
     char* end = cds;
     char entry_buf[ENTRY_MAX_LEN];
     uint32_t entry_idx = 0;
-    boolean_t finished = kFalse;
+    boolean_t finished_parsing = kFalse;
+    boolean_t data_contains_nan = kFalse;
     do {
         end = strchr(start, kSignalDelim);
         if (!end) {
             end = cds + strlen(cds);
-            finished = kTrue;
+            finished_parsing = kTrue;
         }
         memcpy(entry_buf, start, end - start);
         entry_buf[end - start] = '\0';
+        if (ir) {
+            ranks_temp[entry_idx] = rank_idx;
+            s->ranks[entry_idx] = rank_idx++;
+        }
         sscanf(entry_buf, "%f", &s->data[entry_idx++]);
+        if (isnan(s->data[entry_idx - 1])) {
+            data_contains_nan = kTrue;
+        }
         start = end + 1;
-    } while (!finished);
-    s->mean = bs_mean_signal(s->data, s->n);
-    if (s->n >= 2) {
-        s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
+    } while (!finished_parsing);
+
+    if (!data_contains_nan) {
+        s->mean = bs_mean_signal(s->data, s->n);
+        if (s->n >= 2) {
+            s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
+        }
+        else {
+            fprintf(stderr, "Warning: Vector has one value and therefore cannot have a standard deviation!\n");
+        }
     }
-    else {
-        fprintf(stderr, "Warning: Vector has one value and therefore does not have a standard deviation!\n");
+
+    if (ir && !data_contains_nan) {
+        /* sort temporary ranks by special comparator that allows reordering of true ranks */
+        qsort(ranks_temp, s->n, sizeof(rank_t), bs_rank_comparator);
+        /* reorder true ranks from temporary ranks, and add 1 for later Spearman's rho calculation */
+        for (uint32_t idx = 0; idx < s->n; ++idx) {
+            s->ranks[(int32_t)ranks_temp[idx]] = idx + 1;
+        }
+        /* 
+            We adjust ranks where there are ties between two or more 
+            data points. To do this, we walk through s->data by the 
+            ordering specified by the temporary ranks_temp array. 
+            We don't need to re-sort, and, further, we can look for 
+            contiguous ranges of equal data values, adjusting final 
+            ranks as ranges of duplicate data values are discovered. 
+        */
+        boolean_t ties_in_midstream = kFalse;
+        int32_t ties_ranks_temp_start_idx = 0;
+        int32_t ties_ranks_temp_stop_idx = 0;
+        float ties_avg = 0.0f;
+        //fprintf(stderr, "----\n");
+        for (uint32_t idx = 0; idx < s->n; ++idx) {
+            if (idx > 0) {
+                if (s->data[(int32_t)ranks_temp[idx]] == s->data[(int32_t)ranks_temp[idx - 1]]) {
+                    if (!ties_in_midstream) {
+                        ties_ranks_temp_start_idx = idx - 1;
+                    }
+                    ties_in_midstream = kTrue;
+                }
+                else if (ties_in_midstream) {
+                    ties_ranks_temp_stop_idx = idx - 1;
+                    //fprintf(stderr, "Warning: Ranks tied at indices [%d : %d]\n", ties_ranks_temp_start_idx, ties_ranks_temp_stop_idx);
+                    ties_avg = 0.0f;
+                    for (int32_t tie_idx = ties_ranks_temp_start_idx; tie_idx <= ties_ranks_temp_stop_idx; ++tie_idx) {
+                        ties_avg += tie_idx;
+                    }
+                    ties_avg /= (ties_ranks_temp_stop_idx - ties_ranks_temp_start_idx + 1);
+                    /* 
+                        Because array indices are 0-based, and ranks have a 1-based index, 
+                        we add 1 to the average result for later Spearman's rho calculation 
+                    */
+                    ties_avg += 1;
+                    //fprintf(stderr, "Warning: Would replace with tie avg [%.2f]\n", ties_avg);
+                    for (int32_t tie_idx = ties_ranks_temp_start_idx; tie_idx <= ties_ranks_temp_stop_idx; ++tie_idx) {
+                        //fprintf(stderr, "Warning: For data [%f] replacing [%.2f] with [%.2f]\n", s->data[(int32_t)ranks_temp[tie_idx]], s->ranks[(int32_t)ranks_temp[tie_idx]], ties_avg);
+                        s->ranks[(int32_t)ranks_temp[tie_idx]] = ties_avg;
+                    }
+                    ties_in_midstream = kFalse;
+                }
+            }
+            //fprintf(stderr, "[%f | %u | %.2f | %f | %.2f ]\n", s->data[(int32_t)ranks_temp[idx]], idx, ranks_temp[idx], s->data[idx], s->ranks[idx]);
+        }
+        /* 
+            If we get to the end of the data array and there are still 
+            duplicates, we finalize the ties adjustment 
+        */
+        if (ties_in_midstream) {
+            ties_ranks_temp_stop_idx = s->n - 1;
+            //fprintf(stderr, "Warning: Ranks tied at indices [%d : %d]\n", ties_ranks_temp_start_idx, ties_ranks_temp_stop_idx);
+            ties_avg = 0.0f;
+            for (int32_t tie_idx = ties_ranks_temp_start_idx; tie_idx <= ties_ranks_temp_stop_idx; ++tie_idx) {
+                ties_avg += tie_idx;
+            }
+            ties_avg /= (ties_ranks_temp_stop_idx - ties_ranks_temp_start_idx + 1);
+            /* 
+                Because array indices are 0-based, and ranks have a 1-based index, 
+                we add 1 to the average result for later Spearman's rho calculation 
+            */
+            ties_avg += 1;
+            //fprintf(stderr, "Warning: Would replace with tie avg [%.2f]\n", ties_avg);
+            for (int32_t tie_idx = ties_ranks_temp_start_idx; tie_idx <= ties_ranks_temp_stop_idx; ++tie_idx) {
+                //fprintf(stderr, "Warning: For data [%f] replacing [%.2f] with [%.2f]\n", s->data[(int32_t)ranks_temp[tie_idx]], s->ranks[(int32_t)ranks_temp[tie_idx]], ties_avg);
+                s->ranks[(int32_t)ranks_temp[tie_idx]] = ties_avg;
+            }
+            ties_in_midstream = kFalse;
+        }
+        //fprintf(stderr, "----\n");
+        //for (uint32_t idx = 0; idx < s->n; ++idx) {
+        //    fprintf(stderr, "[%f | %u | %.2f ]\n", s->data[idx], idx + 1, s->ranks[idx]);
+        //}
+        s->mean_ranks = bs_mean_ranks(s->ranks, s->n);
+        s->sd_ranks = bs_sample_sd_ranks(s->ranks, s->n, s->mean_ranks);
+        free(ranks_temp), ranks_temp = NULL;
     }
     return s;
+}
+
+/**
+ * @brief      bs_rank_comparator(a, b)
+ *
+ * @details    This custom rank comparator resorts an array of index
+ *             values by the numerical order of the *score data*, which
+ *             we access through a global reference to whatever is the
+ *             current score pointer.
+ *
+ * @param      a      (void*) pointer to ranks pointer
+ *             b      (void*) pointer to ranks pointer
+ *
+ * @return     (int) comparator result
+ */
+
+static int
+bs_rank_comparator(const void *a, const void *b)
+{
+    /* we must cast fractional ranks to integers to use as array indices */
+    int32_t ar = (int32_t) *((rank_t *) a);
+    int32_t br = (int32_t) *((rank_t *) b);
+
+    /* for the custom rank comparator, we compare the scores to resort rank indices */
+    if (bs_globals.score_ptr[ar] < bs_globals.score_ptr[br]) {
+        return -1;
+    }
+    else if (bs_globals.score_ptr[ar] > bs_globals.score_ptr[br]) {
+        return 1;
+    }
+    return 0; /* scores are equal, so we do nothing to rank indices */
 }
 
 /**
@@ -1265,6 +1485,28 @@ bs_mean_signal(score_t* d, uint32_t len)
 }
 
 /**
+ * @brief      bs_mean_ranks(d, len)
+ *
+ * @details    Calculates the arithmetic mean of the 
+ *             provided array of rank_t's of given length
+ *
+ * @param      d      (rank_t*) pointer to rank_t's
+ *             len    (uint32_t) length of rank_t array
+ *
+ * @return     (score_t) mean value of rank_t array
+ */
+
+score_t
+bs_mean_ranks(rank_t* d, uint32_t len)
+{
+    score_t s = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        s += (score_t) d[idx];
+    }
+    return s / len;
+}
+
+/**
  * @brief      bs_sample_sd_signal(d, len, m)
  *
  * @details    Calculates the sample standard deviation of the 
@@ -1283,6 +1525,29 @@ bs_sample_sd_signal(score_t* d, uint32_t len, score_t m)
     score_t s = 0.0f;
     for (uint32_t idx = 0; idx < len; idx++) {
         s += (d[idx] - m) * (d[idx] - m);
+    }
+    return sqrt(s / (len - 1));
+}
+
+/**
+ * @brief      bs_sample_sd_ranks(d, len, m)
+ *
+ * @details    Calculates the sample standard deviation of the 
+ *             provided array of rank_t's of given length and mean
+ *
+ * @param      d      (rank_t*) pointer to rank_t's
+ *             len    (uint32_t) length of rank_t array
+ *             m      (score_t) arithmetic mean of rank_t array
+ *
+ * @return     (score_t) sample standard deviation value of score_t array
+ */
+
+score_t
+bs_sample_sd_ranks(rank_t* d, uint32_t len, score_t m)
+{
+    score_t s = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        s += ((score_t) d[idx] - m) * ((score_t) d[idx] - m);
     }
     return sqrt(s / (len - 1));
 }
@@ -1322,6 +1587,79 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
 }
 
 /**
+ * @brief      bs_spearman_rho_signal_v1(a, b)
+ *
+ * @details    Calculates the Spearman's rho correlation of two
+ *             signal vectors using approximation function that 
+ *             will be inaccurate if there are duplicate data
+ *             points.
+ *
+ * @param      a      (signal_t*) pointer to first signal struct
+ *             b      (signal_t*) pointer to second signal struct
+ *
+ * @return     (score_t) Spearman's rho correlation score result
+ */
+
+score_t
+bs_spearman_rho_signal_v1(signal_t* a, signal_t* b)
+{
+    if (a->n != b->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
+        exit(EXIT_FAILURE);
+    }
+    int n = a->n;
+    int64_t sum_of_squared_differences = 0;
+    int idx = 0;
+    for (idx = 0; idx < n; ++idx) {
+        if ((a->data[idx] == NAN) || (b->data[idx] == NAN)) {
+            return NAN;
+        }
+        sum_of_squared_differences += ((a->ranks[idx] - b->ranks[idx]) * (a->ranks[idx] - b->ranks[idx]));
+    }
+    return 1.0f - (( 6.0f * (score_t) sum_of_squared_differences ) / ((n * n * n) - n));
+}
+
+/**
+ * @brief      bs_spearman_rho_signal_v2(a, b)
+ *
+ * @details    Calculates the Spearman's rho correlation of two
+ *             signal vectors using exact function.
+ *
+ * @param      a      (signal_t*) pointer to first signal struct
+ *             b      (signal_t*) pointer to second signal struct
+ *
+ * @return     (score_t) Spearman's rho correlation score result
+ */
+
+score_t
+bs_spearman_rho_signal_v2(signal_t* a, signal_t* b)
+{
+    if (a->n != b->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
+        exit(EXIT_FAILURE);
+    }
+    if ((a->sd_ranks == 0.0f) || (b->sd_ranks == 0.0f)) {
+        if (!bs_globals.zero_sd_warning_issued) {
+            fprintf(stderr, "Warning: One or more vectors have ranks with zero standard deviation!\n");
+            bs_globals.zero_sd_warning_issued = kTrue;
+        }
+        return NAN;
+    }
+    int n = a->n;
+    int idx = 0;
+    score_t covariance_ranks = 0.0f;
+    for (idx = 0; idx < n; ++idx) {
+        covariance_ranks += ((a->ranks[idx] - a->mean_ranks) * (b->ranks[idx] - b->mean_ranks));
+    }
+    covariance_ranks /= (n - 1);
+    return covariance_ranks / (a->sd_ranks * b->sd_ranks);
+}
+
+/**
  * @brief      bs_delete_signal(s)
  *
  * @details    Reset and release memory of provided pointer to signal struct
@@ -1333,11 +1671,12 @@ void
 bs_delete_signal(signal_t** s)
 {
     free((*s)->data), (*s)->data = NULL;
+    free((*s)->ranks), (*s)->ranks = NULL;
     free(*s), *s = NULL;
 }
 
 /**
- * @brief      bs_init_element(chr, start, stop, id, pi)
+ * @brief      bs_init_element(chr, start, stop, id, pi, ir)
  *
  * @details    Allocates space for element_t* and copies chr, start, stop
  *             and id values to element.
@@ -1347,12 +1686,13 @@ bs_delete_signal(signal_t** s)
  *             stop   (uint64_t) stop coordinate position
  *             id     (char*) id string 
  *             pi     (boolean_t) parse ID string
+ *             ir     (boolean_t) parse ID string with ranks
  *
  * @return     (element_t*) element pointer
  */
 
 element_t*
-bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi)
+bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ir)
 {
     element_t *e = NULL;
 
@@ -1381,7 +1721,7 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi
         }
         memcpy(e->id, id, strlen(id) + 1);
     }
-    e->signal = (e->id && pi) ? bs_init_signal(e->id) : NULL;    
+    e->signal = (e->id && pi) ? bs_init_signal(e->id, ir) : NULL;    
     return e;
 }
 
@@ -1406,17 +1746,18 @@ bs_delete_element(element_t** e)
 }
 
 /**
- * @brief      bs_push_elem_to_lookup(e, l)
+ * @brief      bs_push_elem_to_lookup(e, l, pi, ir)
  *
  * @details    Pushes element_t pointer to lookup table.
  *
  * @param      e      (element_t*) element pointer
  *             l      (lookup_t**) pointer to lookup table pointer
  *             pi     (boolean_t) parse ID string
+ *             ir     (boolean_t) parse ranks from IDs
  */
 
 void
-bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi)
+bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ir)
 {
     if ((*l)->capacity == 0) {
         (*l)->capacity++;
@@ -1430,7 +1771,8 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi)
                                              (*l)->elems[idx]->start,
                                              (*l)->elems[idx]->stop,
                                              (*l)->elems[idx]->id,
-                                             pi);
+                                             pi,
+                                             ir);
             bs_delete_element(&((*l)->elems[idx]));
         }   
         (*l)->elems = new_elems;     
@@ -1438,6 +1780,155 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi)
     uint32_t n = (*l)->nelems;
     (*l)->elems[n] = e;
     (*l)->nelems++;
+}
+
+/**
+ * @brief      bs_test_spearman_rho()
+ *
+ * @details    Tests calculation and encoding of Spearman's 
+ *             rho score from test vectors and their ranks
+ */
+
+void
+bs_test_spearman_rho()
+{
+    signal_t* x = NULL;
+    x = bs_init_signal((char*) kTestVectorX, kTrue);
+    if (!x) {
+        fprintf(stderr, "Error: Could not allocate space for test (X) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+    signal_t* y = NULL;
+    y = bs_init_signal((char*) kTestVectorY, kTrue);
+    if (!y) {
+        fprintf(stderr, "Error: Could not allocate space for test (Y) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing XY\n---\nX -> %s\nY -> %s\n---\n", kTestVectorX, kTestVectorY);
+    score_t unencoded_observed_xy_score = bs_spearman_rho_signal_v1(x, y);
+    fprintf(stderr, "Expected - unencoded XY Spearman's rho score: %3.6f\n", kSpearmanRhoTestXYCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded XY Spearman's rho score: %3.6f\n", unencoded_observed_xy_score);
+    score_t absolute_diff_unencoded_xy_scores = fabs(kSpearmanRhoTestXYCorrelationUnencoded - unencoded_observed_xy_score);
+    assert(absolute_diff_unencoded_xy_scores + kEpsilon > 0 && absolute_diff_unencoded_xy_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed XY scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_xy_score_byte = bs_encode_score_to_byte(kSpearmanRhoTestXYCorrelationUnencoded);
+    byte_t encoded_observed_xy_score_byte = bs_encode_score_to_byte(unencoded_observed_xy_score);
+    fprintf(stderr, "Expected - encoded, precomputed XY Spearman's rho score: 0x%02x\n", kSpearmanRhoTestXYCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed XY Spearman's rho score: 0x%02x\n", encoded_expected_xy_score_byte);
+    fprintf(stderr, "Observed - encoded, computed XY Spearman's rho score: 0x%02x\n", encoded_observed_xy_score_byte);
+    assert(kSpearmanRhoTestXYCorrelationEncodedByte == encoded_expected_xy_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed XY scores do not differ\n");
+    assert(kSpearmanRhoTestXYCorrelationEncodedByte == encoded_observed_xy_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed XY scores do not differ\n");
+    assert(encoded_expected_xy_score_byte == encoded_observed_xy_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed XY scores do not differ\n");
+
+    signal_t* z = NULL;
+    z = bs_init_signal((char*) kTestVectorZ, kTrue);
+    if (!z) {
+        fprintf(stderr, "Error: Could not allocate space for test (Z) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing XZ\n---\nX -> %s\nZ -> %s\n---\n", kTestVectorX, kTestVectorZ);
+    score_t unencoded_observed_xz_score = bs_spearman_rho_signal_v2(x, z);
+    fprintf(stderr, "Expected - unencoded XZ Spearman's rho score: %3.6f\n", kSpearmanRhoTestXZCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded XZ Spearman's rho score: %3.6f\n", unencoded_observed_xz_score);
+    byte_t encoded_expected_xz_score_byte = bs_encode_score_to_byte(kSpearmanRhoTestXZCorrelationUnencoded);
+    byte_t encoded_observed_xz_score_byte = bs_encode_score_to_byte(unencoded_observed_xz_score);
+    fprintf(stderr, "Expected - encoded, precomputed XZ Spearman's rho score: 0x%02x\n", kSpearmanRhoTestXZCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed XZ Spearman's rho score: 0x%02x\n", encoded_expected_xz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed XZ Spearman's rho score: 0x%02x\n", encoded_observed_xz_score_byte);
+    assert(kSpearmanRhoTestXZCorrelationEncodedByte == encoded_expected_xz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed XZ scores do not differ\n");
+    assert(kSpearmanRhoTestXZCorrelationEncodedByte == encoded_observed_xz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed XZ scores do not differ\n");
+    assert(encoded_expected_xz_score_byte == encoded_observed_xz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed XZ scores do not differ\n");
+
+    bs_delete_signal(&x);
+    bs_delete_signal(&y);
+    bs_delete_signal(&z);
+
+    signal_t* a = NULL;
+    a = bs_init_signal((char*) kTestVectorA, kTrue);
+    if (!a) {
+        fprintf(stderr, "Error: Could not allocate space for test (A) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+    signal_t* b = NULL;
+    b = bs_init_signal((char*) kTestVectorB, kTrue);
+    if (!b) {
+        fprintf(stderr, "Error: Could not allocate space for test (B) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "(V1) Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
+    score_t unencoded_observed_ab_score_v1 = bs_spearman_rho_signal_v1(a, b);
+    fprintf(stderr, "Expected - unencoded AB Spearman's rho score: %3.6f\n", kSpearmanRhoTestABCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AB Spearman's rho score (v1): %3.6f\n", unencoded_observed_ab_score_v1);
+    score_t absolute_diff_unencoded_ab_scores_v1 = fabs(kSpearmanRhoTestABCorrelationUnencoded - unencoded_observed_ab_score_v1);
+    assert(absolute_diff_unencoded_ab_scores_v1 + kEpsilonLessStringent > 0 && absolute_diff_unencoded_ab_scores_v1 - kEpsilonLessStringent < 0);
+    fprintf(stderr, "\t-> Expected and observed (v1) AB scores do not differ within less stringent %3.7f error\n", kEpsilonLessStringent);
+    byte_t encoded_expected_ab_score_byte_v1 = bs_encode_score_to_byte(kSpearmanRhoTestABCorrelationUnencoded);
+    byte_t encoded_observed_ab_score_byte_v1 = bs_encode_score_to_byte(unencoded_observed_ab_score_v1);
+    fprintf(stderr, "Expected - encoded, precomputed AB Spearman's rho score: 0x%02x\n", kSpearmanRhoTestABCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AB Spearman's rho score: 0x%02x\n", encoded_expected_ab_score_byte_v1);
+    fprintf(stderr, "Observed - encoded, computed AB Spearman's rho score: 0x%02x\n", encoded_observed_ab_score_byte_v1);
+    assert(kSpearmanRhoTestABCorrelationEncodedByte == encoded_expected_ab_score_byte_v1);
+    fprintf(stderr, "\t-> Expected precomputed and computed AB scores do not differ\n");
+    assert(kSpearmanRhoTestABCorrelationEncodedByte == encoded_observed_ab_score_byte_v1);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AB scores do not differ\n");
+    assert(encoded_expected_ab_score_byte_v1 == encoded_observed_ab_score_byte_v1);
+    fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
+
+    fprintf(stderr, "(V2) Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
+    score_t unencoded_observed_ab_score_v2 = bs_spearman_rho_signal_v2(a, b);
+    fprintf(stderr, "Expected - unencoded AB Spearman's rho score: %3.6f\n", kSpearmanRhoTestABCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AB Spearman's rho score (v2): %3.6f\n", unencoded_observed_ab_score_v2);
+    score_t absolute_diff_unencoded_ab_scores_v2 = fabs(kSpearmanRhoTestABCorrelationUnencoded - unencoded_observed_ab_score_v2);
+    assert(absolute_diff_unencoded_ab_scores_v2 + kEpsilon > 0 && absolute_diff_unencoded_ab_scores_v2 - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed (v2) AB scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ab_score_byte_v2 = bs_encode_score_to_byte(kSpearmanRhoTestABCorrelationUnencoded);
+    byte_t encoded_observed_ab_score_byte_v2 = bs_encode_score_to_byte(unencoded_observed_ab_score_v2);
+    fprintf(stderr, "Expected - encoded, precomputed AB Spearman's rho score: 0x%02x\n", kSpearmanRhoTestABCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AB Spearman's rho score: 0x%02x\n", encoded_expected_ab_score_byte_v2);
+    fprintf(stderr, "Observed - encoded, computed AB Spearman's rho score: 0x%02x\n", encoded_observed_ab_score_byte_v2);
+    assert(kSpearmanRhoTestABCorrelationEncodedByte == encoded_expected_ab_score_byte_v2);
+    fprintf(stderr, "\t-> Expected precomputed and computed AB scores do not differ\n");
+    assert(kSpearmanRhoTestABCorrelationEncodedByte == encoded_observed_ab_score_byte_v2);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AB scores do not differ\n");
+    assert(encoded_expected_ab_score_byte_v2 == encoded_observed_ab_score_byte_v2);
+    fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
+
+    signal_t* c = NULL;
+    c = bs_init_signal((char*) kTestVectorC, kTrue);
+    if (!c) {
+        fprintf(stderr, "Error: Could not allocate space for test (C) Spearman's rho vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "(V2) Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kTestVectorA, kTestVectorC);
+    score_t unencoded_observed_ac_score_v2 = bs_spearman_rho_signal_v2(a, c);
+    fprintf(stderr, "Expected - unencoded AC Spearman's rho score: %3.6f\n", kSpearmanRhoTestACCorrelationUnencoded);
+    fprintf(stderr, "Observed - unencoded AC Spearman's rho score (v2): %3.6f\n", unencoded_observed_ac_score_v2);
+    fprintf(stderr, "\t-> Expected and observed (v2) AC scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ac_score_byte_v2 = bs_encode_score_to_byte(kSpearmanRhoTestACCorrelationUnencoded);
+    byte_t encoded_observed_ac_score_byte_v2 = bs_encode_score_to_byte(unencoded_observed_ac_score_v2);
+    fprintf(stderr, "Expected - encoded, precomputed AC Spearman's rho score: 0x%02x\n", kSpearmanRhoTestACCorrelationEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed AC Spearman's rho score: 0x%02x\n", encoded_expected_ac_score_byte_v2);
+    fprintf(stderr, "Observed - encoded, computed AC Spearman's rho score: 0x%02x\n", encoded_observed_ac_score_byte_v2);
+    assert(kSpearmanRhoTestACCorrelationEncodedByte == encoded_expected_ac_score_byte_v2);
+    fprintf(stderr, "\t-> Expected precomputed and computed AC scores do not differ\n");
+    assert(kSpearmanRhoTestACCorrelationEncodedByte == encoded_observed_ac_score_byte_v2);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed AC scores do not differ\n");
+    assert(encoded_expected_ac_score_byte_v2 == encoded_observed_ac_score_byte_v2);
+    fprintf(stderr, "\t-> Expected computed and observed computed AC scores do not differ\n");
+
+    bs_delete_signal(&a);
+    bs_delete_signal(&b);
+    bs_delete_signal(&c);
 }
 
 /**
@@ -1451,25 +1942,25 @@ void
 bs_test_pearsons_r()
 {
     signal_t* a = NULL;
-    a = bs_init_signal((char*) kPearsonRTestVectorA);
+    a = bs_init_signal((char*) kTestVectorA, kFalse);
     if (!a) {
         fprintf(stderr, "Error: Could not allocate space for test (A) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* b = NULL;
-    b = bs_init_signal((char*) kPearsonRTestVectorB);
+    b = bs_init_signal((char*) kTestVectorB, kFalse);
     if (!b) {
         fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* c = NULL;
-    c = bs_init_signal((char*) kPearsonRTestVectorC);
+    c = bs_init_signal((char*) kTestVectorC, kFalse);
     if (!c) {
         fprintf(stderr, "Error: Could not allocate space for test (C) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     
-    fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorB);
+    fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
     score_t unencoded_observed_ab_score = bs_pearson_r_signal(a, b);
     fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestABCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_ab_score);
@@ -1488,7 +1979,7 @@ bs_test_pearsons_r()
     assert(encoded_expected_ab_score_byte == encoded_observed_ab_score_byte);
     fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
-    fprintf(stderr, "Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kPearsonRTestVectorA, kPearsonRTestVectorC);
+    fprintf(stderr, "Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kTestVectorA, kTestVectorC);
     score_t unencoded_observed_ac_score = bs_pearson_r_signal(a, c);
     fprintf(stderr, "Expected - unencoded AC Pearson's r score: %3.6f\n", kPearsonRTestACCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AC Pearson's r score: %3.6f\n", unencoded_observed_ac_score);
@@ -1506,7 +1997,7 @@ bs_test_pearsons_r()
 
     bs_delete_signal(&a);
     bs_delete_signal(&b);
-    bs_delete_signal(&c);    
+    bs_delete_signal(&c);
 }
 
 /**
@@ -1666,7 +2157,13 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitSingleChunkStr) == 0) ? kStorePearsonRSquareMatrixSplitSingleChunk :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStorePearsonRSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2Str) == 0) ? kStorePearsonRSquareMatrixBzip2 :
-                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :                
+                (strcmp(bs_globals.store_type_str, kStorePearsonRSquareMatrixBzip2SplitStr) == 0) ? kStorePearsonRSquareMatrixBzip2Split :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixStr) == 0) ? kStoreSpearmanRhoSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitSingleChunkStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2Str) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2 :
+                (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2SplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2Split :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
@@ -1936,8 +2433,11 @@ bs_init_command_line_options(int argc, char** argv)
             }
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
             break;
-        case '1':
+        case 'P':
             bs_test_pearsons_r();
+            exit(EXIT_SUCCESS);
+        case 'S':
+            bs_test_spearman_rho();
             exit(EXIT_SUCCESS);
         case 'h':
         case '?':
@@ -2047,6 +2547,12 @@ bs_print_usage(FILE* os)
             " - pearson-r-sqr-split-single-chunk-metadata\n"            \
             " - pearson-r-sqr-bzip2\n"                                  \
             " - pearson-r-sqr-bzip2-split\n"                            \
+            " - spearman-rho-sqr\n"                                     \
+            " - spearman-rho-sqr-split\n"                               \
+            " - spearman-rho-sqr-split-single-chunk\n"                  \
+            " - spearman-rho-sqr-split-single-chunk-metadata\n"         \
+            " - spearman-rho-sqr-bzip2\n"                               \
+            " - spearman-rho-sqr-bzip2-split\n"                         \
             " - random-sut\n"                                           \
             " - random-sqr\n"                                           \
             " - random-buffered-sqr\n\n"                                \
@@ -2878,18 +3384,19 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
 }
 
 /**
- * @brief      bs_populate_sqr_store_with_pearsonr_scores(s, l)
+ * @brief      bs_populate_sqr_store(s, l, *sf)
  *
- * @details    Write Pearson's r correlation scores as encoded
- *             byte_t bytes to a FILE* handle associated 
- *             with the specified square matrix store filename.
+ * @details    Write correlation scores as encoded byte_t bytes to a 
+ *             FILE* handle associated with the specified square matrix 
+ *             store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
+ *             *sf    (score_t) score function pointer
  */
 
 void
-bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
+bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, signal_t*))
 {
     FILE* os = NULL;
     byte_t self_correlation_score =
@@ -2917,7 +3424,7 @@ bs_populate_sqr_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l)
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
-                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = (*sf)(row_signal, col_signal);
                 buf[s_buf++] = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3020,22 +3527,23 @@ bs_init_sqr_split_store_metadata_fn_str(char* d)
     return md_dest_fn;
 }
 
-
 /**
- * @brief      bs_populate_sqr_split_store_with_pearsonr_scores(s, l, n)
+ * @brief      bs_populate_sqr_split_store(s, l, n, *sf, sv)
  *
- * @details    Write each raw block of encoded Pearson's r correlation scores to 
- *             a FILE* handle associated with the specified square matrix store 
- *             filename. Each block and a metadata file are stored in a folder, 
- *             its name determined by the store filename.
+ * @details    Write each raw block of encoded correlation scores to a FILE* 
+ *             handle associated with the specified square matrix store filename. 
+ *             Each block and a metadata file are stored in a folder, its name 
+ *             determined by the store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
  *             n      (uint32_t) number of rows within a raw chunk 
+ *             *sf    (score_t) score function pointer
+ *             sv     (score_variety_t) score variety
  */
 
 void
-bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
+bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -3095,7 +3603,8 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                //score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = (*sf)(row_signal, col_signal);
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3150,7 +3659,7 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -3171,22 +3680,23 @@ bs_populate_sqr_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk_with_pearsonr_scores(s, l, n, o)
+ * @brief      bs_populate_sqr_split_store_chunk_with(s, l, n, o, sf)
  *
- * @details    Write one raw block of encoded Pearson's r correlation scores to 
- *             a FILE* handle associated with the specified square matrix store 
- *             filename. Each block and a metadata file are stored in a folder, 
- *             its name determined by the store filename. The folder is created 
- *             if it does not already exist.
+ * @details    Write one raw block of encoded correlation scores to a FILE* 
+ *             handle associated with the specified square matrix store filename. 
+ *             Each block and a metadata file are stored in a folder, its name 
+ *             determined by the store filename. The folder is created if it 
+ *             does not already exist.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
  *             n      (uint32_t) number of rows within a raw chunk
- *             o      (uint32_t) offset to starting row (zero-indexed)  
+ *             o      (uint32_t) offset to starting row (zero-indexed)
+ *             *sf    (score_t) score function pointer
  */
 
 void
-bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o)
+bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o, score_t (*sf)(signal_t*, signal_t*))
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -3241,7 +3751,7 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         for (uint32_t col_idx = 1; col_idx <= l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = (*sf)(row_signal, col_signal);
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3270,7 +3780,7 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n)
+ * @brief      bs_populate_sqr_split_store_chunk_metadata(s, l, n, v)
  *
  * @details    Write metadata to FILE* handle associated with the specified 
  *             per-chunk square matrix store. Metadata are stored in a folder, 
@@ -3280,10 +3790,11 @@ bs_populate_sqr_split_store_chunk_with_pearsonr_scores(sqr_store_t* s, lookup_t*
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
  *             n      (uint32_t) number of rows within a raw chunk
+ *             v      (score_variety_t) score variety 
  */
 
 void
-bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t n)
+bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t n, score_variety_t v)
 {
     /* if necessary, create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
@@ -3317,7 +3828,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, v);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -3338,19 +3849,21 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
 }
 
 /**
- * @brief      bs_populate_sqr_bzip2_store_with_pearsonr_scores(s, l, n)
+ * @brief      bs_populate_sqr_bzip2_store(s, l, n, *sf, sv)
  *
- * @details    Write bzip2-compressed chunks of encoded Pearson's r 
- *             correlation scores to a FILE* handle associated with the 
- *             specified square matrix store filename.
+ * @details    Write bzip2-compressed chunks of encoded correlation 
+ *             scores to a FILE* handle associated with the specified 
+ *             square matrix store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
  *             n      (uint32_t) number of rows within a compressed chunk 
+ *             *sf    (score_t) score function pointer
+ *             sv     (score_variety_t) score variety
  */
 
 void
-bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
+bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -3421,7 +3934,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = (*sf)(row_signal, col_signal);
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3511,7 +4024,7 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -3526,21 +4039,22 @@ bs_populate_sqr_bzip2_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, ui
 }
 
 /**
- * @brief      bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(s, l, n)
+ * @brief      bs_populate_sqr_bzip2_split_store(s, l, n, *sf, sv)
  *
- * @details    Write each bzip2-compressed block of encoded Pearson's r 
- *             correlation scores to a FILE* handle associated with the 
- *             specified square matrix store filename. Each block and a metadata
- *             file are stored in a folder, its name determined by the store
- *             filename.
+ * @details    Write each bzip2-compressed block of encoded correlation scores 
+ *             to a FILE* handle associated with the specified square matrix 
+ *             store filename. Each block and a metadata file are stored in a 
+ *             folder, its name determined by the store filename.
  *
  * @param      s      (sqr_store_t*) pointer to square matrix store
  *             l      (lookup_t*) pointer to lookup table
  *             n      (uint32_t) number of rows within a compressed chunk 
+ *             *sf    (score_t) score function pointer
+ *             sv     (score_variety_t) score variety
  */
 
 void
-bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t* l, uint32_t n)
+bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -3626,7 +4140,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+                score_t corr = (*sf)(row_signal, col_signal);
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3703,7 +4217,7 @@ bs_populate_sqr_bzip2_split_store_with_pearsonr_scores(sqr_store_t* s, lookup_t*
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -3797,51 +4311,6 @@ bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d)
     }
     snprintf(md_dest_fn, strlen(d) + strlen(kCompressionMetadataSplitFn) + 2, "%s/%s", d, kCompressionMetadataSplitFn);
     return md_dest_fn;
-}
-
-/**
- * @brief      bs_init_metadata_str(o, n, s)
- *
- * @details    Prints formatted metadata string from block
- *             offset array and array length.
- *
- * @param      o      (off_t*) array of block offsets
- *             n      (uint32_t) number of offsets in array
- *             s      (uint32_t) size of a row block
- *
- * @return     (char*) formatted metadata string 
- */
-
-char*
-bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s)
-{
-    /* 
-       byte store metadata format (v1.0)
-       ---------------------------------
-       "version|row_block_size|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|\0"
-    */
-
-    size_t m_size = 0;
-    size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; 
-    char* m_str = NULL;
-
-    m_str = calloc(m_len, sizeof(*m_str));
-    if (!m_str) {
-        fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    m_size += sprintf(m_str + m_size, "%3.1f%c", kCompressionMetadataVersion, kCompressionMetadataDelimiter);
-    m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
-    m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
-
-    for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
-        m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
-    }
-    m_str[m_size] = '\0';
-    m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
-
-    return m_str;
 }
 
 /**
@@ -5729,6 +6198,85 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
 }
 
 /**
+ * @brief      bs_init_metadata_str(o, n, s, v)
+ *
+ * @details    Prints formatted metadata string from block
+ *             offset array and array length.
+ *
+ * @param      o      (off_t*) array of block offsets
+ *             n      (uint32_t) number of offsets in array
+ *             s      (uint32_t) size of a row block
+ *             v      (score_variety_t) score variety (Pearson r, Spearman rho, etc.)
+ *
+ * @return     (char*) formatted metadata string 
+ */
+
+char*
+bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_variety_t v)
+{
+    char* m_str = NULL;
+
+    if (kCompressionMetadataVersion == kCompressionMetadataVersion1p0) {
+        /* 
+           byte store metadata format (v1.0)
+           ---------------------------------
+           "version|row_block_size|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|metadata_length\0"
+        */
+        size_t m_size = 0;
+        size_t m_len = (OFFSET_MAX_LEN + 1) * n + 1; 
+
+        m_str = calloc(m_len, sizeof(*m_str));
+        if (!m_str) {
+            fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        m_size += sprintf(m_str + m_size, "%3.1f%c", kCompressionMetadataVersion1p0, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
+
+        for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
+            m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
+        }
+        m_str[m_size] = '\0';
+        m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
+    }
+    else if (kCompressionMetadataVersion == kCompressionMetadataVersion1p1) {
+        /* 
+           byte store metadata format (v1.1)
+           ---------------------------------
+           "version|score_variety|row_block_size|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|metadata_length\0"
+        */
+        const size_t m_version_length = 6;
+        const size_t m_score_variety_length = 2;
+        const size_t m_row_block_size_length = BLOCK_STR_MAX_LEN + 1;
+        const size_t m_offsets_length = (OFFSET_MAX_LEN + 1) * (n + 1);
+        const size_t m_metadata_offset_length = MD_OFFSET_MAX_LEN;
+        size_t m_size = 0;
+        size_t m_len = m_version_length + m_score_variety_length + m_row_block_size_length + m_offsets_length + m_metadata_offset_length + 1; 
+
+        m_str = calloc(m_len, sizeof(*m_str));
+        if (!m_str) {
+            fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        m_size += sprintf(m_str + m_size, "%3.1f%c", kCompressionMetadataVersion1p1, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c", v, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c", s, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c", n, kCompressionMetadataDelimiter);
+
+        for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
+            m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
+        }
+        m_str[m_size] = '\0';
+        m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
+    }
+
+    return m_str;
+}
+
+/**
  * @brief      bs_parse_metadata_str(ms)
  *
  * @details    Returns new metadata struct ptr populated
@@ -5747,6 +6295,7 @@ bs_parse_metadata_str(char* ms)
     size_t md_delim_length = 0;
     char* md_string_tok_start = NULL;
     metadata_t* metadata = NULL;
+    score_variety_t md_score_variety = kScoreVarietyUndefined;
     double md_version = 0.0f;
     size_t md_block_row_size = 0;
     size_t md_num_offsets = 0;
@@ -5758,53 +6307,91 @@ bs_parse_metadata_str(char* ms)
     memcpy(md_token, ms, md_delim_length);
     md_token[md_delim_length] = '\0';
     if (sscanf(md_token, "%lf", &md_version) == EOF) {
-    fprintf(stderr, "Error: Could not parse metadata version key!\n");
-    exit(EXIT_FAILURE);
-    }
-
-    if (md_version == kCompressionMetadataVersion) { /* v1.0 */
-    /* row block size */
-    md_string_tok_start = ms + md_delim_length + 1;
-    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-    md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
-    memcpy(md_token, md_string_tok_start, md_delim_length);
-    md_token[md_delim_length] = '\0';
-    sscanf(md_token, "%zu", &md_block_row_size);
-    /* number of offsets */
-    md_string_tok_start = md_string_tok_start + md_delim_length + 1;
-    md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
-    md_delim_length = md_delim_pos_ptr - md_string_tok_start;
-    memcpy(md_token, md_string_tok_start, md_delim_length);
-    md_token[md_delim_length] = '\0';
-    sscanf(md_token, "%zu", &md_num_offsets);
-    /* offsets */
-    md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
-    if (!md_offsets) {
-        fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+        fprintf(stderr, "Error: Could not parse metadata version key!\n");
         exit(EXIT_FAILURE);
     }
-    for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
-            md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
+
+    if (md_version == kCompressionMetadataVersion1p0) { /* v1.0 */
+        /* row block size */
+        md_string_tok_start = ms + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zu", &md_block_row_size);
+        /* number of offsets */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
         md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
         md_delim_length = md_delim_pos_ptr - md_string_tok_start;
         memcpy(md_token, md_string_tok_start, md_delim_length);
         md_token[md_delim_length] = '\0';
-        sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+        sscanf(md_token, "%zu", &md_num_offsets);
+        /* offsets */
+        md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
+        if (!md_offsets) {
+            fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+            exit(EXIT_FAILURE);
+        }
+        for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+            md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
+            md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+            md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+            memcpy(md_token, md_string_tok_start, md_delim_length);
+            md_token[md_delim_length] = '\0';
+            sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+        }
+    }
+    else if (md_version == kCompressionMetadataVersion1p1) { /* v1.1 */
+        /* score variety type */
+        md_string_tok_start = ms + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%d", &md_score_variety);
+        /* row block size */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zu", &md_block_row_size);
+        /* number of offsets */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zu", &md_num_offsets);
+        /* offsets */
+        md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
+        if (!md_offsets) {
+            fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+            exit(EXIT_FAILURE);
+        }
+        for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+            md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
+            md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+            md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+            memcpy(md_token, md_string_tok_start, md_delim_length);
+            md_token[md_delim_length] = '\0';
+            sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+        }
+    }
+    else {
+        fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
+        exit(EXIT_FAILURE);
     }
     metadata = malloc(sizeof(metadata_t));
     if (!metadata) {
         fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
         exit(EXIT_FAILURE);
     }
+    metadata->score_variety = md_score_variety;
     metadata->offsets = md_offsets;
     metadata->count = md_num_offsets;
     metadata->block_row_size = md_block_row_size;
     metadata->version = md_version;
-    }
-    else {
-    fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
-    exit(EXIT_FAILURE);
-    }
 
     return metadata;
 }
