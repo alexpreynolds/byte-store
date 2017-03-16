@@ -353,8 +353,12 @@ test-random-buffered-sqr:
 # More tests
 # ----------
 
-metadata-test-pearson-split:
+metadata-test-pearson-split-create:
 	$(PWD)/byte-store -t pearson-r-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.pearson.bs -r 512000
 
-metadata-test-spearman-split:
+metadata-test-spearman-split-create:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.spearman.bs -r 512000
+
+metadata-test-spearman-split-query:
+	$(PWD)/byte-store -t spearman-rho-sqr-split -q -l ./test/master_with_signal_h40.bed -s master.512000r.spearman.bs -i 0-0
+	

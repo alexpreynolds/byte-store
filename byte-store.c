@@ -1238,7 +1238,7 @@ signal_t*
 bs_init_signal(char* cds, boolean_t ir)
 {
     rank_t rank_idx = 0;
-    rank_t* ranks_temp = NULL; /* TODO: perhaps move this to globals, so that we only allocate this once */
+    rank_t* ranks_temp = NULL;
     signal_t* s = NULL;
     s = malloc(sizeof(signal_t));
     if (!s) {
@@ -1401,6 +1401,10 @@ bs_init_signal(char* cds, boolean_t ir)
         //}
         s->mean_ranks = bs_mean_ranks(s->ranks, s->n);
         s->sd_ranks = bs_sample_sd_ranks(s->ranks, s->n, s->mean_ranks);
+        /* 
+            We no longer need signal data or temporary rank data
+        */
+        free(s->data), s->data = NULL;
         free(ranks_temp), ranks_temp = NULL;
     }
     return s;
@@ -2101,6 +2105,7 @@ bs_init_globals()
     bs_globals.permutation_alpha = kPermutationTestDefaultAlpha;
     bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
     bs_globals.zero_sd_warning_issued = kFalse;
+    bs_globals.score_ptr = NULL;
 }
 
 /**
@@ -2112,7 +2117,7 @@ bs_init_globals()
 void
 bs_delete_globals()
 {
-    if (bs_globals.store_query_indices) { free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL; }
+    free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);
     bs_delete_bed(&bs_globals.store_query_range_end);
 }
@@ -6295,8 +6300,8 @@ bs_parse_metadata_str(char* ms)
     size_t md_delim_length = 0;
     char* md_string_tok_start = NULL;
     metadata_t* metadata = NULL;
-    score_variety_t md_score_variety = kScoreVarietyUndefined;
-    double md_version = 0.0f;
+    int md_score_variety_int = 0;
+    float md_version = 0.0f;
     size_t md_block_row_size = 0;
     size_t md_num_offsets = 0;
     off_t* md_offsets = NULL;
@@ -6306,7 +6311,7 @@ bs_parse_metadata_str(char* ms)
     md_delim_length = md_delim_pos_ptr - ms;    
     memcpy(md_token, ms, md_delim_length);
     md_token[md_delim_length] = '\0';
-    if (sscanf(md_token, "%lf", &md_version) == EOF) {
+    if (sscanf(md_token, "%f", &md_version) == EOF) {
         fprintf(stderr, "Error: Could not parse metadata version key!\n");
         exit(EXIT_FAILURE);
     }
@@ -6348,7 +6353,7 @@ bs_parse_metadata_str(char* ms)
         md_delim_length = md_delim_pos_ptr - md_string_tok_start;
         memcpy(md_token, md_string_tok_start, md_delim_length);
         md_token[md_delim_length] = '\0';
-        sscanf(md_token, "%d", &md_score_variety);
+        sscanf(md_token, "%d", &md_score_variety_int);
         /* row block size */
         md_string_tok_start = md_string_tok_start + md_delim_length + 1;
         md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
@@ -6387,7 +6392,7 @@ bs_parse_metadata_str(char* ms)
         fprintf(stderr, "Error: Could not allocate space for offset struct!\n");
         exit(EXIT_FAILURE);
     }
-    metadata->score_variety = md_score_variety;
+    metadata->score_variety = (score_variety_t) md_score_variety_int;
     metadata->offsets = md_offsets;
     metadata->count = md_num_offsets;
     metadata->block_row_size = md_block_row_size;

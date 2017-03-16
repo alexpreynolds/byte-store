@@ -300,7 +300,7 @@ extern "C" {
     const char kCompressionMetadataDelimiter = '|';
     const float kCompressionMetadataVersion1p0 = 1.0f;
     const float kCompressionMetadataVersion1p1 = 1.1f;
-    const float kCompressionMetadataVersion = kCompressionMetadataVersion1p1;
+    const float kCompressionMetadataVersion = 1.1f;
     const char* kCompressionMetadataSplitFn = "blocks.md";
     const char* kCompressionMetadataSplitDirSuffix = "blocks";
 
