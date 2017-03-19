@@ -38,8 +38,8 @@ ifeq ($(UNAME),Darwin)
 	FLAGS += -Weverything
 endif
 ifeq ($(UNAME), Linux)
-	CFLAGS += -static
-	CDFLAGS += -static
+	CFLAGS += -static -static-libgcc
+	CDFLAGS += -static -static-libgcc
 endif
 
 all: byte-store
