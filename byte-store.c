@@ -28,6 +28,9 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kTrue);
     }
+    else if (bs_globals.store_query_daemon_flag) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse, kFalse);
+    }
     else {
         lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
     } 
@@ -318,6 +321,27 @@ main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
         }
+        else if (bs_globals.store_query_daemon_flag) {
+            struct MHD_Daemon *daemon = NULL;
+            bs_globals.store_query_daemon_hostname = bs_get_host_fqdn();
+            daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
+                                      bs_globals.store_query_daemon_port, 
+                                      NULL, 
+                                      NULL,
+                                      &bs_test_answer_to_connection,
+                                      NULL, 
+                                      MHD_OPTION_END);
+            if (NULL == daemon) {
+                fprintf(stderr, "Error: Unable to initialize query daemon!\n");
+                exit(EXIT_FAILURE);
+            }
+            fprintf(stdout, "Initialized a query httpd...\n");
+            fprintf(stdout, "Test requests can be made via: \"wget -qSO- http://%s:%d\" or similar\n", bs_globals.store_query_daemon_hostname, bs_globals.store_query_daemon_port);
+            fprintf(stdout, "Press <enter> to stop the server...\n");
+            getchar(); /* wait for newline */
+            fprintf(stdout, "Closing http daemon...\n");
+            MHD_stop_daemon(daemon);
+        }
         bs_delete_sqr_store(&sqr_store);
         break;
     case kStoreUndefined:
@@ -339,6 +363,100 @@ main(int argc, char** argv)
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
+}
+
+/**
+ * @brief      bs_test_answer_to_connection()
+ *
+ * @details    Return a test response to any query
+ *
+ * @params     cls                (void*)        argument given together with the function
+ *                                               pointer when the handler was registered with MHD
+ *             url                (const char*)  the requested url
+ *             method             (const char*)  the HTTP method used (#MHD_HTTP_METHOD_GET,
+ *                                               #MHD_HTTP_METHOD_PUT, etc.)
+ *             version            (const char*)  the HTTP version string (i.e.
+ *                                               #MHD_HTTP_VERSION_1_1)
+ *             upload_data        (const char*)  the data being uploaded (excluding HEADERS,
+ *                                               for a POST that fits into memory and that is encoded
+ *                                               with a supported encoding, the POST data will NOT be
+ *                                               given in upload_data and is instead available as
+ *                                               part of #MHD_get_connection_values; very large POST
+ *                                               data *will* be made available incrementally in
+ *                                               @a upload_data)
+ *             upload_data_size   (size_t*)      set initially to the size of the
+ *                                               @a upload_data provided; the method must update this
+ *                                               value to the number of bytes NOT processed;
+ *             con_cls            (void**)       pointer that the callback can set to some
+ *                                               address and that will be preserved by MHD for future
+ *                                               calls for this request; since the access handler may
+ *                                               be called many times (i.e., for a PUT/POST operation
+ *                                               with plenty of upload data) this allows the application
+ *                                               to easily associate some request-specific state.
+ *                                               If necessary, this state can be cleaned up in the
+ *                                               global #MHD_RequestCompletedCallback (which
+ *                                               can be set with the #MHD_OPTION_NOTIFY_COMPLETED).
+ *                                               Initially, `*con_cls` will be NULL.
+ *
+ * @return     (char*) fully-qualified domain name
+ */
+
+/* 
+    This test response does not use most of the parameters in 
+    an MHD_AccessHandlerCallback function, so we direct the compiler 
+    to ignore unused parameter warnings 
+*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
+{
+    const char *page = "<html><body>Hello from byte-store!</body></html>";
+    struct MHD_Response *response;
+    int ret;
+
+    response = MHD_create_response_from_buffer(strlen(page), (void *)page, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+/**
+ * @brief      bs_get_host_fqdn()
+ *
+ * @details    Attempts to return FQDN of current host
+ *
+ * @return     (char*) fully-qualified domain name
+ */
+
+char*
+bs_get_host_fqdn() 
+{
+    struct addrinfo hints, *info, *p;
+    int gai_err;
+    char hn[HOST_NAME_MAX];
+    char* fqdn = NULL;
+
+    hn[HOST_NAME_MAX - 1] = '\0';
+    gethostname(hn, HOST_NAME_MAX - 1);
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; /* either IPV4 or IPV6 */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
+    if ((gai_err = getaddrinfo(hn, "http", &hints, &info)) != 0) {
+        fprintf(stderr, "Error: Could not parse hints into hostname [%s]\n", gai_strerror(gai_err));
+        exit(EXIT_FAILURE);
+    }
+    for (p = info; p != NULL; p = p->ai_next) {
+        /* fprintf(stderr, "hostname: %s\n", p->ai_canonname); */
+        free(fqdn), fqdn = NULL;
+        fqdn = malloc(strlen(hn) + 1);
+        memcpy(fqdn, hn, strlen(hn) + 1);
+    }
+    freeaddrinfo(info);
+    return fqdn;
 }
 
 /**
@@ -1617,7 +1735,7 @@ bs_spearman_rho_signal_v1(signal_t* a, signal_t* b)
     int64_t sum_of_squared_differences = 0;
     int idx = 0;
     for (idx = 0; idx < n; ++idx) {
-        if ((a->data[idx] == NAN) || (b->data[idx] == NAN)) {
+        if (isnan(a->data[idx]) || isnan(b->data[idx])) {
             return NAN;
         }
         sum_of_squared_differences += ((a->ranks[idx] - b->ranks[idx]) * (a->ranks[idx] - b->ranks[idx]));
@@ -2073,6 +2191,9 @@ bs_init_globals()
     bs_globals.store_create_flag = kFalse;
     bs_globals.store_query_flag = kFalse;
     bs_globals.store_query_kind = kQueryKindDefaultKind;
+    bs_globals.store_query_daemon_flag = kFalse;
+    bs_globals.store_query_daemon_port = -1;
+    bs_globals.store_query_daemon_hostname = NULL;
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
@@ -2118,6 +2239,7 @@ void
 bs_delete_globals()
 {
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
+    free(bs_globals.store_query_daemon_hostname), bs_globals.store_query_daemon_hostname = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);
     bs_delete_bed(&bs_globals.store_query_range_end);
 }
@@ -2183,6 +2305,16 @@ bs_init_command_line_options(int argc, char** argv)
         case 'q':
             bs_globals.store_query_flag = kTrue;
             bs_output_flag_counter++;
+            break;
+        case 'Q':
+            bs_globals.store_query_daemon_flag = kTrue;
+            bs_output_flag_counter++;
+            if (!optarg) {
+                fprintf(stderr, "Error: Store query daemon option selected without daemon port value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            sscanf(optarg, "%d", &bs_globals.store_query_daemon_port);
             break;
         case 'u':
             bs_globals.lookup_frequency_flag = kTrue;
@@ -2538,6 +2670,8 @@ bs_print_usage(FILE* os)
             "     %s --store-create --store-type [ type-of-store ] --lookup=fn --store=fn --encoding-strategy [ full | mid-quarter-zero | custom ] [--encoding-cutoff-zero-min=float --encoding-cutoff-zero-max=float ] [ --store-compression-row-chunk-size=int [ --store-compression-row-chunk-offset=int ] ]\n\n" \
             "   Query data store:\n\n" \
             "     %s --store-query --store-type [ type-of-store ] --lookup=fn --store=fn [ --index-query=str | --multiple-index-query=str | --range-query=str ] [ --score-filter-gteq=float | --score-filter-gt=float | --score-filter-eq=float | --score-filter-lteq=float | --score-filter-lt=float | --score-filter-ranged-within-inclusive=float:float | --score-filter-ranged-within-exclusive=float:float | --score-filter-ranged-outside-inclusive=float:float | --score-filter-ranged-outside-exclusive=float:float ]\n\n" \
+            "   Initialize query HTTPD for data store:\n\n" \
+            "     %s --store-query-daemon [port] --store-type [ type-of-store ] --lookup [fn] --store [fn] \n\n" \
             "   Bin-frequency on data store:\n\n"                          \
             "     %s --store-frequency --store-type [ type-of-store ] --lookup=fn --store=fn\n\n" \
             "   Bin-frequency and permutation testing  on lookup table:\n\n" \
@@ -2589,6 +2723,7 @@ bs_print_usage(FILE* os)
             "   archive metadata.\n\n" \
             " - Specifying --lookup-frequency without --permutation-test yields the frequency distribution table\n" \
             "   without any permutation testing.\n\n",
+            bs_name,
             bs_name,
             bs_name,
             bs_name,

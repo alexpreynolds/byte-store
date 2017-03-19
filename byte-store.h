@@ -8,7 +8,13 @@ extern "C" {
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif /* getline() support */
-    
+
+#if __APPLE__
+    #ifndef HOST_NAME_MAX
+        #define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+    #endif
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,10 +26,14 @@ extern "C" {
 #include <assert.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <float.h>
 #include <errno.h>
 #include <bzlib.h>
+#include <microhttpd.h>
+#include <netdb.h>
+#include <limits.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 4096
@@ -37,6 +47,7 @@ extern "C" {
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
+#define HOSTNAME_MAX_LEN 8192
 
 #define swap(x,y) do                                                    \
         { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -372,6 +383,9 @@ extern "C" {
     static struct bs_globals_t {
         boolean_t store_create_flag;
         boolean_t store_query_flag;
+        boolean_t store_query_daemon_flag;
+        int32_t store_query_daemon_port;
+        char* store_query_daemon_hostname;
         boolean_t store_frequency_flag;
         query_kind_t store_query_kind;
         char store_query_str[QUERY_MAX_LEN];
@@ -415,6 +429,7 @@ extern "C" {
         { "store-type",                                 required_argument, NULL, 't' },
         { "store-create",                               no_argument,       NULL, 'c' },
         { "store-query",                                no_argument,       NULL, 'q' },
+        { "store-query-daemon",                         required_argument, NULL, 'Q' },
         { "store-frequency",                            no_argument,       NULL, 'f' },
         { "store-row-chunk-size",                       required_argument, NULL, 'r' },
         { "store-row-chunk-offset",                     required_argument, NULL, 'k' },
@@ -449,7 +464,7 @@ extern "C" {
         { NULL,                                         no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:SPh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:SPh?";
 
     static const char* bs_name = "byte-store";
     
@@ -532,6 +547,8 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00};
     
+    static int                   bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    char*                        bs_get_host_fqdn();
     inline score_t               bs_truncate_score_to_precision(score_t d, int prec);
     inline byte_t                bs_encode_score_to_byte(score_t d);
     inline byte_t                bs_encode_score_to_byte_mqz(score_t d);

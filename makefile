@@ -2,13 +2,14 @@ SHELL           := /bin/bash
 PWD             := $(shell pwd)
 CC               = gcc
 BLDFLAGS         = -Wall -Wextra -std=c99
-BLDDFLAGS        = -Wall -Wextra -std=c99 -pendantic
-CFLAGS           = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
-CDFLAGS          = -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
-LIBS             = -lm -lbz2
+BLDDFLAGS        = -Wall -Wextra -std=c99 -pedantic
+CFLAGS           = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+CDFLAGS          = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
+LIBS             = -lm -lbz2 -lmicrohttpd
 .PHONY           = test
 SAMPLE          := $(shell `which sample` --help 2> /dev/null)
 TESTDIR          = $(PWD)/test
+TEST_HTTPD_PORT  = 8000
 PDFDIR           = $(TESTDIR)/pdf
 #SAMPLEDIR       = /Volumes/Data/byte-store
 SAMPLEDIR        = /tmp/byte-store
@@ -21,6 +22,11 @@ BZIP2_DIR        = $(THIRD_PARTY)/bzip2-1.0.6
 BZIP2_SYM_DIR    = $(THIRD_PARTY)/bzip2
 BZIP2_INC_DIR    = $(BZIP2_SYM_DIR)
 BZIP2_LIB_DIR    = $(BZIP2_SYM_DIR)
+HTTPD_ARC        = $(THIRD_PARTY)/libmicrohttpd-0.9.51.tar.gz
+HTTPD_DIR        = $(THIRD_PARTY)/libmicrohttpd-0.9.51
+HTTPD_SYM_DIR    = $(THIRD_PARTY)/libmicrohttpd
+HTTPD_INC_DIR    = $(HTTPD_SYM_DIR)/include
+HTTPD_LIB_DIR    = $(HTTPD_SYM_DIR)/lib
 
 # --------------------------------------
 # OS X Clang can't build static binaries
@@ -42,7 +48,7 @@ all: byte-store
 # Application
 # -----------
 
-prep: bzip2
+prep: bzip2 libmicrohttpd
 
 bzip2:
 	@if [ ! -d "${BZIP2_DIR}" ]; then \
@@ -52,11 +58,22 @@ bzip2:
 		${MAKE} -C ${BZIP2_SYM_DIR} libbz2.a CC=${CC}; \
 	fi
 
+libmicrohttpd:
+	@if [ ! -d "${HTTPD_DIR}" ]; then \
+		mkdir "${HTTPD_DIR}"; \
+		tar zxvf "${HTTPD_ARC}" -C "${THIRD_PARTY}"; \
+		ln -sf ${HTTPD_DIR} ${HTTPD_SYM_DIR}; \
+		cd ${HTTPD_SYM_DIR}; \
+		./configure --enable-static --prefix=${HTTPD_SYM_DIR}; \
+		${MAKE} && ${MAKE} install; \
+		cd ${PWD}; \
+	fi
+
 byte-store: prep
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 debug-byte-store: prep
 	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
@@ -71,6 +88,8 @@ clean:
 	rm -rf *~
 	rm -rf ${BZIP2_DIR}
 	rm -rf ${BZIP2_SYM_DIR}
+	rm -rf ${HTTPD_DIR}
+	rm -rf ${HTTPD_SYM_DIR}
 	rm -rf $(TESTDIR)/*~
 	rm -rf $(TESTDIR)/*.bs
 	rm -rf $(TESTDIR)/*.bs.blocks
@@ -354,11 +373,20 @@ test-random-buffered-sqr:
 # ----------
 
 metadata-test-pearson-split-create:
-	$(PWD)/byte-store -t pearson-r-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.pearson.bs -r 512000
+	$(PWD)/byte-store -t pearson-r-sqr-split -c -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.pearson.bs -r 12
+
+metadata-test-pearson-split-query:
+	$(PWD)/byte-store -t pearson-r-sqr-split -q -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.pearson.bs -i 0-0
+
+metadata-test-pearson-split-query-daemon:
+	$(PWD)/byte-store -t pearson-r-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.pearson.bs
 
 metadata-test-spearman-split-create:
-	$(PWD)/byte-store -t spearman-rho-sqr-split -c -l ./test/master_with_signal_h40.bed -s master.512000r.spearman.bs -r 512000
+	$(PWD)/byte-store -t spearman-rho-sqr-split -c -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.spearman.bs -r 12
 
 metadata-test-spearman-split-query:
-	$(PWD)/byte-store -t spearman-rho-sqr-split -q -l ./test/master_with_signal_h40.bed -s master.512000r.spearman.bs -i 0-0
+	$(PWD)/byte-store -t spearman-rho-sqr-split -q -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.spearman.bs -i 0-0
+
+metadata-test-spearman-split-query-daemon:
+	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.spearman.bs
 	
