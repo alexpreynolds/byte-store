@@ -335,8 +335,10 @@ main(int argc, char** argv)
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
                 exit(EXIT_FAILURE);
             }
-            fprintf(stdout, "Initialized a query httpd...\n");
-            fprintf(stdout, "Test requests can be made via: \"wget -qSO- http://%s:%d\" or similar\n", bs_globals.store_query_daemon_hostname, bs_globals.store_query_daemon_port);
+            fprintf(stdout, "Initialized query httpd...\n");
+            if (bs_globals.store_query_daemon_hostname) {
+                fprintf(stdout, "Test requests can be made via: \"wget -qSO- http://%s:%d\" or similar\n", bs_globals.store_query_daemon_hostname, bs_globals.store_query_daemon_port);
+            }
             fprintf(stdout, "Press <enter> to stop the server...\n");
             getchar(); /* wait for newline */
             fprintf(stdout, "Closing http daemon...\n");
@@ -446,14 +448,47 @@ bs_get_host_fqdn()
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_CANONNAME;
     if ((gai_err = getaddrinfo(hn, "http", &hints, &info)) != 0) {
-        fprintf(stderr, "Error: Could not parse hints into hostname [%s]\n", gai_strerror(gai_err));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Warning: Could not parse hints into hostname [%s: ", gai_strerror(gai_err));
+        switch (gai_err) {
+        case EAI_AGAIN:
+            fprintf(stderr, "EAI_AGAIN]\n");
+            break;
+        case EAI_BADFLAGS:
+            fprintf(stderr, "EAI_BADFLAGS]\n");
+            break;
+        case EAI_FAIL:
+            fprintf(stderr, "EAI_FAIL]\n");
+            break;
+        case EAI_FAMILY:
+            fprintf(stderr, "EAI_FAMILY]\n");
+            break;
+        case EAI_MEMORY:
+            fprintf(stderr, "EAI_MEMORY]\n");
+            break;
+        case EAI_NONAME:
+            fprintf(stderr, "EAI_NONAME]\n");
+            break;
+        case EAI_SERVICE:
+            fprintf(stderr, "EAI_SERVICE]\n");
+            break;
+        case EAI_SOCKTYPE:
+            fprintf(stderr, "EAI_SOCKTYPE]\n");
+            break;
+        case EAI_SYSTEM:
+            fprintf(stderr, "EAI_SYSTEM]\n");
+            break;
+        default:
+            fprintf(stderr, "OTHER]\n");
+            break;
+        }
     }
-    for (p = info; p != NULL; p = p->ai_next) {
-        /* fprintf(stderr, "hostname: %s\n", p->ai_canonname); */
-        free(fqdn), fqdn = NULL;
-        fqdn = malloc(strlen(hn) + 1);
-        memcpy(fqdn, hn, strlen(hn) + 1);
+    else {
+        for (p = info; p != NULL; p = p->ai_next) {
+            /* fprintf(stderr, "hostname: %s\n", p->ai_canonname); */
+            free(fqdn), fqdn = NULL;
+            fqdn = malloc(strlen(hn) + 1);
+            memcpy(fqdn, hn, strlen(hn) + 1);
+        }
     }
     freeaddrinfo(info);
     return fqdn;
