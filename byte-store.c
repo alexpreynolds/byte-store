@@ -4751,7 +4751,11 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 
         do {
             /* read a row of bytes */
-            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     bs_print_pair(os, 
@@ -4901,7 +4905,11 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
 
         do {
             /* read a row of bytes */
-            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
             do {
                 if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -5069,7 +5077,11 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
         /* read a row from current block and print its signal to the output stream os */
         row_idx = (uint32_t) query_row;
         col_idx = 0;
-        fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+        size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+        if (items_read != l->nelems) {
+            fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+            exit(EXIT_FAILURE);
+        }
         do {
             if (row_idx != col_idx) {
                 bs_print_pair(os, 
@@ -5243,7 +5255,11 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
             /* read a row from current block and print its signal to the output stream os */
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
             do {
                 if (row_idx != col_idx) {
                     bs_print_pair(os, 
@@ -5423,7 +5439,11 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
             /* read a row from current block and print its signal to the output stream os */
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-            fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
             do {
                 if (row_idx != col_idx) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -5592,7 +5612,11 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
         /* read a row from current block and print its signal to the output stream os */
         row_idx = (uint32_t) query_row;
         col_idx = 0;
-        fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+        size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+        if (items_read != l->nelems) {
+            fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+            exit(EXIT_FAILURE);
+        }
         do {
             if (row_idx != col_idx) {
                 score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
