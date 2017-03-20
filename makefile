@@ -64,7 +64,7 @@ libmicrohttpd:
 		tar zxvf "${HTTPD_ARC}" -C "${THIRD_PARTY}"; \
 		ln -sf ${HTTPD_DIR} ${HTTPD_SYM_DIR}; \
 		cd ${HTTPD_SYM_DIR}; \
-		./configure --enable-static --prefix=${HTTPD_SYM_DIR}; \
+		./configure --enable-static --enable-https=no --without-libgcrypt --without-gnutls --prefix=${HTTPD_SYM_DIR}; \
 		${MAKE} && ${MAKE} install; \
 		cd ${PWD}; \
 	fi
