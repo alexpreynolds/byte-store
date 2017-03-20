@@ -38,8 +38,8 @@ ifeq ($(UNAME),Darwin)
 	FLAGS += -Weverything
 endif
 ifeq ($(UNAME), Linux)
-	CFLAGS += -static -static-libgcc
-	CDFLAGS += -static -static-libgcc
+	CFLAGS += -pthread -static -static-libgcc
+	CDFLAGS += -pthread -static -static-libgcc
 endif
 
 all: byte-store
@@ -389,4 +389,3 @@ metadata-test-spearman-split-query:
 
 metadata-test-spearman-split-query-daemon:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TESTDIR)/master_with_signal_h40.bed -s $(TESTDIR)/master.12r.spearman.bs
-	
