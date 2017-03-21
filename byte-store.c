@@ -322,16 +322,17 @@ main(int argc, char** argv)
             }
         }
         else if (bs_globals.store_query_daemon_flag) {
+            bs_globals.lookup_ptr = lookup;
+            bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
-            bs_globals.store_query_daemon_hostname = bs_get_host_fqdn();
             daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
                                       bs_globals.store_query_daemon_port, 
                                       NULL, 
                                       NULL,
-                                      &bs_test_answer_to_connection,
+                                      &bs_answer_to_connection,
                                       NULL, 
                                       MHD_OPTION_END);
-            if (NULL == daemon) {
+            if (!daemon) {
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
                 exit(EXIT_FAILURE);
             }
@@ -368,6 +369,262 @@ main(int argc, char** argv)
 }
 
 /**
+ * @brief      bs_answer_to_connection()
+ *
+ * @details    Return a response to given query
+ *
+ * @params     cls                (void*)        argument given together with the function
+ *                                               pointer when the handler was registered with MHD
+ *             url                (const char*)  the requested url
+ *             method             (const char*)  the HTTP method used (#MHD_HTTP_METHOD_GET,
+ *                                               #MHD_HTTP_METHOD_PUT, etc.)
+ *             version            (const char*)  the HTTP version string (i.e.
+ *                                               #MHD_HTTP_VERSION_1_1)
+ *             upload_data        (const char*)  the data being uploaded (excluding HEADERS,
+ *                                               for a POST that fits into memory and that is encoded
+ *                                               with a supported encoding, the POST data will NOT be
+ *                                               given in upload_data and is instead available as
+ *                                               part of #MHD_get_connection_values; very large POST
+ *                                               data *will* be made available incrementally in
+ *                                               @a upload_data)
+ *             upload_data_size   (size_t*)      set initially to the size of the
+ *                                               @a upload_data provided; the method must update this
+ *                                               value to the number of bytes NOT processed;
+ *             con_cls            (void**)       pointer that the callback can set to some
+ *                                               address and that will be preserved by MHD for future
+ *                                               calls for this request; since the access handler may
+ *                                               be called many times (i.e., for a PUT/POST operation
+ *                                               with plenty of upload data) this allows the application
+ *                                               to easily associate some request-specific state.
+ *                                               If necessary, this state can be cleaned up in the
+ *                                               global #MHD_RequestCompletedCallback (which
+ *                                               can be set with the #MHD_OPTION_NOTIFY_COMPLETED).
+ *                                               Initially, `*con_cls` will be NULL.
+ *
+ * @return     (int) response success or failure
+ */
+
+/* 
+    This response does not use some of the parameters in 
+    an MHD_AccessHandlerCallback function, so we direct the 
+    compiler to ignore unused parameter warnings 
+*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
+{
+    struct MHD_Response *response;
+    unsigned int i;
+    int ret = MHD_NO;
+
+    if ((0 == strcmp (method, MHD_HTTP_METHOD_GET)) || (0 == strcmp (method, MHD_HTTP_METHOD_HEAD))) {
+        /* find out which page to serve */
+        i=0;
+        while ((request_pages[i].url != NULL) && (0 != strcmp(request_pages[i].url, url))) {
+            i++;
+        }
+        ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection);
+        if (ret != MHD_YES) {
+            fprintf (stderr, "Failed to create page for `%s'\n", url);
+        }
+        return ret;
+    }
+    /* unsupported HTTP method */
+    response = MHD_create_response_from_buffer(strlen (METHOD_ERROR), (void *) METHOD_ERROR, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_NOT_ACCEPTABLE, response);
+    MHD_destroy_response(response);
+
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+static int
+bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection)
+{
+    int ret;
+    const char *generic_information = cls;
+    char* reply = NULL;
+    struct MHD_Response *response;
+    reply = malloc(strlen(generic_information) + 1);
+    if (!reply) {
+        return MHD_NO; /* oops */
+    }
+    memcpy(reply, generic_information, strlen(generic_information) + 1);
+    /* return static document */
+    response = MHD_create_response_from_buffer(strlen(reply), (void *)reply, MHD_RESPMEM_MUST_FREE);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response (response);
+    return ret;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Connection* connection)
+{
+    int ret;
+    struct MHD_Response *response = NULL;
+    /* create temporary file and write a random element to it */
+    char write_np[] = "/tmp/bs_XXXXXX";
+    int write_fd = mkstemp(write_np);
+    FILE* write_fp = fdopen(write_fd, "w");
+    fprintf(stderr, "Debug: Writing random element to temporary file [%s]\n", write_np);
+    /* seed RNG */
+    if (bs_globals.rng_seed_flag)
+        mt19937_seed_rng(bs_globals.rng_seed_value);
+    else
+        mt19937_seed_rng(time(NULL));
+    /* generate random row index */
+    bs_globals.store_query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
+    bs_globals.store_query_idx_end = bs_globals.store_query_idx_start;
+    /* write a random row to the named pipe */
+    switch (bs_globals.store_type) {
+    case kStorePearsonRSquareMatrixSplit:
+    case kStoreSpearmanRhoSquareMatrixSplit:
+        if (bs_globals.store_filter == kScoreFilterNone)
+            bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp);
+        else
+            bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
+        break;
+    case kStoreRandomBufferedSquareMatrix:
+    case kStoreRandomSquareMatrix:
+    case kStorePearsonRSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStorePearsonRSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStorePearsonRSquareMatrixBzip2Split:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
+    case kStorePearsonRSquareMatrixSplitSingleChunk:
+    case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreUndefined:
+        /* cleanup */
+        fclose(write_fp), write_fp = NULL;
+        unlink(write_np);
+        /* no data found for specified store type */
+        response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
+        ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, NULL);
+        MHD_destroy_response(response);
+        return ret;
+    }
+    /* read from temporary file */
+    FILE* read_fp = NULL;
+    read_fp = fopen(write_np, "r");
+    int read_fd = fileno(read_fp);
+    if (read_fd == -1) {
+        (void) fclose(read_fp);
+        return MHD_NO; /* internal error */
+    }
+    struct stat read_buf;
+    if ((fstat(read_fd, &read_buf) != 0) || (!S_ISREG(read_buf.st_mode))) {
+        /* not a regular file, refuse to serve */
+        fclose(read_fp);
+        read_fp = NULL;
+    }
+    if (!read_fp) {
+        response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
+        ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, NULL);
+        MHD_destroy_response(response);
+        return ret;
+    }
+    else {
+        long sz = sysconf(_SC_PAGESIZE);
+        qd_io_ptr_t* io = NULL;
+        io = malloc(sizeof(qd_io_ptr_t));
+        io->write_fn = NULL;
+        io->write_fn = malloc(strlen(write_np) + 1);
+        if (!io->write_fn) {
+            fclose(read_fp);
+            return MHD_NO;
+        }
+        memcpy(io->write_fn, write_np, strlen(write_np) + 1);
+        io->write_fp = write_fp;
+        io->read_fp = read_fp;
+        response = MHD_create_response_from_callback(read_buf.st_size, (size_t) sz, &bs_qd_buffer_reader, io, &bs_qd_buffer_callback);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        if (!response) {
+            fclose(read_fp);
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+    }
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+/**
+ * @brief      bs_qd_buffer_reader(cls, pos, buf, max)
+ *
+ * @details    Reads a chunk of data from an intermediate query
+ *             write buffer into a response write buffer
+ *
+ * @param      cls    (void*) I/O context pointer
+ *             pos    (uint64_t) byte position into I/O read context
+ *             buf    (char*) response write buffer
+ *             max    (size_t) callback copies at most max bytes into buf
+ *
+ * @return     (ssize_t) number of bytes copied
+ */
+
+static ssize_t
+bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
+{
+    qd_io_ptr_t* io = (qd_io_ptr_t *) cls;
+    FILE *read_fp = io->read_fp;
+    (void) fseek(read_fp, pos, SEEK_SET);
+    return fread(buf, 1, max, read_fp);
+}
+
+/**
+ * @brief      bs_qd_buffer_callback(cls)
+ *
+ * @details    Callback gets called at the end of processing
+ *             the response, and it is used here to free IO
+ *             resources used to read from the byte-store
+ *             container.
+ *
+ * @param      cls    (void*) I/O context pointer
+ */
+
+static void
+bs_qd_buffer_callback(void* cls)
+{
+    qd_io_ptr_t* io = (qd_io_ptr_t *) cls;
+    fclose(io->read_fp), io->read_fp = NULL;
+    fclose(io->write_fp), io->write_fp = NULL;
+    int err = unlink(io->write_fn);
+    if (err == -1) {
+        fprintf(stderr, "Error: Could not delete temporary buffer! [%s]\n", strerror(errno));
+    }
+    fprintf(stderr, "Debug: Deleted file [%s]\n", io->write_fn);
+    free(io->write_fn), io->write_fn = NULL;
+    free(io), io = NULL;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection)
+{
+    int ret;
+    struct MHD_Response *response;
+    response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    MHD_destroy_response(response);
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+/**
  * @brief      bs_test_answer_to_connection()
  *
  * @details    Return a test response to any query
@@ -400,7 +657,7 @@ main(int argc, char** argv)
  *                                               can be set with the #MHD_OPTION_NOTIFY_COMPLETED).
  *                                               Initially, `*con_cls` will be NULL.
  *
- * @return     (char*) fully-qualified domain name
+ * @return     (int) response success or failure
  */
 
 /* 
@@ -410,6 +667,8 @@ main(int argc, char** argv)
 */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 static int
 bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
 {
@@ -423,6 +682,7 @@ bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const
 
     return ret;
 }
+#pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 
 /**
@@ -2228,7 +2488,7 @@ bs_init_globals()
     bs_globals.store_query_kind = kQueryKindDefaultKind;
     bs_globals.store_query_daemon_flag = kFalse;
     bs_globals.store_query_daemon_port = -1;
-    bs_globals.store_query_daemon_hostname = NULL;
+    bs_globals.store_query_daemon_hostname = bs_get_host_fqdn();
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
@@ -2826,6 +3086,7 @@ bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* ch
             start_b,
             stop_b,
             score);
+    fflush(os);
 }
 
 /**

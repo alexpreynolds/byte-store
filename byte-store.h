@@ -47,6 +47,7 @@ extern "C" {
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
+
 #define HOSTNAME_MAX_LEN 8192
 
 #define swap(x,y) do                                                    \
@@ -423,6 +424,8 @@ extern "C" {
         uint32_t permutation_significance_level;
         boolean_t zero_sd_warning_issued;
         score_t* score_ptr;
+        lookup_t* lookup_ptr;
+        sqr_store_t* sqr_store_ptr;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -547,7 +550,13 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00};
     
+    static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection);
+    static int                   bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Connection* connection);
+    static ssize_t               bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
+    static void                  bs_qd_buffer_callback(void* cls);
+    static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection);
     static int                   bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static int                   bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
     char*                        bs_get_host_fqdn();
     inline score_t               bs_truncate_score_to_precision(score_t d, int prec);
     inline byte_t                bs_encode_score_to_byte(score_t d);
@@ -642,6 +651,38 @@ extern "C" {
     void                         bs_delete_sqr_store(sqr_store_t** s);
     store_buf_node_t*            bs_init_store_buf_node(byte_t uc);
     void                         bs_insert_store_buf_node(store_buf_node_t* n, store_buf_node_t* i);
+
+    /* daemon-related definitions */
+
+    #define MAIN_PAGE "<html><head><title>Welcome to byte-store!</title></head><body>Welcome to byte-store!</body></html>"
+    #define METHOD_ERROR "<html><head><title>Illegal request</title></head><body>Go away.</body></html>"
+    #define NOT_FOUND_ERROR "<html><head><title>Not found</title></head><body>Go away.</body></html>"
+
+    typedef int (*RequestPageHandler)(const void *cls, const char *mime, struct MHD_Connection *connection);
+
+    typedef struct request_page {
+        const char *url;
+        const char *mime;
+        RequestPageHandler handler;
+        const void *handler_cls;
+    } request_page_t;
+
+    typedef struct qd_io_ptr {
+        char* write_fn;
+        FILE* write_fp;
+        FILE* read_fp;
+    } qd_io_ptr_t;
+
+    static request_page_t request_pages[] = {
+        { "/",       "text/html",   &bs_qd_request_generic_information, MAIN_PAGE },
+        { "/random", "text/plain",  &bs_qd_request_random_element,      NULL },
+        {  NULL,      NULL,         &bs_qd_request_not_found,           NULL } /* 404 */
+    };
+
+    extern const int32_t kElementMaxLength;
+    const int32_t kElementMaxLength = 127 + 1 + 12 + 1 + 12 + 1 + 3 + 1; /* chr + tab + coord + tab + coord + tab + score + nul */
+    extern const int32_t kRequestURIMaxLength;
+    const int32_t kRequestURIMaxLength = 8192;
     
 #ifdef __cplusplus
 } /* extern "C" */
