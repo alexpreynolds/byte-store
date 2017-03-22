@@ -1,6 +1,6 @@
 # byte-store
 
-[![Build Status](https://travis-ci.org/alexpreynolds/byte-store.svg)](https://travis-ci.org/alexpreynolds/byte-store)
+[![Build Status](https://travis-ci.org/alexpreynolds/byte-store.svg?branch=master)](https://travis-ci.org/alexpreynolds/byte-store)
 
 This utility generates and queries strictly upper triangular (SUT) and square matrices storing one-byte encoded correlation score values between -1.0 and +1.0. A so-called "byte-store" file is a string of bytes in SUT or square matrix form. Three encoding strategies are offered, a "full" strategy that encodes scores in 0.01 increments, a "mid-quarter-zero" strategy that encodes scores within the interval (-0.25, +0.25) as the +0.00 byte-equivalent, and a "custom" strategy, which allows specification of custom minimum and maximum bounds for encoding zero-score bytes.
 
