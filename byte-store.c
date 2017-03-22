@@ -418,15 +418,15 @@ bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char
     unsigned int i;
     int ret = MHD_NO;
 
-    if ((0 == strcmp (method, MHD_HTTP_METHOD_GET)) || (0 == strcmp (method, MHD_HTTP_METHOD_HEAD))) {
+    if ((strcmp(method, MHD_HTTP_METHOD_GET) == 0) || (strcmp(method, MHD_HTTP_METHOD_HEAD) == 0)) {
         /* find out which page to serve */
-        i=0;
-        while ((request_pages[i].url != NULL) && (0 != strcmp(request_pages[i].url, url))) {
+        i = 0;
+        while ((request_pages[i].url != NULL) && (strcmp(request_pages[i].url, url) != 0)) {
             i++;
         }
         ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection);
         if (ret != MHD_YES) {
-            fprintf (stderr, "Failed to create page for `%s'\n", url);
+            fprintf (stderr, "Error: Failed to create page for `%s'\n", url);
         }
         return ret;
     }
@@ -438,6 +438,92 @@ bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char
     return ret;
 }
 #pragma GCC diagnostic pop
+
+/**
+ * @brief      bs_qd_debug_kv(cls, kind, key, value)
+ *
+ * @details    Writes key-value pairs to stderr for specified kind 
+ *             of type MHD_ValueKind. Useful for debugging.
+ *
+ * @param      cls    (void*) data passed along with handler
+ *             kind   (MHD_ValueKind) variety of key-value pair (see libmicrohttpd documentation)
+ *             key    (char*) key
+ *             value  (char*) value for key
+ *
+ * @return     (int) success or failure
+ */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+static int
+bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value)
+{
+    fprintf(stderr, "key [%s] -> value [%s]\n", key, value);
+    return MHD_YES;
+}
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
+
+/**
+ * @brief      bs_qd_populate_filter_parameters(cls, kind, key, value)
+ *
+ * @details    Writes matching key-value pairs to filter parameters
+ *             and sets flags for later input validation and 
+ *             processing.
+ *
+ * @param      cls    (void*) data passed along with handler
+ *             kind   (MHD_ValueKind) variety of key-value pair (here: MHD_GET_ARGUMENT_KIND)
+ *             key    (char*) key
+ *             value  (char*) value for key
+ *
+ * @return     (int) success or failure
+ */
+
+static int
+bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value)
+{
+    if (kind != MHD_GET_ARGUMENT_KIND) { 
+        return MHD_NO;
+    }
+    qd_filter_param_t* params = (qd_filter_param_t*) cls;
+    if (key && value) {
+        if (strcmp(key, "filter-type") == 0) {
+            params->type = kScoreFilterUndefined;
+            if (strcmp(value, "greater-than-inclusive") == 0)      { params->type = kScoreFilterGtEq; }
+            else if (strcmp(value, "greater-than-exclusive") == 0) { params->type = kScoreFilterGt; }
+            else if (strcmp(value, "less-than-inclusive") == 0)    { params->type = kScoreFilterLtEq; }
+            else if (strcmp(value, "less-than-exclusive") == 0)    { params->type = kScoreFilterLt; }
+            else if (strcmp(value, "within-exclusive") == 0)       { params->type = kScoreFilterRangedWithinExclusive; }
+            else if (strcmp(value, "within-inclusive") == 0)       { params->type = kScoreFilterRangedWithinInclusive; }
+            else if (strcmp(value, "outside-exclusive") == 0)      { params->type = kScoreFilterRangedOutsideExclusive; }
+            else if (strcmp(value, "outside-inclusive") == 0)      { params->type = kScoreFilterRangedOutsideInclusive; }
+        }
+        if (strcmp(key, "filter-value") == 0) {
+            /* two forms of filter values: "float", or "float:float" */
+            char* cptr = NULL;
+            cptr = strchr(value, ':');
+            if (cptr) {
+                /* lower bound to upper bound */
+                if (sscanf(value, "%f:%f", &params->lower_bound, &params->upper_bound) != 2) {
+                    params->bounds_set = kFalse;
+                    return MHD_NO;
+                }
+                params->bounds_set = kTrue;
+            }
+            else {
+                /* lone bound */
+                if (sscanf(value, "%f", &params->lone_bound) != 1) {
+                    params->bounds_set = kFalse;
+                    return MHD_NO;
+                }
+                params->bounds_set = kTrue;
+            }
+        }
+    }
+    return MHD_YES;
+}
 
 static int
 bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection)
@@ -465,7 +551,21 @@ static int
 bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Connection* connection)
 {
     int ret;
-    struct MHD_Response *response = NULL;
+    struct MHD_Response* response = NULL;
+    /* read filter parameters from query string, if specified */
+    qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
+    filter_parameters->type = kScoreFilterNone;
+    filter_parameters->bounds_set = kFalse;
+    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
+    /* if parameters were not specified correctly, return appropriate error message */
+    if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
+        free(filter_parameters), filter_parameters = NULL;
+        response = MHD_create_response_from_buffer(strlen(PARAMETERS_NOT_FOUND_ERROR), (void*) PARAMETERS_NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
+        ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, NULL);
+        MHD_destroy_response(response);
+        return ret;
+    }
     /* create temporary file and write a random element to it */
     char write_np[] = "/tmp/bs_XXXXXX";
     int write_fd = mkstemp(write_np);
@@ -479,14 +579,33 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
     /* generate random row index */
     bs_globals.store_query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
     bs_globals.store_query_idx_end = bs_globals.store_query_idx_start;
-    /* write a random row to the named pipe */
+    /* write a random row to the temporary file */
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
-        if (bs_globals.store_filter == kScoreFilterNone)
-            bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp);
-        else
-            bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
+        switch (filter_parameters->type) {
+            case kScoreFilterNone:
+                bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp);
+                break;
+            case kScoreFilterGtEq:
+            case kScoreFilterGt:
+            case kScoreFilterEq:
+            case kScoreFilterLtEq:
+            case kScoreFilterLt:
+                bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, filter_parameters->lone_bound, 0, 0, filter_parameters->type);
+                break;
+            case kScoreFilterRangedWithinExclusive:
+            case kScoreFilterRangedWithinInclusive:
+            case kScoreFilterRangedOutsideExclusive:
+            case kScoreFilterRangedOutsideInclusive:
+                bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type);
+                break;
+            case kScoreFilterUndefined:
+                fprintf(stderr, "Error: You should never see this error (qd_A)\n");
+                return MHD_NO;
+            default:
+                break;
+        }
         break;
     case kStoreRandomBufferedSquareMatrix:
     case kStoreRandomSquareMatrix:
@@ -513,6 +632,8 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
         MHD_destroy_response(response);
         return ret;
     }
+    /* clean up parameters */
+    free(filter_parameters), filter_parameters = NULL;
     /* read from temporary file */
     FILE* read_fp = NULL;
     read_fp = fopen(write_np, "r");
@@ -523,9 +644,10 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
     }
     struct stat read_buf;
     if ((fstat(read_fd, &read_buf) != 0) || (!S_ISREG(read_buf.st_mode))) {
-        /* not a regular file, refuse to serve */
-        fclose(read_fp);
-        read_fp = NULL;
+        /* not a regular file, cleanup */
+        fclose(read_fp), read_fp = NULL;
+        fclose(write_fp), write_fp = NULL;
+        unlink(write_np);
     }
     if (!read_fp) {
         response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
@@ -536,8 +658,8 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
     }
     else {
         long sz = sysconf(_SC_PAGESIZE);
-        qd_io_ptr_t* io = NULL;
-        io = malloc(sizeof(qd_io_ptr_t));
+        qd_io_t* io = NULL;
+        io = malloc(sizeof(qd_io_t));
         io->write_fn = NULL;
         io->write_fn = malloc(strlen(write_np) + 1);
         if (!io->write_fn) {
@@ -577,7 +699,7 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
 static ssize_t
 bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
 {
-    qd_io_ptr_t* io = (qd_io_ptr_t *) cls;
+    qd_io_t* io = (qd_io_t *) cls;
     FILE *read_fp = io->read_fp;
     (void) fseek(read_fp, pos, SEEK_SET);
     return fread(buf, 1, max, read_fp);
@@ -597,7 +719,7 @@ bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
 static void
 bs_qd_buffer_callback(void* cls)
 {
-    qd_io_ptr_t* io = (qd_io_ptr_t *) cls;
+    qd_io_t* io = (qd_io_t *) cls;
     fclose(io->read_fp), io->read_fp = NULL;
     fclose(io->write_fp), io->write_fp = NULL;
     int err = unlink(io->write_fn);

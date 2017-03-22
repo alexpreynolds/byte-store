@@ -552,6 +552,8 @@ extern "C" {
     
     static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection);
     static int                   bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Connection* connection);
+    static int                   bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
+    static int                   bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static ssize_t               bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
     static void                  bs_qd_buffer_callback(void* cls);
     static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection);
@@ -656,7 +658,9 @@ extern "C" {
 
     #define MAIN_PAGE "<html><head><title>Welcome to byte-store!</title></head><body>Welcome to byte-store!</body></html>"
     #define METHOD_ERROR "<html><head><title>Illegal request</title></head><body>Go away.</body></html>"
-    #define NOT_FOUND_ERROR "<html><head><title>Not found</title></head><body>Go away.</body></html>"
+    #define NOT_FOUND_ERROR "<html><head><title>Not found</title></head><body>Try again.</body></html>"
+    #define NOT_ENOUGH_MEMORY_ERROR "<html><head><title>Not enough memory</title></head><body>Come back later.</body></html>"
+    #define PARAMETERS_NOT_FOUND_ERROR "<html><head><title>Missing parameters</title></head><body>Check arguments.</body></html>"
 
     typedef int (*RequestPageHandler)(const void *cls, const char *mime, struct MHD_Connection *connection);
 
@@ -667,11 +671,19 @@ extern "C" {
         const void *handler_cls;
     } request_page_t;
 
-    typedef struct qd_io_ptr {
+    typedef struct qd_io {
         char* write_fn;
         FILE* write_fp;
         FILE* read_fp;
-    } qd_io_ptr_t;
+    } qd_io_t;
+
+    typedef struct qd_filter_param {
+        score_filter_t type;
+        score_t lone_bound;
+        score_t lower_bound;
+        score_t upper_bound;
+        boolean_t bounds_set;
+    } qd_filter_param_t;
 
     static request_page_t request_pages[] = {
         { "/",       "text/html",   &bs_qd_request_generic_information, MAIN_PAGE },
