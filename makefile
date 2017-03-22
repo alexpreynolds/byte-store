@@ -40,7 +40,7 @@ endif
 ifeq ($(UNAME), Linux)
 	CFLAGS += -pthread -static -static-libgcc
 	CDFLAGS += -pthread -static -static-libgcc
-	LIBS += -rt
+	LIBS += -lrt
 endif
 
 all: byte-store
