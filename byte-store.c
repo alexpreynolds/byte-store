@@ -491,14 +491,15 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
     if (key && value) {
         if (strcmp(key, "filter-type") == 0) {
             params->type = kScoreFilterUndefined;
-            if (strcmp(value, "greater-than-inclusive") == 0)      { params->type = kScoreFilterGtEq; }
-            else if (strcmp(value, "greater-than-exclusive") == 0) { params->type = kScoreFilterGt; }
-            else if (strcmp(value, "less-than-inclusive") == 0)    { params->type = kScoreFilterLtEq; }
-            else if (strcmp(value, "less-than-exclusive") == 0)    { params->type = kScoreFilterLt; }
-            else if (strcmp(value, "within-exclusive") == 0)       { params->type = kScoreFilterRangedWithinExclusive; }
-            else if (strcmp(value, "within-inclusive") == 0)       { params->type = kScoreFilterRangedWithinInclusive; }
-            else if (strcmp(value, "outside-exclusive") == 0)      { params->type = kScoreFilterRangedOutsideExclusive; }
-            else if (strcmp(value, "outside-inclusive") == 0)      { params->type = kScoreFilterRangedOutsideInclusive; }
+            if (strcmp(value, kScoreFilterGtEqStr) == 0)                        { params->type = kScoreFilterGtEq; }
+            else if (strcmp(value, kScoreFilterGtStr) == 0)                     { params->type = kScoreFilterGt; }
+            else if (strcmp(value, kScoreFilterEqStr) == 0)                     { params->type = kScoreFilterEq; }
+            else if (strcmp(value, kScoreFilterLtEqStr) == 0)                   { params->type = kScoreFilterLtEq; }
+            else if (strcmp(value, kScoreFilterLtStr) == 0)                     { params->type = kScoreFilterLt; }
+            else if (strcmp(value, kScoreFilterRangedWithinExclusiveStr) == 0)  { params->type = kScoreFilterRangedWithinExclusive; }
+            else if (strcmp(value, kScoreFilterRangedWithinInclusiveStr) == 0)  { params->type = kScoreFilterRangedWithinInclusive; }
+            else if (strcmp(value, kScoreFilterRangedOutsideExclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideExclusive; }
+            else if (strcmp(value, kScoreFilterRangedOutsideInclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideInclusive; }
         }
         if (strcmp(key, "filter-value") == 0) {
             /* two forms of filter values: "float", or "float:float" */

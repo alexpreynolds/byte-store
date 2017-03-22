@@ -378,8 +378,26 @@ extern "C" {
     } score_filter_t;
 
     extern const score_filter_t kScoreDefaultFilter;
-
     const score_filter_t kScoreDefaultFilter = kScoreFilterNone;
+
+    extern const char* kScoreFilterGtEqStr;
+    extern const char* kScoreFilterGtStr;
+    extern const char* kScoreFilterEqStr;
+    extern const char* kScoreFilterLtEqStr;
+    extern const char* kScoreFilterLtStr;
+    extern const char* kScoreFilterRangedWithinExclusiveStr;
+    extern const char* kScoreFilterRangedWithinInclusiveStr;
+    extern const char* kScoreFilterRangedOutsideExclusiveStr;
+    extern const char* kScoreFilterRangedOutsideInclusiveStr;
+    const char* kScoreFilterGtEqStr = "greater-than-inclusive";
+    const char* kScoreFilterGtStr = "greater-than-exclusive";
+    const char* kScoreFilterEqStr = "equal";
+    const char* kScoreFilterLtEqStr = "less-than-inclusive";
+    const char* kScoreFilterLtStr = "less-than-exclusive";
+    const char* kScoreFilterRangedWithinExclusiveStr = "within-exclusive";
+    const char* kScoreFilterRangedWithinInclusiveStr = "within-inclusive";
+    const char* kScoreFilterRangedOutsideExclusiveStr = "outside-exclusive";
+    const char* kScoreFilterRangedOutsideInclusiveStr = "outside-inclusive";
 
     static struct bs_globals_t {
         boolean_t store_create_flag;
@@ -671,6 +689,12 @@ extern "C" {
         const void *handler_cls;
     } request_page_t;
 
+    static request_page_t request_pages[] = {
+        { "/",       "text/html",   &bs_qd_request_generic_information, MAIN_PAGE },
+        { "/random", "text/plain",  &bs_qd_request_random_element,      NULL },
+        {  NULL,      NULL,         &bs_qd_request_not_found,           NULL } /* 404 */
+    };
+
     typedef struct qd_io {
         char* write_fn;
         FILE* write_fp;
@@ -684,12 +708,6 @@ extern "C" {
         score_t upper_bound;
         boolean_t bounds_set;
     } qd_filter_param_t;
-
-    static request_page_t request_pages[] = {
-        { "/",       "text/html",   &bs_qd_request_generic_information, MAIN_PAGE },
-        { "/random", "text/plain",  &bs_qd_request_random_element,      NULL },
-        {  NULL,      NULL,         &bs_qd_request_not_found,           NULL } /* 404 */
-    };
 
     extern const int32_t kElementMaxLength;
     const int32_t kElementMaxLength = 127 + 1 + 12 + 1 + 12 + 1 + 3 + 1; /* chr + tab + coord + tab + coord + tab + score + nul */
