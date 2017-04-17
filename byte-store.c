@@ -1116,9 +1116,12 @@ bs_get_host_fqdn()
             fqdn = malloc(strlen(hn) + 1);
             memcpy(fqdn, hn, strlen(hn) + 1);
         }
+        if (info) {
+            freeaddrinfo(info);
+        }
+        return fqdn;
     }
-    freeaddrinfo(info);
-    return fqdn;
+    return NULL;
 }
 
 /**
