@@ -331,6 +331,9 @@ main(int argc, char** argv)
                                       NULL,
                                       &bs_answer_to_connection,
                                       NULL, 
+                                      MHD_OPTION_NOTIFY_COMPLETED, 
+                                      &bs_request_completed, 
+                                      NULL,
                                       MHD_OPTION_END);
             if (!daemon) {
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
@@ -366,6 +369,71 @@ main(int argc, char** argv)
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static void
+bs_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe)
+{
+    connection_info_t *con_info = *con_cls;
+    if (con_info) {
+        fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] ended\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
+    }
+    else {
+        fprintf(stdout, "Debug: Requested completed without connection information!\n");
+    }
+    switch(toe) {
+        case MHD_REQUEST_TERMINATED_COMPLETED_OK:
+            fprintf(stdout, "Debug [%" PRIu64 "]: Request completed OK!\n", con_info->timestamp);
+            break;
+        case MHD_REQUEST_TERMINATED_WITH_ERROR:
+            fprintf(stdout, "Debug [%" PRIu64 "]: Request completed with an error!\n", con_info->timestamp);   
+            break;
+        case MHD_REQUEST_TERMINATED_TIMEOUT_REACHED:
+            fprintf(stdout, "Debug [%" PRIu64 "]: Request timed out!\n", con_info->timestamp);
+            break;
+        case MHD_REQUEST_TERMINATED_DAEMON_SHUTDOWN:
+            fprintf(stdout, "Debug [%" PRIu64 "]: Request session closed due to server shutdown!\n", con_info->timestamp);
+            break;
+        default:
+            break;
+    }
+    fflush(stdout);
+    if (con_info) {
+        if (con_info->request_type) {
+            free(con_info->request_type);
+        }
+        free(con_info);
+        *con_cls = NULL;
+    }
+}
+#pragma GCC diagnostic pop
+
+static const char*
+bs_qd_connection_method_to_str(connection_method_t t)
+{
+    switch(t) {
+        case kConnectionMethodGET:
+            return "GET";
+        case kConnectionMethodHEAD:
+            return "HEAD";
+        case kConnectionMethodPOST:
+            return "POST";
+        case kConnectionMethodUndefined:
+            return "Undefined connection method!";
+        default:
+            break;
+    }
+    return NULL;
+}
+
+static uint64_t 
+bs_qd_timestamp() 
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * (uint64_t)1000000 + tv.tv_usec;
 }
 
 /**
@@ -417,6 +485,24 @@ bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char
     struct MHD_Response *response;
     unsigned int i;
     int ret = MHD_NO;
+    connection_info_t* con_info = NULL;
+
+    /* instantiate and populate connection information struct members */
+    if (! *con_cls) {
+        con_info = malloc(sizeof(connection_info_t));
+        if (!con_info) {
+            return MHD_NO;
+        }
+        con_info->timestamp = bs_qd_timestamp();
+        con_info->request_type = NULL;
+        if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
+            con_info->method = kConnectionMethodGET;
+        }
+        else if (strcmp(method, MHD_HTTP_METHOD_HEAD) == 0) {
+            con_info->method = kConnectionMethodHEAD;
+        }
+        *con_cls = (void*) con_info;
+    }
 
     if ((strcmp(method, MHD_HTTP_METHOD_GET) == 0) || (strcmp(method, MHD_HTTP_METHOD_HEAD) == 0)) {
         /* find out which page to serve */
@@ -424,9 +510,9 @@ bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char
         while ((request_pages[i].url != NULL) && (strcmp(request_pages[i].url, url) != 0)) {
             i++;
         }
-        ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection);
+        ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info);
         if (ret != MHD_YES) {
-            fprintf (stderr, "Error: Failed to create page for `%s'\n", url);
+            fprintf(stderr, "Error: Failed to create page for `%s'\n", url);
         }
         return ret;
     }
@@ -526,8 +612,10 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
     return MHD_YES;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection)
+bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
 {
     int ret;
     const char *generic_information = cls;
@@ -538,44 +626,70 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
         return MHD_NO; /* oops */
     }
     memcpy(reply, generic_information, strlen(generic_information) + 1);
+    
+    /* update connection information */
+    const char *request_descriptor = "Generic information";
+    if (con_info->request_type) {
+        free(con_info->request_type);
+    }
+    con_info->request_type = malloc(strlen(request_descriptor) + 1);
+    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+
     /* return static document */
     response = MHD_create_response_from_buffer(strlen(reply), (void *)reply, MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response (response);
+
     return ret;
 }
+#pragma GCC diagnostic pop
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Connection* connection)
+bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
 {
     int ret;
     struct MHD_Response* response = NULL;
+
+    /* update connection information */
+    const char *request_descriptor = "Request random element (via temporary file)";
+    if (con_info->request_type) {
+        free(con_info->request_type);
+    }
+    con_info->request_type = malloc(strlen(request_descriptor) + 1);
+    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+    fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
+
     /* read filter parameters from query string, if specified */
     qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
+
     /* if parameters were not specified correctly, return appropriate error message */
     if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
         free(filter_parameters), filter_parameters = NULL;
-        return bs_qd_parameters_not_found(cls, mime, connection);
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info);
     }
+
     /* create temporary file and write a random element to it */
     char write_fn[] = "/tmp/bs_XXXXXX";
     int write_fd = mkstemp(write_fn);
     FILE* write_fp = fdopen(write_fd, "w");
-    fprintf(stderr, "Debug: Writing random element to temporary file [%s]\n", write_fn);
+    fprintf(stderr, "Debug [%" PRIu64 "]: Writing random element to temporary file [%s]\n", con_info->timestamp, write_fn);
+
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
         mt19937_seed_rng(bs_globals.rng_seed_value);
     else
         mt19937_seed_rng(time(NULL));
+
     /* generate random row index */
     bs_globals.store_query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
     bs_globals.store_query_idx_end = bs_globals.store_query_idx_start;
+
     /* write a random row to the temporary file */
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
@@ -623,7 +737,7 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
         fclose(write_fp), write_fp = NULL;
         unlink(write_fn);
         /* no data found for specified store type */
-        return bs_qd_request_not_found(cls, mime, connection);
+        return bs_qd_request_not_found(cls, mime, connection, con_info);
     }
     /* clean up parameters */
     free(filter_parameters), filter_parameters = NULL;
@@ -643,12 +757,13 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
         unlink(write_fn);
     }
     if (!read_fp) {
-        return bs_qd_request_not_found(cls, mime, connection);
+        return bs_qd_request_not_found(cls, mime, connection, con_info);
     }
     else {
         long sz = sysconf(_SC_PAGESIZE);
         qd_io_t* io = NULL;
         io = malloc(sizeof(qd_io_t));
+        io->con_info = con_info;
         io->write_fn = NULL;
         io->write_fn = malloc(strlen(write_fn) + 1);
         if (!io->write_fn) {
@@ -676,10 +791,19 @@ bs_qd_request_random_element(const void* cls, const char* mime, struct MHD_Conne
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection)
+bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
 {
     int ret;
     struct MHD_Response* response = NULL;
+
+    /* update connection information */
+    const char *request_descriptor = "Request random element (via in-heap buffer)";
+    if (con_info->request_type) {
+        free(con_info->request_type);
+    }
+    con_info->request_type = malloc(strlen(request_descriptor) + 1);
+    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+    fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
 
     /* read filter parameters from query string, if specified */
     qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
@@ -690,7 +814,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     /* if parameters were not specified correctly, return appropriate error message */
     if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
         free(filter_parameters), filter_parameters = NULL;
-        return bs_qd_parameters_not_found(cls, mime, connection);
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info);
     }
     
     /* seed RNG */
@@ -750,7 +874,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
     case kStoreUndefined:
         /* no data found for specified store type */
-        return bs_qd_request_not_found(cls, mime, connection);
+        return bs_qd_request_not_found(cls, mime, connection, con_info);
     }
 
     /* clean up parameters */
@@ -814,7 +938,7 @@ bs_qd_buffer_callback(void* cls)
     if (err == -1) {
         fprintf(stderr, "Error: Could not delete temporary buffer! [%s]\n", strerror(errno));
     }
-    fprintf(stderr, "Debug: Deleted file [%s]\n", io->write_fn);
+    fprintf(stderr, "Debug [%" PRIu64 "]: Deleted file [%s]\n", io->con_info->timestamp, io->write_fn);
     free(io->write_fn), io->write_fn = NULL;
     free(io), io = NULL;
 }
@@ -822,10 +946,19 @@ bs_qd_buffer_callback(void* cls)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection)
+bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
 {
     int ret;
     struct MHD_Response *response;
+
+    /* update connection information */
+    const char *request_descriptor = "Request type not found";
+    if (con_info->request_type) {
+        free(con_info->request_type);
+    }
+    con_info->request_type = malloc(strlen(request_descriptor) + 1);
+    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+
     response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
@@ -837,10 +970,19 @@ bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection)
+bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
 {
     int ret;
     struct MHD_Response *response;
+    
+    /* update connection information */
+    const char *request_descriptor = "Parameters not found";
+    if (con_info->request_type) {
+        free(con_info->request_type);
+    }
+    con_info->request_type = malloc(strlen(request_descriptor) + 1);
+    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+
     response = MHD_create_response_from_buffer(strlen(PARAMETERS_NOT_FOUND_ERROR), (void*) PARAMETERS_NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, NULL);
