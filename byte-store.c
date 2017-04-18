@@ -341,10 +341,37 @@ main(int argc, char** argv)
             }
             fprintf(stdout, "Initialized query httpd...\n");
             if (bs_globals.store_query_daemon_hostname) {
-                fprintf(stdout, "Test requests can be made via: \"wget -qSO- http://%s:%d\" or similar\n", bs_globals.store_query_daemon_hostname, bs_globals.store_query_daemon_port);
+                fprintf(stdout, "Examples of requests include:\n"\
+                    "\t'$ curl -i -X GET \"http://%s:%d\"'\n" \
+                    "Or:\n"\
+                    "\t'$ curl -i -X GET \"http://%s:%d/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
+                    "Or:\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://%s:%d/elements\"'\n"\
+                    "Or:\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://%s:%d/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "Etc.\n", 
+                    bs_globals.store_query_daemon_hostname, 
+                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname, 
+                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname, 
+                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname, 
+                    bs_globals.store_query_daemon_port);
             }
-            fprintf(stdout, "Press <enter> to stop the server...\n");
-            getchar(); /* wait for newline */
+            else {
+                fprintf(stdout, "Examples of requests include:\n"\
+                    "\t'$ curl -i -X GET \"http://hostname:port\"'\n"\
+                    "Or:\n"\
+                    "\t'$ curl -i -X GET \"http://hostname:port/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
+                    "Or:\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://hostname:port/elements\"'\n"\
+                    "Or:\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "Etc.\n");
+            }
+            fprintf(stdout, "Press <Return> to stop the server...\n");
+            getchar(); /* wait for it... */
             fprintf(stdout, "Closing http daemon...\n");
             MHD_stop_daemon(daemon);
         }
@@ -376,34 +403,55 @@ main(int argc, char** argv)
 static void
 bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe)
 {
+    uint64_t timestamp;
     bs_qd_connection_info_t *con_info = *con_cls;
     if (con_info) {
         fprintf(stdout, "Request [%" PRIu64 "]: [%s] => [%s] ended\n", con_info->timestamp, bs_qd_connection_method_type_to_str(con_info->method), bs_qd_request_type_to_str(con_info->request_type));
     }
     else {
         fprintf(stdout, "Request: Requested completed without connection information!\n");
+        return;
     }
+    
+    /* clean up connection information struct */
+    if (con_info) {
+        timestamp = con_info->timestamp;
+        if (con_info->post_processor) {
+            MHD_destroy_post_processor(con_info->post_processor);
+        }
+        if (con_info->upload_fp) {
+            fclose(con_info->upload_fp);
+        }
+        if (con_info->upload_filename) {
+            int err = unlink(con_info->upload_filename);
+            if (err == -1) {
+                fprintf(stderr, "Error: Could not delete temporary upload file [%s]! Error: [%s]\n", con_info->upload_filename, strerror(errno));
+            }
+            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary upload file [%s]\n", con_info->timestamp, con_info->upload_filename);
+            free(con_info->upload_filename);
+        }
+        free(con_info);
+        *con_cls = NULL;
+    }
+
+    /* print final status */
     switch(toe) {
         case MHD_REQUEST_TERMINATED_COMPLETED_OK:
-            fprintf(stdout, "Request [%" PRIu64 "]: Request completed OK!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request completed OK!\n", timestamp);
             break;
         case MHD_REQUEST_TERMINATED_WITH_ERROR:
-            fprintf(stdout, "Request [%" PRIu64 "]: Request completed with an error!\n", con_info->timestamp);   
+            fprintf(stdout, "Request [%" PRIu64 "]: Request completed with an error!\n", timestamp);   
             break;
         case MHD_REQUEST_TERMINATED_TIMEOUT_REACHED:
-            fprintf(stdout, "Request [%" PRIu64 "]: Request timed out!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request timed out!\n", timestamp);
             break;
         case MHD_REQUEST_TERMINATED_DAEMON_SHUTDOWN:
-            fprintf(stdout, "Request [%" PRIu64 "]: Request session closed due to server shutdown!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request session closed due to server shutdown!\n", timestamp);
             break;
         default:
             break;
     }
     fflush(stdout);
-    if (con_info) {
-        free(con_info);
-        *con_cls = NULL;
-    }
 }
 #pragma GCC diagnostic pop
 
@@ -445,6 +493,8 @@ bs_qd_request_type_to_str(bs_qd_request_t t)
             return "Elements";
         case kBSQDRequestUndefined:
             return "Undefined";
+        case kBSQDRequestMalformed:
+            return "Malformed";    
         default:
             break;
     }
@@ -510,7 +560,13 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
     int ret = MHD_NO;
     bs_qd_connection_info_t* con_info = NULL;
 
+    i = 0;
+    while ((request_pages[i].url != NULL) && (strcmp(request_pages[i].url, url) != 0)) {
+        i++;
+    }
+
     /* instantiate and populate connection information struct members */
+    /* launch necessary handler */
     if (! *con_cls) {
         con_info = malloc(sizeof(bs_qd_connection_info_t));
         if (!con_info) {
@@ -527,33 +583,93 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
         else if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
             con_info->method = kBSQDConnectionMethodPOST;
         }
+        con_info->post_processor = NULL;
+        con_info->upload_fp = NULL;
+        con_info->upload_filename = NULL;
         *con_cls = (void*) con_info;
-    }
 
-    if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD) || (con_info->method == kBSQDConnectionMethodPOST)) {
-        /* find out which page to serve */
-        i = 0;
-        while ((request_pages[i].url != NULL) && (strcmp(request_pages[i].url, url) != 0)) {
-            i++;
-        }
         if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD)) {
             ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info, NULL, NULL);
         }
         else if (con_info->method == kBSQDConnectionMethodPOST) {
-            ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+            /* allowed POST requests */
+            if (strcmp(request_pages[i].url, kBSQDURLElements) == 0) {
+                con_info->request_type = kBSQDRequestElements;
+                con_info->post_processor = MHD_create_post_processor(connection, BS_QD_POST_BUFFER_SIZE, &bs_qd_iterate_elements_post, con_info);
+                ret = MHD_YES;
+            }
         }
-        
         if (ret != MHD_YES) {
-            fprintf(stderr, "Error: Failed to create page for `%s'\n", url);
+            fprintf(stderr, "Error: Failed to handle the following URL `%s` and method `%s`\n", url, bs_qd_connection_method_type_to_str(con_info->method));
+            return bs_qd_request_malformed(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
         }
         return ret;
     }
+    else {
+        con_info = (bs_qd_connection_info_t*) *con_cls;
+        if ((con_info->method == kBSQDConnectionMethodPOST) && (strcmp(request_pages[i].url, kBSQDURLElements) == 0)) {
+            if (*upload_data_size != 0) {
+                if (MHD_post_process(con_info->post_processor, upload_data, *upload_data_size) != MHD_YES) {
+                    return bs_qd_request_malformed(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                }
+                *upload_data_size = 0;
+                return MHD_YES;
+            }
+            else {
+                /* now it is safe to open and process file before finishing request */ 
+                return bs_qd_request_elements_via_buffer(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+            }
+        }
+    }
+
     /* unsupported HTTP method */
     response = MHD_create_response_from_buffer(strlen (METHOD_ERROR), (void *) METHOD_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_NOT_ACCEPTABLE, response);
     MHD_destroy_response(response);
 
     return ret;
+}
+#pragma GCC diagnostic pop
+
+/* POST handler */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const char *key, const char *filename, const char *content_type, const char *transfer_encoding, const char *data, uint64_t off, size_t size)
+{
+    bs_qd_connection_info_t* con_info = (bs_qd_connection_info_t*) coninfo_cls;
+
+    if (strcmp(key, "file") != 0) {
+        return MHD_NO;
+    }
+
+    if (!con_info->upload_fp) {
+        /* generate temporary file */
+        char write_fn[] = "/tmp/bs_XXXXXX";
+        int write_fd = mkstemp(write_fn);
+        con_info->upload_fp = fdopen(write_fd, "ab");
+        if (!con_info->upload_fp) {
+            return MHD_NO;
+        }
+        con_info->upload_filename = NULL;
+        con_info->upload_filename = malloc(strlen(write_fn) + 1);
+        if (!con_info->upload_filename) {
+            fprintf(stdout, "Request [%" PRIu64 "]: Upload filename could not be allocated to memory\n", con_info->timestamp);
+            return MHD_NO;
+        }
+        memcpy(con_info->upload_filename, write_fn, strlen(write_fn) + 1);
+        fprintf(stdout, "Request [%" PRIu64 "]: Writing to [%s]\n", con_info->timestamp, con_info->upload_filename);
+    }
+
+    if (size > 0) {
+        //fprintf(stdout, "Request [%" PRIu64 "]: Writing [%zu] bytes to [%s]\n", con_info->timestamp, size, con_info->upload_filename);
+        if (!fwrite(data, sizeof(char), size, con_info->upload_fp)) {
+            return MHD_NO;
+        }
+    }
+
+    return MHD_YES;
 }
 #pragma GCC diagnostic pop
 
@@ -679,7 +795,30 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
 static int
 bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
-    int ret = MHD_YES; 
+    struct MHD_Response *response;
+    int ret = MHD_NO;
+
+    /* read filter parameters from query string, if specified */
+    bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
+    filter_parameters->type = kScoreFilterNone;
+    filter_parameters->bounds_set = kFalse;
+    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
+
+    /* if parameters were not specified correctly, return appropriate error message */
+    if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
+        free(filter_parameters), filter_parameters = NULL;
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* process the uploaded file to get the element ranges of interest, and then write to output */
+    /* ... */
+
+    /* this is a generic upload-was-fine message that can be removed later */
+    const char *page = "<html><body>Upload complete!</body></html>";
+    response = MHD_create_response_from_buffer(strlen(page), (void *)page, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    MHD_destroy_response(response);
+
     return ret;
 }
 #pragma GCC diagnostic pop
@@ -811,7 +950,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         memcpy(io->write_fn, write_fn, strlen(write_fn) + 1);
         io->write_fp = write_fp;
         io->read_fp = read_fp;
-        response = MHD_create_response_from_callback(read_buf.st_size, (size_t) sz, &bs_qd_buffer_reader, io, &bs_qd_buffer_callback);
+        response = MHD_create_response_from_callback(read_buf.st_size, (size_t) sz, &bs_qd_temporary_file_buffer_reader, io, &bs_qd_temporary_file_buffer_callback);
         MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
         if (!response) {
             fclose(read_fp);
@@ -930,7 +1069,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
 #pragma GCC diagnostic pop
 
 /**
- * @brief      bs_qd_buffer_reader(cls, pos, buf, max)
+ * @brief      bs_qd_temporary_file_buffer_reader(cls, pos, buf, max)
  *
  * @details    Reads a chunk of data from an intermediate query
  *             write buffer into a response write buffer
@@ -944,7 +1083,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
  */
 
 static ssize_t
-bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
+bs_qd_temporary_file_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
 {
     bs_qd_io_t* io = (bs_qd_io_t *) cls;
     FILE *read_fp = io->read_fp;
@@ -964,7 +1103,7 @@ bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
  */
 
 static void
-bs_qd_buffer_callback(void* cls)
+bs_qd_temporary_file_buffer_callback(void* cls)
 {
     bs_qd_io_t* io = (bs_qd_io_t *) cls;
     fclose(io->read_fp), io->read_fp = NULL;
@@ -977,6 +1116,25 @@ bs_qd_buffer_callback(void* cls)
     free(io->write_fn), io->write_fn = NULL;
     free(io), io = NULL;
 }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_malformed(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+{
+    int ret;
+    struct MHD_Response *response;
+
+    /* update connection information */
+    con_info->request_type = kBSQDRequestMalformed;
+
+    response = MHD_create_response_from_buffer(strlen(MALFORMED_ERROR), (void*) MALFORMED_ERROR, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    MHD_destroy_response(response);
+    return ret;
+}
+#pragma GCC diagnostic pop
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"

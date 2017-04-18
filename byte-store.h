@@ -582,6 +582,7 @@ extern "C" {
     } bs_qd_connection_method_t;
 
     typedef enum bs_qd_request {
+        kBSQDRequestMalformed,
         kBSQDRequestNotFound,
         kBSQDRequestParametersNotFound,
         kBSQDRequestGeneric,
@@ -597,7 +598,8 @@ extern "C" {
         bs_qd_request_t request_type;
         uint64_t timestamp;
         struct MHD_PostProcessor* post_processor;
-        FILE* fp;
+        FILE* upload_fp;
+        char* upload_filename;
     } bs_qd_connection_info_t;
 
     static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
@@ -606,8 +608,9 @@ extern "C" {
     static int                   bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static int                   bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
-    static ssize_t               bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
-    static void                  bs_qd_buffer_callback(void* cls);
+    static ssize_t               bs_qd_temporary_file_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
+    static void                  bs_qd_temporary_file_buffer_callback(void* cls);
+    static int                   bs_qd_request_malformed(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
@@ -616,13 +619,17 @@ extern "C" {
     static const char*           bs_qd_request_type_to_str(bs_qd_request_t t);
     static uint64_t              bs_qd_timestamp();
     static int                   bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static int                   bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const char *key, const char *filename, const char *content_type, const char *transfer_encoding, const char *data, uint64_t off, size_t size);
     static char*                 bs_qd_get_host_fqdn();
 
     #define MAIN_PAGE                  "<html> <head><title>Welcome to byte-store!</title></head> <body>Welcome to byte-store!</body>       </html>"
     #define METHOD_ERROR               "<html> <head><title>Illegal request</title></head>        <body>Sorry!</body>                       </html>"
+    #define MALFORMED_ERROR            "<html> <head><title>Malformed request</title></head>      <body>Sorry!</body>                       </html>"
     #define NOT_FOUND_ERROR            "<html> <head><title>Not found</title></head>              <body>Sorry!</body>                       </html>"
     #define NOT_ENOUGH_MEMORY_ERROR    "<html> <head><title>Not enough memory</title></head>      <body>Sorry!</body>                       </html>"
     #define PARAMETERS_NOT_FOUND_ERROR "<html> <head><title>Missing parameters</title></head>     <body>Please check your arguments!</body> </html>"
+
+    #define BS_QD_POST_BUFFER_SIZE 4096
 
     typedef int (*bs_qd_request_page_handler)(const void *cls, const char *mime, struct MHD_Connection *connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
 
@@ -633,13 +640,19 @@ extern "C" {
         const void *handler_cls;
     } bs_qd_request_page_t;
 
+    #define kBSQDURLHome "/"
+    #define kBSQDURLRandom "/random"
+    #define kBSQDURLRandomViaTemporaryFile "/random_via_temporary_file"
+    #define kBSQDURLRandomViaBuffer "/random_via_buffer"
+    #define kBSQDURLElements "/elements"
+
     static bs_qd_request_page_t request_pages[] = {
-        { "/",                                         "text/html",   &bs_qd_request_generic_information,                      MAIN_PAGE },
-        { "/random",                                   "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
-        { "/random_via_temporary_file",                "text/plain",  &bs_qd_request_random_element_via_temporary_file,        NULL },
-        { "/random_via_buffer",                        "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
-        { "/elements",                                 "text/plain",  &bs_qd_request_elements_via_buffer,                      NULL },
-        {  NULL,                                        NULL,         &bs_qd_request_not_found,                                NULL } /* 404 */
+        { kBSQDURLHome,                                "text/html",   &bs_qd_request_generic_information,                      MAIN_PAGE },
+        { kBSQDURLRandom,                              "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { kBSQDURLRandomViaTemporaryFile,              "text/plain",  &bs_qd_request_random_element_via_temporary_file,        NULL },
+        { kBSQDURLRandomViaBuffer,                     "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { kBSQDURLElements,                            "text/plain",  &bs_qd_request_elements_via_buffer,                      NULL },
+        { NULL,                                         NULL,         &bs_qd_request_not_found,                                NULL } /* 404 */
     };
 
     typedef struct bs_qd_io {
