@@ -329,10 +329,10 @@ main(int argc, char** argv)
                                       bs_globals.store_query_daemon_port, 
                                       NULL, 
                                       NULL,
-                                      &bs_answer_to_connection,
+                                      &bs_qd_answer_to_connection,
                                       NULL, 
                                       MHD_OPTION_NOTIFY_COMPLETED, 
-                                      &bs_request_completed, 
+                                      &bs_qd_request_completed, 
                                       NULL,
                                       MHD_OPTION_END);
             if (!daemon) {
@@ -374,36 +374,33 @@ main(int argc, char** argv)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static void
-bs_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe)
+bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe)
 {
-    connection_info_t *con_info = *con_cls;
+    bs_qd_connection_info_t *con_info = *con_cls;
     if (con_info) {
-        fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] ended\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
+        fprintf(stdout, "Request [%" PRIu64 "]: [%s] => [%s] ended\n", con_info->timestamp, bs_qd_connection_method_type_to_str(con_info->method), bs_qd_request_type_to_str(con_info->request_type));
     }
     else {
-        fprintf(stdout, "Debug: Requested completed without connection information!\n");
+        fprintf(stdout, "Request: Requested completed without connection information!\n");
     }
     switch(toe) {
         case MHD_REQUEST_TERMINATED_COMPLETED_OK:
-            fprintf(stdout, "Debug [%" PRIu64 "]: Request completed OK!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request completed OK!\n", con_info->timestamp);
             break;
         case MHD_REQUEST_TERMINATED_WITH_ERROR:
-            fprintf(stdout, "Debug [%" PRIu64 "]: Request completed with an error!\n", con_info->timestamp);   
+            fprintf(stdout, "Request [%" PRIu64 "]: Request completed with an error!\n", con_info->timestamp);   
             break;
         case MHD_REQUEST_TERMINATED_TIMEOUT_REACHED:
-            fprintf(stdout, "Debug [%" PRIu64 "]: Request timed out!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request timed out!\n", con_info->timestamp);
             break;
         case MHD_REQUEST_TERMINATED_DAEMON_SHUTDOWN:
-            fprintf(stdout, "Debug [%" PRIu64 "]: Request session closed due to server shutdown!\n", con_info->timestamp);
+            fprintf(stdout, "Request [%" PRIu64 "]: Request session closed due to server shutdown!\n", con_info->timestamp);
             break;
         default:
             break;
     }
     fflush(stdout);
     if (con_info) {
-        if (con_info->request_type) {
-            free(con_info->request_type);
-        }
         free(con_info);
         *con_cls = NULL;
     }
@@ -411,17 +408,43 @@ bs_request_completed(void* cls, struct MHD_Connection* connection, void** con_cl
 #pragma GCC diagnostic pop
 
 static const char*
-bs_qd_connection_method_to_str(connection_method_t t)
+bs_qd_connection_method_type_to_str(bs_qd_connection_method_t t)
 {
     switch(t) {
-        case kConnectionMethodGET:
+        case kBSQDConnectionMethodGET:
             return "GET";
-        case kConnectionMethodHEAD:
+        case kBSQDConnectionMethodHEAD:
             return "HEAD";
-        case kConnectionMethodPOST:
+        case kBSQDConnectionMethodPOST:
             return "POST";
-        case kConnectionMethodUndefined:
+        case kBSQDConnectionMethodUndefined:
             return "Undefined connection method!";
+        default:
+            break;
+    }
+    return NULL;
+}
+
+static const char*
+bs_qd_request_type_to_str(bs_qd_request_t t)
+{
+    switch(t) {
+        case kBSQDRequestNotFound:
+            return "Not found";
+        case kBSQDRequestParametersNotFound:
+            return "Parameters not found";
+        case kBSQDRequestGeneric:
+            return "Generic request";
+        case kBSQDRequestInformation:
+            return "Information";
+        case kBSQDRequestRandomViaHeap:
+            return "Random (via in-heap buffer)";
+        case kBSQDRequestRandomViaTemporaryFile:
+            return "Random (via temporary file)";
+        case kBSQDRequestElements:
+            return "Elements";
+        case kBSQDRequestUndefined:
+            return "Undefined";
         default:
             break;
     }
@@ -480,37 +503,46 @@ bs_qd_timestamp()
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
+bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
 {
     struct MHD_Response *response;
     unsigned int i;
     int ret = MHD_NO;
-    connection_info_t* con_info = NULL;
+    bs_qd_connection_info_t* con_info = NULL;
 
     /* instantiate and populate connection information struct members */
     if (! *con_cls) {
-        con_info = malloc(sizeof(connection_info_t));
+        con_info = malloc(sizeof(bs_qd_connection_info_t));
         if (!con_info) {
             return MHD_NO;
         }
         con_info->timestamp = bs_qd_timestamp();
-        con_info->request_type = NULL;
+        con_info->request_type = kBSQDRequestUndefined;
         if (strcmp(method, MHD_HTTP_METHOD_GET) == 0) {
-            con_info->method = kConnectionMethodGET;
+            con_info->method = kBSQDConnectionMethodGET;
         }
         else if (strcmp(method, MHD_HTTP_METHOD_HEAD) == 0) {
-            con_info->method = kConnectionMethodHEAD;
+            con_info->method = kBSQDConnectionMethodHEAD;
+        }
+        else if (strcmp(method, MHD_HTTP_METHOD_POST) == 0) {
+            con_info->method = kBSQDConnectionMethodPOST;
         }
         *con_cls = (void*) con_info;
     }
 
-    if ((strcmp(method, MHD_HTTP_METHOD_GET) == 0) || (strcmp(method, MHD_HTTP_METHOD_HEAD) == 0)) {
+    if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD) || (con_info->method == kBSQDConnectionMethodPOST)) {
         /* find out which page to serve */
         i = 0;
         while ((request_pages[i].url != NULL) && (strcmp(request_pages[i].url, url) != 0)) {
             i++;
         }
-        ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info);
+        if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD)) {
+            ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info, NULL, NULL);
+        }
+        else if (con_info->method == kBSQDConnectionMethodPOST) {
+            ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+        }
+        
         if (ret != MHD_YES) {
             fprintf(stderr, "Error: Failed to create page for `%s'\n", url);
         }
@@ -573,7 +605,7 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
     if (kind != MHD_GET_ARGUMENT_KIND) { 
         return MHD_NO;
     }
-    qd_filter_param_t* params = (qd_filter_param_t*) cls;
+    bs_qd_filter_param_t* params = (bs_qd_filter_param_t*) cls;
     if (key && value) {
         if (strcmp(key, "filter-type") == 0) {
             params->type = kScoreFilterUndefined;
@@ -615,7 +647,7 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
+bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     const char *generic_information = cls;
@@ -628,12 +660,7 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
     memcpy(reply, generic_information, strlen(generic_information) + 1);
     
     /* update connection information */
-    const char *request_descriptor = "Generic information";
-    if (con_info->request_type) {
-        free(con_info->request_type);
-    }
-    con_info->request_type = malloc(strlen(request_descriptor) + 1);
-    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+    con_info->request_type = kBSQDRequestGeneric;
 
     /* return static document */
     response = MHD_create_response_from_buffer(strlen(reply), (void *)reply, MHD_RESPMEM_MUST_FREE);
@@ -645,25 +672,36 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
 }
 #pragma GCC diagnostic pop
 
+/* query daemon - elements */
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
+bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+{
+    int ret = MHD_YES; 
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+/* query daemon - random element */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     struct MHD_Response* response = NULL;
 
     /* update connection information */
-    const char *request_descriptor = "Request random element (via temporary file)";
-    if (con_info->request_type) {
-        free(con_info->request_type);
-    }
-    con_info->request_type = malloc(strlen(request_descriptor) + 1);
-    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
-    fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
+    con_info->request_type = kBSQDRequestRandomViaTemporaryFile;
+
+    /* start */
+    fprintf(stdout, "Request [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_type_to_str(con_info->method), bs_qd_request_type_to_str(con_info->request_type));
 
     /* read filter parameters from query string, if specified */
-    qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
+    bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
@@ -671,14 +709,14 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     /* if parameters were not specified correctly, return appropriate error message */
     if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
         free(filter_parameters), filter_parameters = NULL;
-        return bs_qd_parameters_not_found(cls, mime, connection, con_info);
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
 
     /* create temporary file and write a random element to it */
     char write_fn[] = "/tmp/bs_XXXXXX";
     int write_fd = mkstemp(write_fn);
     FILE* write_fp = fdopen(write_fd, "w");
-    fprintf(stderr, "Debug [%" PRIu64 "]: Writing random element to temporary file [%s]\n", con_info->timestamp, write_fn);
+    fprintf(stderr, "Request [%" PRIu64 "]: Writing random element to temporary file [%s]\n", con_info->timestamp, write_fn);
 
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
@@ -737,7 +775,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         fclose(write_fp), write_fp = NULL;
         unlink(write_fn);
         /* no data found for specified store type */
-        return bs_qd_request_not_found(cls, mime, connection, con_info);
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
     /* clean up parameters */
     free(filter_parameters), filter_parameters = NULL;
@@ -757,12 +795,12 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         unlink(write_fn);
     }
     if (!read_fp) {
-        return bs_qd_request_not_found(cls, mime, connection, con_info);
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
     else {
         long sz = sysconf(_SC_PAGESIZE);
-        qd_io_t* io = NULL;
-        io = malloc(sizeof(qd_io_t));
+        bs_qd_io_t* io = NULL;
+        io = malloc(sizeof(bs_qd_io_t));
         io->con_info = con_info;
         io->write_fn = NULL;
         io->write_fn = malloc(strlen(write_fn) + 1);
@@ -791,22 +829,19 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
+bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     struct MHD_Response* response = NULL;
 
     /* update connection information */
-    const char *request_descriptor = "Request random element (via in-heap buffer)";
-    if (con_info->request_type) {
-        free(con_info->request_type);
-    }
-    con_info->request_type = malloc(strlen(request_descriptor) + 1);
-    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
-    fprintf(stdout, "Debug [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_to_str(con_info->method), con_info->request_type);
+    con_info->request_type = kBSQDRequestRandomViaHeap;
+    
+    /* start */
+    fprintf(stdout, "Request [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_type_to_str(con_info->method), bs_qd_request_type_to_str(con_info->request_type));
 
     /* read filter parameters from query string, if specified */
-    qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
+    bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
@@ -814,7 +849,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     /* if parameters were not specified correctly, return appropriate error message */
     if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
         free(filter_parameters), filter_parameters = NULL;
-        return bs_qd_parameters_not_found(cls, mime, connection, con_info);
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
     
     /* seed RNG */
@@ -874,7 +909,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
     case kStoreUndefined:
         /* no data found for specified store type */
-        return bs_qd_request_not_found(cls, mime, connection, con_info);
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
 
     /* clean up parameters */
@@ -911,7 +946,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
 static ssize_t
 bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
 {
-    qd_io_t* io = (qd_io_t *) cls;
+    bs_qd_io_t* io = (bs_qd_io_t *) cls;
     FILE *read_fp = io->read_fp;
     (void) fseek(read_fp, pos, SEEK_SET);
     return fread(buf, 1, max, read_fp);
@@ -931,14 +966,14 @@ bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max)
 static void
 bs_qd_buffer_callback(void* cls)
 {
-    qd_io_t* io = (qd_io_t *) cls;
+    bs_qd_io_t* io = (bs_qd_io_t *) cls;
     fclose(io->read_fp), io->read_fp = NULL;
     fclose(io->write_fp), io->write_fp = NULL;
     int err = unlink(io->write_fn);
     if (err == -1) {
         fprintf(stderr, "Error: Could not delete temporary buffer! [%s]\n", strerror(errno));
     }
-    fprintf(stderr, "Debug [%" PRIu64 "]: Deleted file [%s]\n", io->con_info->timestamp, io->write_fn);
+    fprintf(stderr, "Request [%" PRIu64 "]: Deleted file [%s]\n", io->con_info->timestamp, io->write_fn);
     free(io->write_fn), io->write_fn = NULL;
     free(io), io = NULL;
 }
@@ -946,18 +981,13 @@ bs_qd_buffer_callback(void* cls)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
+bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     struct MHD_Response *response;
 
     /* update connection information */
-    const char *request_descriptor = "Request type not found";
-    if (con_info->request_type) {
-        free(con_info->request_type);
-    }
-    con_info->request_type = malloc(strlen(request_descriptor) + 1);
-    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+    con_info->request_type = kBSQDRequestNotFound;
 
     response = MHD_create_response_from_buffer(strlen(NOT_FOUND_ERROR), (void*) NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
@@ -970,18 +1000,13 @@ bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info)
+bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     struct MHD_Response *response;
     
     /* update connection information */
-    const char *request_descriptor = "Parameters not found";
-    if (con_info->request_type) {
-        free(con_info->request_type);
-    }
-    con_info->request_type = malloc(strlen(request_descriptor) + 1);
-    memcpy(con_info->request_type, request_descriptor, strlen(request_descriptor) + 1);
+    con_info->request_type = kBSQDRequestParametersNotFound;
 
     response = MHD_create_response_from_buffer(strlen(PARAMETERS_NOT_FOUND_ERROR), (void*) PARAMETERS_NOT_FOUND_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
@@ -1037,7 +1062,7 @@ bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connect
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 static int
-bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
+bs_qd_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls)
 {
     const char *page = "<html><body>Hello from byte-store!</body></html>";
     struct MHD_Response *response;
@@ -1060,8 +1085,8 @@ bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const
  * @return     (char*) fully-qualified domain name
  */
 
-char*
-bs_get_host_fqdn() 
+static char*
+bs_qd_get_host_fqdn() 
 {
     struct addrinfo hints, *info, *p;
     int gai_err;
@@ -2862,7 +2887,7 @@ bs_init_globals()
     bs_globals.store_query_kind = kQueryKindDefaultKind;
     bs_globals.store_query_daemon_flag = kFalse;
     bs_globals.store_query_daemon_port = -1;
-    bs_globals.store_query_daemon_hostname = bs_get_host_fqdn();
+    bs_globals.store_query_daemon_hostname = bs_qd_get_host_fqdn();
     bs_globals.store_query_str[0] = '\0';
     bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;

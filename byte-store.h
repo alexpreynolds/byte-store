@@ -574,79 +574,88 @@ extern "C" {
 
     /* daemon-related definitions */
 
-    typedef enum connection_method {
-        kConnectionMethodGET,
-        kConnectionMethodPOST,
-        kConnectionMethodHEAD,
-        kConnectionMethodUndefined
-    } connection_method_t;
+    typedef enum bs_qd_connection_method {
+        kBSQDConnectionMethodGET,
+        kBSQDConnectionMethodPOST,
+        kBSQDConnectionMethodHEAD,
+        kBSQDConnectionMethodUndefined
+    } bs_qd_connection_method_t;
 
-    typedef struct connection_info {
-        connection_method_t method;
+    typedef enum bs_qd_request {
+        kBSQDRequestNotFound,
+        kBSQDRequestParametersNotFound,
+        kBSQDRequestGeneric,
+        kBSQDRequestInformation,
+        kBSQDRequestRandomViaHeap,
+        kBSQDRequestRandomViaTemporaryFile,
+        kBSQDRequestElements,
+        kBSQDRequestUndefined
+    } bs_qd_request_t;
+
+    typedef struct bs_qd_connection_info {
+        bs_qd_connection_method_t method;
+        bs_qd_request_t request_type;
         uint64_t timestamp;
         struct MHD_PostProcessor* post_processor;
         FILE* fp;
-        char* request_type;
-    } connection_info_t;
+    } bs_qd_connection_info_t;
 
-    static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info);
-    static int                   bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info);
-    static int                   bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info);
+    static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static int                   bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static ssize_t               bs_qd_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
     static void                  bs_qd_buffer_callback(void* cls);
-    static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info);
-    static int                   bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, connection_info_t* con_info);
-    static int                   bs_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
-    static void                  bs_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe);
-    static const char*           bs_qd_connection_method_to_str(connection_method_t t);
+    static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static void                  bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe);
+    static const char*           bs_qd_connection_method_type_to_str(bs_qd_connection_method_t t);
+    static const char*           bs_qd_request_type_to_str(bs_qd_request_t t);
     static uint64_t              bs_qd_timestamp();
-    static int                   bs_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
-    char*                        bs_get_host_fqdn();
+    static int                   bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static char*                 bs_qd_get_host_fqdn();
 
-    #define MAIN_PAGE                  "<html> <head><title>Welcome to byte-store!</title></head> <body>Welcome to byte-store!</body> </html>"
-    #define METHOD_ERROR               "<html> <head><title>Illegal request</title></head>        <body>Sorry!</body>                 </html>"
-    #define NOT_FOUND_ERROR            "<html> <head><title>Not found</title></head>              <body>Sorry!</body>                 </html>"
-    #define NOT_ENOUGH_MEMORY_ERROR    "<html> <head><title>Not enough memory</title></head>      <body>Sorry!</body>                 </html>"
-    #define PARAMETERS_NOT_FOUND_ERROR "<html> <head><title>Missing parameters</title></head>     <body>Please check arguments</body> </html>"
+    #define MAIN_PAGE                  "<html> <head><title>Welcome to byte-store!</title></head> <body>Welcome to byte-store!</body>       </html>"
+    #define METHOD_ERROR               "<html> <head><title>Illegal request</title></head>        <body>Sorry!</body>                       </html>"
+    #define NOT_FOUND_ERROR            "<html> <head><title>Not found</title></head>              <body>Sorry!</body>                       </html>"
+    #define NOT_ENOUGH_MEMORY_ERROR    "<html> <head><title>Not enough memory</title></head>      <body>Sorry!</body>                       </html>"
+    #define PARAMETERS_NOT_FOUND_ERROR "<html> <head><title>Missing parameters</title></head>     <body>Please check your arguments!</body> </html>"
 
-    typedef int (*RequestPageHandler)(const void *cls, const char *mime, struct MHD_Connection *connection, connection_info_t*);
+    typedef int (*bs_qd_request_page_handler)(const void *cls, const char *mime, struct MHD_Connection *connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
 
-    typedef struct request_page {
+    typedef struct bs_qd_request_page {
         const char *url;
         const char *mime;
-        RequestPageHandler handler;
+        bs_qd_request_page_handler handler;
         const void *handler_cls;
-    } request_page_t;
+    } bs_qd_request_page_t;
 
-    static request_page_t request_pages[] = {
+    static bs_qd_request_page_t request_pages[] = {
         { "/",                                         "text/html",   &bs_qd_request_generic_information,                      MAIN_PAGE },
         { "/random",                                   "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
         { "/random_via_temporary_file",                "text/plain",  &bs_qd_request_random_element_via_temporary_file,        NULL },
         { "/random_via_buffer",                        "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { "/elements",                                 "text/plain",  &bs_qd_request_elements_via_buffer,                      NULL },
         {  NULL,                                        NULL,         &bs_qd_request_not_found,                                NULL } /* 404 */
     };
 
-    typedef struct qd_io {
-        const connection_info_t* con_info;
+    typedef struct bs_qd_io {
+        const bs_qd_connection_info_t* con_info;
         char* write_fn;
         FILE* write_fp;
         FILE* read_fp;
-    } qd_io_t;
+    } bs_qd_io_t;
 
-    typedef struct qd_filter_param {
+    typedef struct bs_qd_filter_param {
         score_filter_t type;
         score_t lone_bound;
         score_t lower_bound;
         score_t upper_bound;
         boolean_t bounds_set;
-    } qd_filter_param_t;
-
-    extern const int32_t kElementMaxLength;
-    const int32_t kElementMaxLength = 127 + 1 + 12 + 1 + 12 + 1 + 3 + 1; /* chr + tab + coord + tab + coord + tab + score + nul */
-    extern const int32_t kRequestURIMaxLength;
-    const int32_t kRequestURIMaxLength = 8192;
+    } bs_qd_filter_param_t;
 
     /* non-daemon function declarations */
 
