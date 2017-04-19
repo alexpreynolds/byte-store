@@ -21,11 +21,12 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
     }
-    else if ((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
+    else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) {
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) && 
+             (!bs_globals.store_query_daemon_flag)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kTrue);
     }
     else if (bs_globals.store_query_daemon_flag) {
@@ -178,7 +179,7 @@ main(int argc, char** argv)
                 separate_rows_found = bs_parse_query_multiple_index_str(lookup, bs_globals.store_query_str);
                 break;
             case kQueryKindMultipleIndicesFromFile:
-                separate_rows_found = kTrue;
+                separate_rows_found = bs_parse_query_multiple_index_file(lookup, bs_globals.store_query_str);
                 break;
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
@@ -322,6 +323,8 @@ main(int argc, char** argv)
             }
         }
         else if (bs_globals.store_query_daemon_flag) {
+            bs_qd_test_dependencies();
+            fprintf(stderr, "Info: bedextract is located at [%s]\n", bs_globals.bedextract_path);
             bs_globals.lookup_ptr = lookup;
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
@@ -339,9 +342,9 @@ main(int argc, char** argv)
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
                 exit(EXIT_FAILURE);
             }
-            fprintf(stdout, "Initialized query httpd...\n");
+            fprintf(stdout, "Info: Initialized query httpd...\n");
             if (bs_globals.store_query_daemon_hostname) {
-                fprintf(stdout, "Examples of requests include:\n"\
+                fprintf(stdout, "Info: Examples of requests include:\n"\
                     "\t'$ curl -i -X GET \"http://%s:%d\"'\n" \
                     "Or:\n"\
                     "\t'$ curl -i -X GET \"http://%s:%d/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
@@ -360,7 +363,7 @@ main(int argc, char** argv)
                     bs_globals.store_query_daemon_port);
             }
             else {
-                fprintf(stdout, "Examples of requests include:\n"\
+                fprintf(stdout, "Info: Examples of requests include:\n"\
                     "\t'$ curl -i -X GET \"http://hostname:port\"'\n"\
                     "Or:\n"\
                     "\t'$ curl -i -X GET \"http://hostname:port/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
@@ -370,7 +373,7 @@ main(int argc, char** argv)
                     "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
                     "Etc.\n");
             }
-            fprintf(stdout, "Press <Return> to stop the server...\n");
+            fprintf(stdout, "\nPress <Return> to stop the server...\n");
             getchar(); /* wait for it... */
             fprintf(stdout, "Closing http daemon...\n");
             MHD_stop_daemon(daemon);
@@ -429,6 +432,17 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
             }
             fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary upload file [%s]\n", con_info->timestamp, con_info->upload_filename);
             free(con_info->upload_filename);
+        }
+        if (con_info->query_index_fp) {
+            fclose(con_info->query_index_fp);
+        }
+        if (con_info->query_index_filename) {
+            int err = unlink(con_info->query_index_filename);
+            if (err == -1) {
+                fprintf(stderr, "Error: Could not delete temporary query index file [%s]! Error: [%s]\n", con_info->query_index_filename, strerror(errno));
+            }
+            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary query index file [%s]\n", con_info->timestamp, con_info->query_index_filename);
+            free(con_info->query_index_filename);
         }
         free(con_info);
         *con_cls = NULL;
@@ -586,6 +600,8 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
         con_info->post_processor = NULL;
         con_info->upload_fp = NULL;
         con_info->upload_filename = NULL;
+        con_info->query_index_fp = NULL;
+        con_info->query_index_filename = NULL;
         *con_cls = (void*) con_info;
 
         if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD)) {
@@ -616,6 +632,8 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
                 return MHD_YES;
             }
             else {
+                /* close the upload file pointer so that it can be reopened later on */
+                fclose(con_info->upload_fp);
                 /* now it is safe to open and process file before finishing request */ 
                 return bs_qd_request_elements_via_buffer(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
             }
@@ -659,7 +677,7 @@ bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const ch
             return MHD_NO;
         }
         memcpy(con_info->upload_filename, write_fn, strlen(write_fn) + 1);
-        fprintf(stdout, "Request [%" PRIu64 "]: Writing to [%s]\n", con_info->timestamp, con_info->upload_filename);
+        fprintf(stdout, "Request [%" PRIu64 "]: Writing query intervals to [%s]\n", con_info->timestamp, con_info->upload_filename);
     }
 
     if (size > 0) {
@@ -811,11 +829,110 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     }
 
     /* process the uploaded file to get the element ranges of interest, and then write to output */
-    /* ... */
+    FILE* bedextract_fp = NULL;
+    char cmd[PATH_MAX] = {0};
 
-    /* this is a generic upload-was-fine message that can be removed later */
-    const char *page = "<html><body>Upload complete!</body></html>";
-    response = MHD_create_response_from_buffer(strlen(page), (void *)page, MHD_RESPMEM_PERSISTENT);
+    /* set up a temporary file for storing query indices */
+    char write_fn[] = "/tmp/bs_XXXXXX";
+    mkstemp(write_fn);
+    con_info->query_index_filename = malloc(strlen(write_fn) + 1);
+    if (!con_info->query_index_filename) {
+        fprintf(stdout, "Request [%" PRIu64 "]: Query index filename could not be allocated to memory\n", con_info->timestamp);
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    memcpy(con_info->query_index_filename, write_fn, strlen(write_fn) + 1);
+    fprintf(stdout, "Request [%" PRIu64 "]: Writing query indices to [%s]\n", con_info->timestamp, con_info->query_index_filename);
+    
+    /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
+    sprintf(cmd, "%s %s %s | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", bs_globals.bedextract_path, bs_globals.lookup_fn, con_info->upload_filename, con_info->query_index_filename);
+    //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
+    if (NULL == (bedextract_fp = popen(cmd, "r"))) {
+       fprintf(stdout, "Error: Could not popen bedextract command to generate query indices [%s]\n", cmd);
+       return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    int status = pclose(bedextract_fp);
+    if (status == -1) {
+        fprintf(stderr, "Error: pclose() failed!\n");
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* set up temporary buffer */
+    char* temporary_buf = NULL;
+
+    /* write output */
+    switch (bs_globals.store_type) {
+    case kStorePearsonRSquareMatrixSplit:
+    case kStoreSpearmanRhoSquareMatrixSplit:
+        switch (filter_parameters->type) {
+            case kScoreFilterNone:
+                bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
+                                                                               bs_globals.sqr_store_ptr, 
+                                                                               con_info->query_index_filename,
+                                                                               &temporary_buf);
+                break;
+            case kScoreFilterGtEq:
+            case kScoreFilterGt:
+            case kScoreFilterEq:
+            case kScoreFilterLtEq:
+            case kScoreFilterLt:
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
+                                                                                        bs_globals.sqr_store_ptr, 
+                                                                                        con_info->query_index_filename,
+                                                                                        &temporary_buf,
+                                                                                        filter_parameters->lone_bound, 
+                                                                                        0, 
+                                                                                        0, 
+                                                                                        filter_parameters->type);
+                break;
+            case kScoreFilterRangedWithinExclusive:
+            case kScoreFilterRangedWithinInclusive:
+            case kScoreFilterRangedOutsideExclusive:
+            case kScoreFilterRangedOutsideInclusive:
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
+                                                                                        bs_globals.sqr_store_ptr, 
+                                                                                        con_info->query_index_filename,
+                                                                                        &temporary_buf, 
+                                                                                        0, 
+                                                                                        filter_parameters->lower_bound, 
+                                                                                        filter_parameters->upper_bound, 
+                                                                                        filter_parameters->type);
+                break;
+            case kScoreFilterUndefined:
+                fprintf(stderr, "Error: You should never see this error (qd_A)\n");
+                return MHD_NO;
+            default:
+                break;
+        }
+        break;
+    case kStoreRandomBufferedSquareMatrix:
+    case kStoreRandomSquareMatrix:
+    case kStorePearsonRSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStorePearsonRSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStorePearsonRSquareMatrixBzip2Split:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
+    case kStorePearsonRSquareMatrixSplitSingleChunk:
+    case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreUndefined:
+        /* no data found for specified store type */
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* clean up parameters */
+    free(filter_parameters), filter_parameters = NULL;
+
+    /* write temporary buffer to response */
+    response = MHD_create_response_from_buffer(strlen(temporary_buf), temporary_buf, MHD_RESPMEM_MUST_FREE);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    if (!response) {
+        free(temporary_buf);
+        return MHD_NO;
+    }
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     MHD_destroy_response(response);
 
@@ -1307,6 +1424,131 @@ bs_qd_get_host_fqdn()
     return NULL;
 }
 
+static boolean_t
+bs_qd_test_dependencies()
+{
+    char* p = NULL;
+    char* path = NULL;
+
+    if ((p = getenv("PATH")) == NULL) {
+        fprintf(stderr, "Error: Cannot retrieve environment PATH variable\n");
+        exit(EINVAL); /* Invalid argument (POSIX.1) */
+    }
+
+    path = malloc(strlen(p) + 1);
+    if (!path) {
+        fprintf(stderr, "Error: Cannot allocate space for path variable copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path, p, strlen(p) + 1);
+
+    char *bedextract = NULL;
+    bedextract = malloc(strlen(bs_qd_bedextract) + 1);
+    if (!bedextract) {
+        fprintf(stderr, "Error: Cannot allocate space for bedextract variable copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(bedextract, bs_qd_bedextract, strlen(bs_qd_bedextract) + 1);
+
+    char *path_bedextract = NULL;
+    path_bedextract = malloc(strlen(path) + 1);
+    if (!path_bedextract) {
+        fprintf(stderr, "Error: Cannot allocate space for path (bedextract) copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path_bedextract, path, strlen(path) + 1);
+
+    if (bs_qd_print_matches(path_bedextract, bedextract) != kTrue) {
+        fprintf(stderr, "Error: Cannot find bedextract binary required for querying BED\n");
+        exit(ENOENT); /* No such file or directory (POSIX.1) */
+    }
+    free(path_bedextract), path_bedextract = NULL;
+    free(bedextract), bedextract = NULL;
+
+    return kTrue;
+}
+
+static boolean_t
+bs_qd_print_matches(char* path, char* fn)
+{
+    char candidate[PATH_MAX];
+    const char* d;
+    boolean_t found = kFalse;
+
+    if (strchr(fn, '/') != NULL) {
+        return (bs_qd_is_there(fn) ? kTrue : kFalse);
+    }
+
+    while ((d = bs_qd_strsep(&path, ":")) != NULL) {
+        if (*d == '\0') {
+            d = ".";
+        }
+        if (snprintf(candidate, sizeof(candidate), "%s/%s", d, fn) >= (int) sizeof(candidate)) {
+            continue;
+        }
+        if (bs_qd_is_there(candidate)) {
+            found = kTrue;
+            if (strcmp(fn, bs_qd_bedextract) == 0) {
+                bs_globals.bedextract_path = malloc(strlen(candidate) + 1);
+                if (!bs_globals.bedextract_path) {
+                    fprintf(stderr, "Error: Could not allocate space for storing bedextract path global\n");
+                    exit(ENOMEM); /* Not enough space (POSIX.1) */
+                }
+                memcpy(bs_globals.bedextract_path, candidate, strlen(candidate));
+                bs_globals.bedextract_path[strlen(candidate)] = '\0';
+            }
+            break;
+        }
+    }
+
+    return found;
+}
+
+static char*
+bs_qd_strsep(char** stringp, const char* delim)
+{
+    char* s;
+    const char* spanp;
+    int c, sc;
+    char* tok;
+
+    if ((s = *stringp) == NULL)
+        return NULL;
+
+    for (tok = s;;) {
+        c = *s++;
+        spanp = delim;
+        do {
+            if ((sc = *spanp++) == c) {
+                if (c == 0)
+                    s = NULL;
+                else
+                    s[-1] = 0;
+                *stringp = s;
+                return tok;
+            }
+        } while (sc != 0);
+    }
+
+    return NULL;
+}
+
+static boolean_t
+bs_qd_is_there(char* candidate)
+{
+    struct stat fin;
+    boolean_t found = kFalse;
+
+    if (access(candidate, X_OK) == 0 
+        && stat(candidate, &fin) == 0 
+        && S_ISREG(fin.st_mode) 
+        && (getuid() != 0 || (fin.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0)) {
+        found = kTrue;
+    }
+
+    return found;
+}
+
 /**
  * @brief      bs_truncate_score_to_precision(d, prec)
  *
@@ -1745,17 +1987,15 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
  * @param      l      (lookup_t*) pointer to lookup table
  * @param      qf     (char*) query file to parse
  *
- * @return     (int) if file and rows are found or not; check formatting
+ * @return     (boolean_t) if file and rows are found or not; check formatting
  */
 
-int
+boolean_t
 bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
 {
-    int indices_found_flag = 0;
-    int index_not_found_flag = -1;
     FILE* fptr = fopen(qf, "r");
-    if ( !fptr )
-        return index_not_found_flag;
+    if (!fptr)
+        return kFalse;
 
     bs_globals.store_query_indices = NULL;
     bs_globals.store_query_indices = calloc(MULT_IDX_MAX_NUM, sizeof(*bs_globals.store_query_indices));
@@ -1787,7 +2027,7 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
         bs_globals.store_query_indices[current_idx++] = last;
         bs_globals.store_query_indices_num++;
     }
-    return indices_found_flag;
+    return kTrue;
 }
 
 int32_t 
@@ -3079,6 +3319,7 @@ bs_init_globals()
     bs_globals.permutation_significance_level = kPermutationTestDefaultSignificanceLevel;
     bs_globals.zero_sd_warning_issued = kFalse;
     bs_globals.score_ptr = NULL;
+    bs_globals.bedextract_path = NULL;
 }
 
 /**
@@ -3090,6 +3331,7 @@ bs_init_globals()
 void
 bs_delete_globals()
 {
+    free(bs_globals.bedextract_path), bs_globals.bedextract_path = NULL;
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
     free(bs_globals.store_query_daemon_hostname), bs_globals.store_query_daemon_hostname = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);
@@ -6462,7 +6704,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
     for (uint32_t r_idx = 0; r_idx < rn; r_idx++) {
         int32_t query_row = r[r_idx];
         new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
-        
+
         /* test if we are in a new block */
         if (new_block_idx > current_block_idx) {
             /* close current block file, if one is already open, and then open a new block */

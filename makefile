@@ -389,4 +389,4 @@ metadata-test-spearman-split-query:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -q -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.spearman.bs -i 0-0
 
 metadata-test-spearman-split-query-daemon:
-	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.spearman.bs
+	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs

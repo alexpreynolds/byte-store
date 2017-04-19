@@ -50,8 +50,8 @@ extern "C" {
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
+#define LINE_ID_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
-
 #define HOSTNAME_MAX_LEN 8192
 
 #define swap(x,y) do                                                    \
@@ -448,6 +448,7 @@ extern "C" {
         score_t* score_ptr;
         lookup_t* lookup_ptr;
         sqr_store_t* sqr_store_ptr;
+        char* bedextract_path;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -600,7 +601,12 @@ extern "C" {
         struct MHD_PostProcessor* post_processor;
         FILE* upload_fp;
         char* upload_filename;
+        FILE* query_index_fp;
+        char* query_index_filename;
     } bs_qd_connection_info_t;
+
+    extern const char* bs_qd_bedextract;
+    const char* bs_qd_bedextract = "bedextract";
 
     static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
@@ -621,6 +627,10 @@ extern "C" {
     static int                   bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
     static int                   bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const char *key, const char *filename, const char *content_type, const char *transfer_encoding, const char *data, uint64_t off, size_t size);
     static char*                 bs_qd_get_host_fqdn();
+    static boolean_t             bs_qd_test_dependencies();
+    static boolean_t             bs_qd_print_matches(char* path, char* fn);
+    static char*                 bs_qd_strsep(char** stringp, const char* delim);
+    static boolean_t             bs_qd_is_there(char* candidate);
 
     #define MAIN_PAGE                  "<html> <head><title>Welcome to byte-store!</title></head> <body>Welcome to byte-store!</body>       </html>"
     #define METHOD_ERROR               "<html> <head><title>Illegal request</title></head>        <body>Sorry!</body>                       </html>"
@@ -684,6 +694,7 @@ extern "C" {
     boolean_t                    bs_parse_query_index_str(lookup_t* l);
     boolean_t                    bs_parse_query_multiple_index_str(lookup_t* l, char* qs);
     int32_t                      bs_parse_query_multiple_index_str_comparator(const void* a, const void* b); 
+    boolean_t                    bs_parse_query_multiple_index_file(lookup_t* l, char* qf);
     void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
     bed_t*                       bs_init_bed(const char* chr, uint64_t start, uint64_t end);
     void                         bs_delete_bed(bed_t** b);
