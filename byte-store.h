@@ -53,6 +53,7 @@ extern "C" {
 #define LINE_ID_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
 #define HOSTNAME_MAX_LEN 8192
+#define UPLOAD_FILESIZE_MAX 1048576
 
 #define swap(x,y) do                                                    \
         { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -583,6 +584,7 @@ extern "C" {
     } bs_qd_connection_method_t;
 
     typedef enum bs_qd_request {
+        kBSQDRequestUploadTooLarge,
         kBSQDRequestMalformed,
         kBSQDRequestNotFound,
         kBSQDRequestParametersNotFound,
@@ -601,6 +603,7 @@ extern "C" {
         struct MHD_PostProcessor* post_processor;
         FILE* upload_fp;
         char* upload_filename;
+        size_t upload_filesize;
         FILE* query_index_fp;
         char* query_index_filename;
     } bs_qd_connection_info_t;
@@ -617,6 +620,7 @@ extern "C" {
     static ssize_t               bs_qd_temporary_file_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
     static void                  bs_qd_temporary_file_buffer_callback(void* cls);
     static int                   bs_qd_request_malformed(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_upload_too_large(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
@@ -632,12 +636,13 @@ extern "C" {
     static char*                 bs_qd_strsep(char** stringp, const char* delim);
     static boolean_t             bs_qd_is_there(char* candidate);
 
-    #define MAIN_PAGE                  "<html> <head><title>Welcome to byte-store!</title></head> <body>Welcome to byte-store!</body>       </html>"
-    #define METHOD_ERROR               "<html> <head><title>Illegal request</title></head>        <body>Sorry!</body>                       </html>"
-    #define MALFORMED_ERROR            "<html> <head><title>Malformed request</title></head>      <body>Sorry!</body>                       </html>"
-    #define NOT_FOUND_ERROR            "<html> <head><title>Not found</title></head>              <body>Sorry!</body>                       </html>"
-    #define NOT_ENOUGH_MEMORY_ERROR    "<html> <head><title>Not enough memory</title></head>      <body>Sorry!</body>                       </html>"
-    #define PARAMETERS_NOT_FOUND_ERROR "<html> <head><title>Missing parameters</title></head>     <body>Please check your arguments!</body> </html>"
+    #define MAIN_PAGE                       "<html> <head><title>Welcome to byte-store!</title></head>  <body>Welcome to byte-store!</body>       </html>"
+    #define METHOD_ERROR                    "<html> <head><title>Illegal request</title></head>         <body>Sorry!</body>                       </html>"
+    #define MALFORMED_ERROR                 "<html> <head><title>Malformed request</title></head>       <body>Sorry!</body>                       </html>"
+    #define NOT_FOUND_ERROR                 "<html> <head><title>Not found</title></head>               <body>Sorry!</body>                       </html>"
+    #define NOT_ENOUGH_MEMORY_ERROR         "<html> <head><title>Not enough memory</title></head>       <body>Sorry!</body>                       </html>"
+    #define PARAMETERS_NOT_FOUND_ERROR      "<html> <head><title>Missing parameters</title></head>      <body>Please check your arguments!</body> </html>"
+    #define UPLOAD_FILESIZE_TOO_LARGE_ERROR "<html> <head><title>Uploaded file too large</title></head> <body>Uploaded file is too large!</body>  </html>"
 
     #define BS_QD_POST_BUFFER_SIZE 4096
 

@@ -508,7 +508,9 @@ bs_qd_request_type_to_str(bs_qd_request_t t)
         case kBSQDRequestUndefined:
             return "Undefined";
         case kBSQDRequestMalformed:
-            return "Malformed";    
+            return "Malformed";
+        case kBSQDRequestUploadTooLarge:
+            return "Upload file size too large";
         default:
             break;
     }
@@ -600,6 +602,7 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
         con_info->post_processor = NULL;
         con_info->upload_fp = NULL;
         con_info->upload_filename = NULL;
+        con_info->upload_filesize = 0;
         con_info->query_index_fp = NULL;
         con_info->query_index_filename = NULL;
         *con_cls = (void*) con_info;
@@ -634,6 +637,10 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
             else {
                 /* close the upload file pointer so that it can be reopened later on */
                 fclose(con_info->upload_fp);
+                /* test if the file that was uploaded is larger than the allowed size */
+                if (con_info->upload_filesize >= UPLOAD_FILESIZE_MAX) {
+                    return bs_qd_request_upload_too_large(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                }
                 /* now it is safe to open and process file before finishing request */ 
                 return bs_qd_request_elements_via_buffer(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
             }
@@ -681,10 +688,11 @@ bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const ch
     }
 
     if (size > 0) {
-        //fprintf(stdout, "Request [%" PRIu64 "]: Writing [%zu] bytes to [%s]\n", con_info->timestamp, size, con_info->upload_filename);
+        //fprintf(stdout, "Request [%" PRIu64 "]: Writing [%zu] bytes from offset [%" PRIu64 "] to [%s]\n", con_info->timestamp, size, off, con_info->upload_filename);
         if (!fwrite(data, sizeof(char), size, con_info->upload_fp)) {
             return MHD_NO;
         }
+        con_info->upload_filesize += size;
     }
 
     return MHD_YES;
@@ -1247,6 +1255,25 @@ bs_qd_request_malformed(const void* cls, const char* mime, struct MHD_Connection
 
     response = MHD_create_response_from_buffer(strlen(MALFORMED_ERROR), (void*) MALFORMED_ERROR, MHD_RESPMEM_PERSISTENT);
     ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    MHD_destroy_response(response);
+    return ret;
+}
+#pragma GCC diagnostic pop
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_upload_too_large(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+{
+    int ret;
+    struct MHD_Response *response;
+
+    /* update connection information */
+    con_info->request_type = kBSQDRequestUploadTooLarge;
+
+    response = MHD_create_response_from_buffer(strlen(UPLOAD_FILESIZE_TOO_LARGE_ERROR), (void*) UPLOAD_FILESIZE_TOO_LARGE_ERROR, MHD_RESPMEM_PERSISTENT);
+    ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
     MHD_destroy_response(response);
     return ret;
