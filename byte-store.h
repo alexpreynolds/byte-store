@@ -8,7 +8,13 @@ extern "C" {
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif /* getline() support */
-    
+
+#if __APPLE__
+    #ifndef HOST_NAME_MAX
+        #define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+    #endif
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,15 +26,23 @@ extern "C" {
 #include <assert.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <float.h>
 #include <errno.h>
 #include <bzlib.h>
+#include <microhttpd.h>
+#include <netdb.h>
+#include <limits.h>
 #include "mt19937.h"
 
 #define BUF_MAX_LEN 4096
 #define CHR_MAX_LEN 256
 #define COORD_MAX_LEN 20
+#define SCORE_MAX_LEN 5
+#define DELIMITER_LEN 1
+#define OUTPUT_LINE_MAX_LEN (CHR_MAX_LEN * 2) + (COORD_MAX_LEN * 4) + SCORE_MAX_LEN + (DELIMITER_LEN * 6) + 1
 #define ID_MAX_LEN 524288
 #define FN_MAX_LEN 1024
 #define QUERY_MAX_LEN 524288
@@ -36,7 +50,10 @@ extern "C" {
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
+#define LINE_ID_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
+#define HOSTNAME_MAX_LEN 8192
+#define UPLOAD_FILESIZE_MAX 1048576
 
 #define swap(x,y) do                                                    \
         { unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
@@ -366,12 +383,33 @@ extern "C" {
     } score_filter_t;
 
     extern const score_filter_t kScoreDefaultFilter;
-
     const score_filter_t kScoreDefaultFilter = kScoreFilterNone;
+
+    extern const char* kScoreFilterGtEqStr;
+    extern const char* kScoreFilterGtStr;
+    extern const char* kScoreFilterEqStr;
+    extern const char* kScoreFilterLtEqStr;
+    extern const char* kScoreFilterLtStr;
+    extern const char* kScoreFilterRangedWithinExclusiveStr;
+    extern const char* kScoreFilterRangedWithinInclusiveStr;
+    extern const char* kScoreFilterRangedOutsideExclusiveStr;
+    extern const char* kScoreFilterRangedOutsideInclusiveStr;
+    const char* kScoreFilterGtEqStr = "greater-than-inclusive";
+    const char* kScoreFilterGtStr = "greater-than-exclusive";
+    const char* kScoreFilterEqStr = "equal";
+    const char* kScoreFilterLtEqStr = "less-than-inclusive";
+    const char* kScoreFilterLtStr = "less-than-exclusive";
+    const char* kScoreFilterRangedWithinExclusiveStr = "within-exclusive";
+    const char* kScoreFilterRangedWithinInclusiveStr = "within-inclusive";
+    const char* kScoreFilterRangedOutsideExclusiveStr = "outside-exclusive";
+    const char* kScoreFilterRangedOutsideInclusiveStr = "outside-inclusive";
 
     static struct bs_globals_t {
         boolean_t store_create_flag;
         boolean_t store_query_flag;
+        boolean_t store_query_daemon_flag;
+        int32_t store_query_daemon_port;
+        char* store_query_daemon_hostname;
         boolean_t store_frequency_flag;
         query_kind_t store_query_kind;
         char store_query_str[QUERY_MAX_LEN];
@@ -409,12 +447,16 @@ extern "C" {
         uint32_t permutation_significance_level;
         boolean_t zero_sd_warning_issued;
         score_t* score_ptr;
+        lookup_t* lookup_ptr;
+        sqr_store_t* sqr_store_ptr;
+        char* bedextract_path;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
         { "store-type",                                 required_argument, NULL, 't' },
         { "store-create",                               no_argument,       NULL, 'c' },
         { "store-query",                                no_argument,       NULL, 'q' },
+        { "store-query-daemon",                         required_argument, NULL, 'Q' },
         { "store-frequency",                            no_argument,       NULL, 'f' },
         { "store-row-chunk-size",                       required_argument, NULL, 'r' },
         { "store-row-chunk-offset",                     required_argument, NULL, 'k' },
@@ -449,7 +491,7 @@ extern "C" {
         { NULL,                                         no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqfr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:SPh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:SPh?";
 
     static const char* bs_name = "byte-store";
     
@@ -531,7 +573,120 @@ extern "C" {
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, +0.00, 
          +0.00, +0.00, +0.00, +0.00};
-    
+
+    /* daemon-related definitions */
+
+    typedef enum bs_qd_connection_method {
+        kBSQDConnectionMethodGET,
+        kBSQDConnectionMethodPOST,
+        kBSQDConnectionMethodHEAD,
+        kBSQDConnectionMethodUndefined
+    } bs_qd_connection_method_t;
+
+    typedef enum bs_qd_request {
+        kBSQDRequestUploadTooLarge,
+        kBSQDRequestMalformed,
+        kBSQDRequestNotFound,
+        kBSQDRequestParametersNotFound,
+        kBSQDRequestGeneric,
+        kBSQDRequestInformation,
+        kBSQDRequestRandomViaHeap,
+        kBSQDRequestRandomViaTemporaryFile,
+        kBSQDRequestElements,
+        kBSQDRequestUndefined
+    } bs_qd_request_t;
+
+    typedef struct bs_qd_connection_info {
+        bs_qd_connection_method_t method;
+        bs_qd_request_t request_type;
+        uint64_t timestamp;
+        struct MHD_PostProcessor* post_processor;
+        FILE* upload_fp;
+        char* upload_filename;
+        size_t upload_filesize;
+        FILE* query_index_fp;
+        char* query_index_filename;
+    } bs_qd_connection_info_t;
+
+    extern const char* bs_qd_bedextract;
+    const char* bs_qd_bedextract = "bedextract";
+
+    static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
+    static int                   bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
+    static ssize_t               bs_qd_temporary_file_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
+    static void                  bs_qd_temporary_file_buffer_callback(void* cls);
+    static int                   bs_qd_request_malformed(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_upload_too_large(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_parameters_not_found(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_test_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static void                  bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con_cls, enum MHD_RequestTerminationCode toe);
+    static const char*           bs_qd_connection_method_type_to_str(bs_qd_connection_method_t t);
+    static const char*           bs_qd_request_type_to_str(bs_qd_request_t t);
+    static uint64_t              bs_qd_timestamp();
+    static int                   bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const char* url, const char* method, const char* version, const char* upload_data, size_t* upload_data_size, void** con_cls);
+    static int                   bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const char *key, const char *filename, const char *content_type, const char *transfer_encoding, const char *data, uint64_t off, size_t size);
+    static char*                 bs_qd_get_host_fqdn();
+    static boolean_t             bs_qd_test_dependencies();
+    static boolean_t             bs_qd_print_matches(char* path, char* fn);
+    static char*                 bs_qd_strsep(char** stringp, const char* delim);
+    static boolean_t             bs_qd_is_there(char* candidate);
+
+    #define MAIN_PAGE                       "<html> <head><title>Welcome to byte-store!</title></head>  <body>Welcome to byte-store!</body>       </html>"
+    #define METHOD_ERROR                    "<html> <head><title>Illegal request</title></head>         <body>Sorry!</body>                       </html>"
+    #define MALFORMED_ERROR                 "<html> <head><title>Malformed request</title></head>       <body>Sorry!</body>                       </html>"
+    #define NOT_FOUND_ERROR                 "<html> <head><title>Not found</title></head>               <body>Sorry!</body>                       </html>"
+    #define NOT_ENOUGH_MEMORY_ERROR         "<html> <head><title>Not enough memory</title></head>       <body>Sorry!</body>                       </html>"
+    #define PARAMETERS_NOT_FOUND_ERROR      "<html> <head><title>Missing parameters</title></head>      <body>Please check your arguments!</body> </html>"
+    #define UPLOAD_FILESIZE_TOO_LARGE_ERROR "<html> <head><title>Uploaded file too large</title></head> <body>Uploaded file is too large!</body>  </html>"
+
+    #define BS_QD_POST_BUFFER_SIZE 4096
+
+    typedef int (*bs_qd_request_page_handler)(const void *cls, const char *mime, struct MHD_Connection *connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+
+    typedef struct bs_qd_request_page {
+        const char *url;
+        const char *mime;
+        bs_qd_request_page_handler handler;
+        const void *handler_cls;
+    } bs_qd_request_page_t;
+
+    #define kBSQDURLHome "/"
+    #define kBSQDURLRandom "/random"
+    #define kBSQDURLRandomViaTemporaryFile "/random_via_temporary_file"
+    #define kBSQDURLRandomViaBuffer "/random_via_buffer"
+    #define kBSQDURLElements "/elements"
+
+    static bs_qd_request_page_t request_pages[] = {
+        { kBSQDURLHome,                                "text/html",   &bs_qd_request_generic_information,                      MAIN_PAGE },
+        { kBSQDURLRandom,                              "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { kBSQDURLRandomViaTemporaryFile,              "text/plain",  &bs_qd_request_random_element_via_temporary_file,        NULL },
+        { kBSQDURLRandomViaBuffer,                     "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { kBSQDURLElements,                            "text/plain",  &bs_qd_request_elements_via_buffer,                      NULL },
+        { NULL,                                         NULL,         &bs_qd_request_not_found,                                NULL } /* 404 */
+    };
+
+    typedef struct bs_qd_io {
+        const bs_qd_connection_info_t* con_info;
+        char* write_fn;
+        FILE* write_fp;
+        FILE* read_fp;
+    } bs_qd_io_t;
+
+    typedef struct bs_qd_filter_param {
+        score_filter_t type;
+        score_t lone_bound;
+        score_t lower_bound;
+        score_t upper_bound;
+        boolean_t bounds_set;
+    } bs_qd_filter_param_t;
+
+    /* non-daemon function declarations */
+
     inline score_t               bs_truncate_score_to_precision(score_t d, int prec);
     inline byte_t                bs_encode_score_to_byte(score_t d);
     inline byte_t                bs_encode_score_to_byte_mqz(score_t d);
@@ -544,6 +699,7 @@ extern "C" {
     boolean_t                    bs_parse_query_index_str(lookup_t* l);
     boolean_t                    bs_parse_query_multiple_index_str(lookup_t* l, char* qs);
     int32_t                      bs_parse_query_multiple_index_str_comparator(const void* a, const void* b); 
+    boolean_t                    bs_parse_query_multiple_index_file(lookup_t* l, char* qf);
     void                         bs_parse_query_str_to_indices(char* qs, uint32_t* start, uint32_t* stop);
     bed_t*                       bs_init_bed(const char* chr, uint64_t start, uint64_t end);
     void                         bs_delete_bed(bed_t** b);
@@ -578,6 +734,7 @@ extern "C" {
     inline boolean_t             bs_path_exists(const char* p);
     inline ssize_t               bs_file_size(const char* fn);
     inline void                  bs_print_pair(FILE* os, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, score_t score);
+    inline void                  bs_print_pair_to_buffer(char* b, ssize_t* bl, char* chr_a, uint64_t start_a, uint64_t stop_a, char* chr_b, uint64_t start_b, uint64_t stop_b, score_t score);
     sut_store_t*                 bs_init_sut_store(uint32_t n);
     void                         bs_populate_sut_store_with_random_scores(sut_store_t* s);
     void                         bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l);
@@ -605,11 +762,17 @@ extern "C" {
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
+    void                         bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b);
     void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, char** b);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
