@@ -67,7 +67,7 @@ main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
         }
-        else if (bs_globals.store_query_flag) {
+        else if (bs_globals.store_query_flag && !bs_globals.store_query_daemon_flag) {
             boolean_t rows_found = kFalse;
             switch (bs_globals.store_query_kind) {
             case kQueryKindIndex:
@@ -161,7 +161,7 @@ main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
         }
-        else if (bs_globals.store_query_flag) {
+        else if (bs_globals.store_query_flag && !bs_globals.store_query_daemon_flag) {
             /* set up query type */
             boolean_t contiguous_rows_found = kFalse;
             boolean_t separate_rows_found = kFalse;
@@ -3425,10 +3425,12 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'q':
             bs_globals.store_query_flag = kTrue;
+            bs_globals.store_query_daemon_flag = kFalse;
             bs_output_flag_counter++;
             break;
         case 'Q':
             bs_globals.store_query_daemon_flag = kTrue;
+            bs_globals.store_query_flag = kTrue;
             bs_output_flag_counter++;
             if (!optarg) {
                 fprintf(stderr, "Error: Store query daemon option selected without daemon port value!\n");
