@@ -427,6 +427,7 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
         if (con_info->upload_fp) {
             fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ing upload FILE*...\n", timestamp);
             fclose(con_info->upload_fp);
+            con_info->upload_fp = NULL;
             fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ed upload FILE*...\n", timestamp);
         }
         if (con_info->upload_filename) {
@@ -442,6 +443,7 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
         if (con_info->query_index_fp) {
             fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ing query index FILE*...\n", timestamp);
             fclose(con_info->query_index_fp);
+            con_info->query_index_fp = NULL;
             fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ed query index FILE*...\n", timestamp);
         }
         if (con_info->query_index_filename) {
@@ -648,6 +650,7 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
             else {
                 /* close the upload file pointer so that it can be reopened later on */
                 fclose(con_info->upload_fp);
+                con_info->upload_fp = NULL;
                 /* test if the file that was uploaded is larger than the allowed size */
                 if (con_info->upload_filesize >= UPLOAD_FILESIZE_MAX) {
                     return bs_qd_request_upload_too_large(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
