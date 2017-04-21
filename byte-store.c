@@ -420,31 +420,42 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
     if (con_info) {
         timestamp = con_info->timestamp;
         if (con_info->post_processor) {
+            fprintf(stdout, "Request [%" PRIu64 "]: Destroying POST processor...\n", timestamp);
             MHD_destroy_post_processor(con_info->post_processor);
+            fprintf(stdout, "Request [%" PRIu64 "]: Destroyed POST processor...\n", timestamp);
         }
         if (con_info->upload_fp) {
+            fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ing upload FILE*...\n", timestamp);
             fclose(con_info->upload_fp);
+            fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ed upload FILE*...\n", timestamp);
         }
         if (con_info->upload_filename) {
+            fprintf(stdout, "Request [%" PRIu64 "]: Attempting to delete upload file...\n", timestamp);
             int err = unlink(con_info->upload_filename);
             if (err == -1) {
                 fprintf(stderr, "Error: Could not delete temporary upload file [%s]! Error: [%s]\n", con_info->upload_filename, strerror(errno));
             }
-            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary upload file [%s]\n", con_info->timestamp, con_info->upload_filename);
+            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary upload file [%s]\n", timestamp, con_info->upload_filename);
             free(con_info->upload_filename);
+            fprintf(stderr, "Request [%" PRIu64 "]: Freed temporary upload filename char*\n", timestamp);
         }
         if (con_info->query_index_fp) {
+            fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ing query index FILE*...\n", timestamp);
             fclose(con_info->query_index_fp);
+            fprintf(stdout, "Request [%" PRIu64 "]: fclose()-ed query index FILE*...\n", timestamp);
         }
         if (con_info->query_index_filename) {
+            fprintf(stdout, "Request [%" PRIu64 "]: Attempting to delete query index file...\n", timestamp);
             int err = unlink(con_info->query_index_filename);
             if (err == -1) {
                 fprintf(stderr, "Error: Could not delete temporary query index file [%s]! Error: [%s]\n", con_info->query_index_filename, strerror(errno));
             }
-            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary query index file [%s]\n", con_info->timestamp, con_info->query_index_filename);
+            fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary query index file [%s]\n", timestamp, con_info->query_index_filename);
             free(con_info->query_index_filename);
+            fprintf(stderr, "Request [%" PRIu64 "]: Freed temporary query index filename char*\n", timestamp);
         }
         free(con_info);
+        fprintf(stderr, "Request [%" PRIu64 "]: Freed connection information pointer\n", timestamp);
         *con_cls = NULL;
     }
 
