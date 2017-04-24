@@ -5,7 +5,7 @@ BLDFLAGS         = -Wall -Wextra -std=c99
 BLDDFLAGS        = -Wall -Wextra -std=c99 -pedantic
 CFLAGS           = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
 CDFLAGS          = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
-LIBS             = -lm -lbz2 -lmicrohttpd
+LIBS             = -lm -lbz2 -lmicrohttpd 
 .PHONY           = test
 SAMPLE          := $(shell `which sample` --help 2> /dev/null)
 TEST_DIR         = $(PWD)/test
@@ -28,8 +28,11 @@ HTTPD_SYM_DIR    = $(THIRD_PARTY)/libmicrohttpd
 HTTPD_INC_DIR    = $(HTTPD_SYM_DIR)/include
 HTTPD_LIB_DIR    = $(HTTPD_SYM_DIR)/lib
 
-# --------------------------------------
-# OS X Clang can't build static binaries
+# -----------------------------------------
+#  - OS X Clang can't build static binaries
+#
+#  - CentOS 7 does not seem to offer static 
+#    builds of gnutls and gcrypt. Bummer!
 # --------------------------------------
 
 ifeq ($(PLATFORM),Darwin)
@@ -38,9 +41,11 @@ ifeq ($(PLATFORM),Darwin)
 	FLAGS += -Weverything
 endif
 ifeq ($(PLATFORM), Linux)
-	CFLAGS += -pthread -static -static-libgcc
-	CDFLAGS += -pthread -static -static-libgcc
-	LIBS += -lrt -lgnutls -lgcrypt
+	CFLAGS += -pthread 
+	CDFLAGS += -pthread
+	LIBS += -lrt
+	INCLUDES += -I/usr/include/gnutls -I/usr/include/nettle
+	LIB64 = -L"/usr/lib64"
 endif
 
 all: byte-store
@@ -68,12 +73,23 @@ bzip2:
 # 
 # Because of SIP protections in place with OS X 10.10
 # and later, we can't make symbolic links in /usr/lib and
-# so specify a custom prefix for this platform.
+# so we specify a custom prefix for OS X.
 #
-# On CentOS 7, this can be installed via:
+# On CentOS 7, these can be installed via:
 #
 #  $ sudo yum install gnutls-devel
 #  $ sudo yum install libgcrypt-devel
+#
+# However, these are dynamic libraries, not static, which
+# means we cannot build static binaries on Linux at this
+# time.
+#
+# This means the resulting libmicrohttpd shared library 
+# may need to be put someplace safe from a 'make clean'
+# on this folder. Also, this library's parent folder will
+# need to be added to the LD_LIBRARY_PATH variable.
+#
+# Dynamic binaries are the sux0r!
 # -------------------------------------------------------
 
 libmicrohttpd:
@@ -83,9 +99,9 @@ libmicrohttpd:
 		ln -sf ${HTTPD_DIR} ${HTTPD_SYM_DIR}; \
 		cd ${HTTPD_SYM_DIR}; \
 		if [[ "$(PLATFORM)" == "Linux" ]]; then \
-			./configure --enable-static --enable-https=yes --with-libgcrypt --with-gnutls --prefix=${HTTPD_SYM_DIR}; \
+			./configure --enable-static --enable-https=yes --with-gnutls --prefix=${HTTPD_SYM_DIR}; \
 		elif [[ "$(PLATFORM)" == "Darwin" ]]; then \
-			./configure --enable-https=yes --with-libgcrypt=/usr/local --with-gnutls=/usr/local --prefix=${HTTPD_SYM_DIR}; \
+			./configure --enable-https=yes --with-libgcrypt-prefix=/usr/local --with-gnutls=/usr/local --prefix=${HTTPD_SYM_DIR}; \
 		fi; \
 		${MAKE} && ${MAKE} install; \
 		cd ${PWD}; \
@@ -95,7 +111,7 @@ byte-store: prep
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
 	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} $(LIB64) -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 debug-byte-store: prep
 	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
