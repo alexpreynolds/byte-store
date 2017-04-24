@@ -40,7 +40,7 @@ endif
 ifeq ($(PLATFORM), Linux)
 	CFLAGS += -pthread -static -static-libgcc
 	CDFLAGS += -pthread -static -static-libgcc
-	LIBS += -lrt
+	LIBS += -lrt -lgnutls -lgcrypt
 endif
 
 all: byte-store
@@ -69,6 +69,11 @@ bzip2:
 # Because of SIP protections in place with OS X 10.10
 # and later, we can't make symbolic links in /usr/lib and
 # so specify a custom prefix for this platform.
+#
+# On CentOS 7, this can be installed via:
+#
+#  $ sudo yum install gnutls-devel
+#  $ sudo yum install libgcrypt-devel
 # -------------------------------------------------------
 
 libmicrohttpd:
