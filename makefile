@@ -13,7 +13,7 @@ TEST_HTTPD_PORT  = 8000
 PDF_DIR          = $(TEST_DIR)/pdf
 #SAMPLE_DIR       = /Volumes/Data/byte-store
 SAMPLE_DIR       = /tmp/byte-store
-UNAME           := $(shell uname -s)
+PLATFORM        := $(shell uname -s)
 INCLUDES         = /usr/include
 AWK_VERSION     := $(shell awk --version | grep "GNU Awk")
 THIRD_PARTY      = $(PWD)/third-party
@@ -32,12 +32,12 @@ HTTPD_LIB_DIR    = $(HTTPD_SYM_DIR)/lib
 # OS X Clang can't build static binaries
 # --------------------------------------
 
-ifeq ($(UNAME),Darwin)
+ifeq ($(PLATFORM),Darwin)
 	CC = clang
 	CXX = clang++
 	FLAGS += -Weverything
 endif
-ifeq ($(UNAME), Linux)
+ifeq ($(PLATFORM), Linux)
 	CFLAGS += -pthread -static -static-libgcc
 	CDFLAGS += -pthread -static -static-libgcc
 	LIBS += -lrt
@@ -59,13 +59,29 @@ bzip2:
 		${MAKE} -C ${BZIP2_SYM_DIR} libbz2.a CC=${CC}; \
 	fi
 
+# -------------------------------------------------------
+# SSL support requires libgnutls and libgcrypt, which can
+# be installed on OS X via Homebrew:
+#
+#  $ brew install libgnutls
+#  $ brew install libgcrypt
+# 
+# Because of SIP protections in place with OS X 10.10
+# and later, we can't make symbolic links in /usr/lib and
+# so specify a custom prefix for this platform.
+# -------------------------------------------------------
+
 libmicrohttpd:
 	@if [ ! -d "${HTTPD_DIR}" ]; then \
 		mkdir "${HTTPD_DIR}"; \
 		tar zxvf "${HTTPD_ARC}" -C "${THIRD_PARTY}"; \
 		ln -sf ${HTTPD_DIR} ${HTTPD_SYM_DIR}; \
 		cd ${HTTPD_SYM_DIR}; \
-		./configure --enable-static --enable-https=no --without-libgcrypt --without-gnutls --prefix=${HTTPD_SYM_DIR}; \
+		if [[ "$(PLATFORM)" == "Linux" ]]; then \
+			./configure --enable-static --enable-https=yes --with-libgcrypt --with-gnutls --prefix=${HTTPD_SYM_DIR}; \
+		elif [[ "$(PLATFORM)" == "Darwin" ]]; then \
+			./configure --enable-https=yes --with-libgcrypt=/usr/local --with-gnutls=/usr/local --prefix=${HTTPD_SYM_DIR}; \
+		fi; \
 		${MAKE} && ${MAKE} install; \
 		cd ${PWD}; \
 	fi
@@ -98,6 +114,8 @@ clean:
 	rm -rf $(TEST_DIR)/*.rbs.blocks
 	rm -rf $(TEST_DIR)/*.cbs
 	rm -rf $(TEST_DIR)/*.cbs.blocks
+	rm -rf $(TEST_DIR)/*.key
+	rm -rf $(TEST_DIR)/*.pem
 	rm -rf $(PDF_DIR)
 #	rm -rf test/sample_bs_input.starch
 #	rm -rf test/sample_bs_input.bed
@@ -388,5 +406,12 @@ metadata-test-spearman-split-create:
 metadata-test-spearman-split-query:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -q -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.spearman.bs -i 0-0
 
-metadata-test-spearman-split-query-daemon:
+metadata-test-spearman-split-query-http-daemon:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs
+
+self-signed-certs:
+	openssl genrsa -out test/server.key 1024
+	openssl req -days 365 -out test/server.pem -new -x509 -key test/server.key
+
+metadata-test-spearman-split-query-https-daemon:
+	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs -E -K test/server.key -C test/server.pem

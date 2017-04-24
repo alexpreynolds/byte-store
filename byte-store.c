@@ -329,16 +329,31 @@ main(int argc, char** argv)
             bs_globals.lookup_ptr = lookup;
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
-            daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
-                                      bs_globals.store_query_daemon_port, 
-                                      NULL, 
-                                      NULL,
-                                      &bs_qd_answer_to_connection,
-                                      NULL, 
-                                      MHD_OPTION_NOTIFY_COMPLETED, 
-                                      &bs_qd_request_completed, 
-                                      NULL,
-                                      MHD_OPTION_END);
+            if (!bs_globals.enable_ssl) {
+                daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
+                                          bs_globals.store_query_daemon_port, 
+                                          NULL, 
+                                          NULL,
+                                          &bs_qd_answer_to_connection,
+                                          NULL, 
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          NULL,
+                                          MHD_OPTION_END);
+            }
+            else {
+                daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_SSL, 
+                                          bs_globals.store_query_daemon_port, 
+                                          NULL, 
+                                          NULL,
+                                          &bs_qd_answer_to_connection,
+                                          NULL, 
+                                          MHD_OPTION_HTTPS_MEM_KEY, bs_globals.ssl_key_pem,
+                                          MHD_OPTION_HTTPS_MEM_CERT, bs_globals.ssl_cert_pem,
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          NULL,
+                                          MHD_OPTION_END);
+            }
+            
             if (!daemon) {
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
                 exit(EXIT_FAILURE);
@@ -346,37 +361,47 @@ main(int argc, char** argv)
             fprintf(stdout, "Info: Initialized query httpd...\n");
             if (bs_globals.store_query_daemon_hostname) {
                 fprintf(stdout, "Info: Examples of requests include:\n"\
-                    "\t'$ curl -i -X GET \"http://%s:%d\"'\n" \
+                    "\t'$ curl -i -X GET \"%s://%s:%d\"'\n" \
                     "Or:\n"\
-                    "\t'$ curl -i -X GET \"http://%s:%d/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
+                    "\t'$ curl -i -X GET \"%s://%s:%d/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://%s:%d/elements\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://%s:%d/elements\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://%s:%d/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
-                    "Etc.\n", 
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://%s:%d/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "Etc.\n\n"\
+                    "(Add the \"-k\" option if using self-signed certificates.)\n", 
+                    (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
                     bs_globals.store_query_daemon_port, 
+                    (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
                     bs_globals.store_query_daemon_port, 
+                    (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
                     bs_globals.store_query_daemon_port, 
+                    (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
                     bs_globals.store_query_daemon_port);
             }
             else {
                 fprintf(stdout, "Info: Examples of requests include:\n"\
-                    "\t'$ curl -i -X GET \"http://hostname:port\"'\n"\
+                    "\t'$ curl -i -X GET \"%s://hostname:port\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X GET \"http://hostname:port/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
+                    "\t'$ curl -i -X GET \"%s://hostname:port/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://hostname:port/elements\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://hostname:port/elements\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"http://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
-                    "Etc.\n");
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "Etc.\n\n"\
+                    "(Add the \"-k\" option if using self-signed certificates.)\n", 
+                    (bs_globals.enable_ssl ? "https" : "http"),
+                    (bs_globals.enable_ssl ? "https" : "http"),
+                    (bs_globals.enable_ssl ? "https" : "http"),
+                    (bs_globals.enable_ssl ? "https" : "http"));
             }
             fprintf(stdout, "\nPress <Return> to stop the server...\n");
             getchar(); /* wait for it... */
-            fprintf(stdout, "Closing http daemon...\n");
+            fprintf(stdout, "Closing %s daemon...\n", (bs_globals.enable_ssl ? "https" : "http"));
             MHD_stop_daemon(daemon);
         }
         bs_delete_sqr_store(&sqr_store);
@@ -400,6 +425,55 @@ main(int argc, char** argv)
     bs_delete_lookup(&lookup);
 
     return EXIT_SUCCESS;
+}
+
+static char*
+bs_qd_load_file(const char* fn)
+{
+    FILE* fp = NULL;
+    char* buf = NULL;
+    long size = 0;
+
+    size = bs_qd_get_file_size(fn);
+    if (size == 0) {
+        return NULL;
+    }
+
+    fp = fopen(fn, "rb");
+    if (!fp) {
+        return NULL;
+    }
+
+    buf = malloc(size + 1);
+    if (!buf) {
+        fclose(fp);
+        return NULL;
+    }
+    buf[size] = '\0';
+
+    if (fread(buf, 1, size, fp) != (size_t) size) {
+        free(buf);
+        buf = NULL;
+    }
+
+    fclose(fp);
+    return buf;
+}
+
+static long
+bs_qd_get_file_size(const char* filename)
+{
+    FILE* fp = NULL;
+    long size = 0;
+
+    fp = fopen(filename, "rb");
+    if (fp) {    
+        if ((fseek(fp, 0, SEEK_END) != 0) || ((size = ftell(fp)) == -1)) {
+            size = 0;
+        }
+        fclose(fp);
+    }
+    return size;
 }
 
 #pragma GCC diagnostic push
@@ -3421,6 +3495,9 @@ bs_init_globals()
     bs_globals.score_ptr = NULL;
     bs_globals.bedextract_path = NULL;
     bs_globals.bedops_path = NULL;
+    bs_globals.enable_ssl = kFalse;
+    bs_globals.ssl_key_pem = NULL;
+    bs_globals.ssl_cert_pem = NULL;
 }
 
 /**
@@ -3432,6 +3509,8 @@ bs_init_globals()
 void
 bs_delete_globals()
 {
+    free(bs_globals.ssl_key_pem), bs_globals.ssl_key_pem = NULL;
+    free(bs_globals.ssl_cert_pem), bs_globals.ssl_cert_pem = NULL;
     free(bs_globals.bedextract_path), bs_globals.bedextract_path = NULL;
     free(bs_globals.bedops_path), bs_globals.bedops_path = NULL;
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
@@ -3768,6 +3847,23 @@ bs_init_command_line_options(int argc, char** argv)
             }
             bs_globals.rng_seed_value = (uint32_t) strtol(optarg, NULL, 10);
             break;
+        case 'E':
+            bs_globals.enable_ssl = kTrue;
+            break;
+        case 'K':
+            bs_globals.ssl_key_pem = bs_qd_load_file(optarg);
+            if (!bs_globals.ssl_key_pem) {
+                fprintf(stderr, "Error: Could not load SSL key!\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'C':
+            bs_globals.ssl_cert_pem = bs_qd_load_file(optarg);
+            if (!bs_globals.ssl_cert_pem) {
+                fprintf(stderr, "Error: Could not load SSL certificate!\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
         case 'P':
             bs_test_pearsons_r();
             exit(EXIT_SUCCESS);
@@ -3847,6 +3943,12 @@ bs_init_command_line_options(int argc, char** argv)
         fprintf(stderr, "Error: Must specify both chunk size and offset when encoding a single raw chunk! Or specify chunk size when writing simulated metadata record!\n");
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
+    }
+
+    if (bs_globals.enable_ssl && (!bs_globals.ssl_key_pem || !bs_globals.ssl_cert_pem)) {
+        fprintf(stderr, "Error: Must specify paths to SSL key and certificate PEM files!\n");
+        bs_print_usage(stderr);
+        exit(EINVAL);
     }
 }
 

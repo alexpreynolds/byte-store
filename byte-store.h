@@ -451,6 +451,9 @@ extern "C" {
         sqr_store_t* sqr_store_ptr;
         char* bedextract_path;
         char* bedops_path;
+        boolean_t enable_ssl;
+        char* ssl_key_pem;
+        char* ssl_cert_pem;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -486,13 +489,16 @@ extern "C" {
         { "permutation-alpha",                          required_argument, NULL, 'a' },
         { "permutation-significance-level",             required_argument, NULL, 'v' },
         { "rng-seed",                                   required_argument, NULL, 'd' },
+        { "enable-ssl",                                 no_argument,       NULL, 'E' },
+        { "ssl-key",                                    required_argument, NULL, 'K' },
+        { "ssl-cert",                                   required_argument, NULL, 'C' },
         { "test-pearson-r",                             no_argument,       NULL, 'P' },
         { "test-spearman-rho",                          no_argument,       NULL, 'S' },
         { "help",                                       no_argument,       NULL, 'h' },
         { NULL,                                         no_argument,       NULL,  0  }
     }; 
     
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:SPh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:EK:C:SPh?";
 
     static const char* bs_name = "byte-store";
     
@@ -639,6 +645,8 @@ extern "C" {
     static boolean_t             bs_qd_print_matches(char* path, char* fn);
     static char*                 bs_qd_strsep(char** stringp, const char* delim);
     static boolean_t             bs_qd_is_there(char* candidate);
+    static long                  bs_qd_get_file_size(const char* filename);
+    static char*                 bs_qd_load_file(const char* fn);
 
     #define MAIN_PAGE                       "<html> <head><title>Welcome to byte-store!</title></head>  <body>Welcome to byte-store!</body>       </html>"
     #define METHOD_ERROR                    "<html> <head><title>Illegal request</title></head>         <body>Sorry!</body>                       </html>"
