@@ -450,6 +450,7 @@ extern "C" {
         lookup_t* lookup_ptr;
         sqr_store_t* sqr_store_ptr;
         char* bedextract_path;
+        char* bedops_path;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -611,6 +612,9 @@ extern "C" {
     extern const char* bs_qd_bedextract;
     const char* bs_qd_bedextract = "bedextract";
 
+    extern const char* bs_qd_bedops;
+    const char* bs_qd_bedops = "bedops";
+
     static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
@@ -683,6 +687,8 @@ extern "C" {
         score_t lower_bound;
         score_t upper_bound;
         boolean_t bounds_set;
+        int32_t padding;
+        boolean_t padding_set;
     } bs_qd_filter_param_t;
 
     /* non-daemon function declarations */

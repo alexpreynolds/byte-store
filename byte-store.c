@@ -325,6 +325,7 @@ main(int argc, char** argv)
         else if (bs_globals.store_query_daemon_flag) {
             bs_qd_test_dependencies();
             fprintf(stderr, "Info: bedextract is located at [%s]\n", bs_globals.bedextract_path);
+            fprintf(stderr, "Info: bedops is located at [%s]\n", bs_globals.bedops_path);
             bs_globals.lookup_ptr = lookup;
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
@@ -796,6 +797,13 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
                 params->bounds_set = kTrue;
             }
         }
+        if (strcmp(key, "padding") == 0) {
+            if (sscanf(value, "%d", &params->padding) != 1) {
+                params->padding_set = kFalse;
+                return MHD_NO;
+            }
+            params->padding_set = kTrue;
+        }
     }
     return MHD_YES;
 }
@@ -842,6 +850,7 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
+    filter_parameters->padding_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
 
     /* if parameters were not specified correctly, return appropriate error message */
@@ -851,7 +860,7 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     }
 
     /* process the uploaded file to get the element ranges of interest, and then write to output */
-    FILE* bedextract_fp = NULL;
+    FILE* range_fp = NULL;
     char cmd[PATH_MAX] = {0};
 
     /* set up a temporary file for storing query indices */
@@ -866,13 +875,28 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     fprintf(stdout, "Request [%" PRIu64 "]: Writing query indices to [%s]\n", con_info->timestamp, con_info->query_index_filename);
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
-    sprintf(cmd, "%s %s %s | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", bs_globals.bedextract_path, bs_globals.lookup_fn, con_info->upload_filename, con_info->query_index_filename);
+    if (filter_parameters->padding_set) {
+        sprintf(cmd, "%s --range %d --everything %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            bs_globals.bedops_path, 
+            filter_parameters->padding,
+            con_info->upload_filename, 
+            bs_globals.bedextract_path, 
+            bs_globals.lookup_fn, 
+            con_info->query_index_filename);
+    }
+    else {
+        sprintf(cmd, "%s %s %s | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            bs_globals.bedextract_path, 
+            bs_globals.lookup_fn, 
+            con_info->upload_filename, 
+            con_info->query_index_filename);
+    }
     //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
-    if (NULL == (bedextract_fp = popen(cmd, "r"))) {
+    if (NULL == (range_fp = popen(cmd, "r"))) {
        fprintf(stdout, "Error: Could not popen bedextract command to generate query indices [%s]\n", cmd);
        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
-    int status = pclose(bedextract_fp);
+    int status = pclose(range_fp);
     if (status == -1) {
         fprintf(stderr, "Error: pclose() failed!\n");
         return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
@@ -1509,6 +1533,29 @@ bs_qd_test_dependencies()
     free(path_bedextract), path_bedextract = NULL;
     free(bedextract), bedextract = NULL;
 
+    char *bedops = NULL;
+    bedops = malloc(strlen(bs_qd_bedops) + 1);
+    if (!bedops) {
+        fprintf(stderr, "Error: Cannot allocate space for bedops variable copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(bedops, bs_qd_bedops, strlen(bs_qd_bedops) + 1);
+
+    char *path_bedops = NULL;
+    path_bedops = malloc(strlen(path) + 1);
+    if (!path_bedops) {
+        fprintf(stderr, "Error: Cannot allocate space for path (bedops) copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path_bedops, path, strlen(path) + 1);
+
+    if (bs_qd_print_matches(path_bedops, bedops) != kTrue) {
+        fprintf(stderr, "Error: Cannot find bedops binary required for querying BED\n");
+        exit(ENOENT); /* No such file or directory (POSIX.1) */
+    }
+    free(path_bedops), path_bedops = NULL;
+    free(bedops), bedops = NULL;
+
     return kTrue;
 }
 
@@ -1540,6 +1587,15 @@ bs_qd_print_matches(char* path, char* fn)
                 }
                 memcpy(bs_globals.bedextract_path, candidate, strlen(candidate));
                 bs_globals.bedextract_path[strlen(candidate)] = '\0';
+            }
+            if (strcmp(fn, bs_qd_bedops) == 0) {
+                bs_globals.bedops_path = malloc(strlen(candidate) + 1);
+                if (!bs_globals.bedops_path) {
+                    fprintf(stderr, "Error: Could not allocate space for storing bedops path global\n");
+                    exit(ENOMEM); /* Not enough space (POSIX.1) */
+                }
+                memcpy(bs_globals.bedops_path, candidate, strlen(candidate));
+                bs_globals.bedops_path[strlen(candidate)] = '\0';
             }
             break;
         }
@@ -3364,6 +3420,7 @@ bs_init_globals()
     bs_globals.zero_sd_warning_issued = kFalse;
     bs_globals.score_ptr = NULL;
     bs_globals.bedextract_path = NULL;
+    bs_globals.bedops_path = NULL;
 }
 
 /**
@@ -3376,6 +3433,7 @@ void
 bs_delete_globals()
 {
     free(bs_globals.bedextract_path), bs_globals.bedextract_path = NULL;
+    free(bs_globals.bedops_path), bs_globals.bedops_path = NULL;
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
     free(bs_globals.store_query_daemon_hostname), bs_globals.store_query_daemon_hostname = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);
