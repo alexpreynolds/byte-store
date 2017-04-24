@@ -951,6 +951,7 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     /* write temporary buffer to response */
     response = MHD_create_response_from_buffer(strlen(temporary_buf), temporary_buf, MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
     if (!response) {
         free(temporary_buf);
         return MHD_NO;
@@ -1091,6 +1092,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         io->read_fp = read_fp;
         response = MHD_create_response_from_callback(read_buf.st_size, (size_t) sz, &bs_qd_temporary_file_buffer_reader, io, &bs_qd_temporary_file_buffer_callback);
         MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
         if (!response) {
             fclose(read_fp);
             return MHD_NO;
@@ -1196,6 +1198,7 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     /* write temporary buffer to response */
     response = MHD_create_response_from_buffer(strlen(temporary_buf), temporary_buf, MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+    MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
     if (!response) {
         free(temporary_buf);
         return MHD_NO;
