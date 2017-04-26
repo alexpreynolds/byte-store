@@ -950,19 +950,21 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "%s --range %d --everything %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "%s --range %d --everything %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
             bs_globals.bedops_path, 
             filter_parameters->padding,
             con_info->upload_filename, 
+            bs_globals.bedops_path,
             bs_globals.bedextract_path, 
             bs_globals.lookup_fn, 
             con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "%s %s %s | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "%s --merge %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            bs_globals.bedops_path, 
+            con_info->upload_filename, 
             bs_globals.bedextract_path, 
             bs_globals.lookup_fn, 
-            con_info->upload_filename, 
             con_info->query_index_filename);
     }
     //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
