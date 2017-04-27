@@ -324,8 +324,10 @@ main(int argc, char** argv)
         }
         else if (bs_globals.store_query_daemon_flag) {
             bs_qd_test_dependencies();
-            fprintf(stderr, "Info: bedextract is located at [%s]\n", bs_globals.bedextract_path);
-            fprintf(stderr, "Info: bedops is located at [%s]\n", bs_globals.bedops_path);
+            fprintf(stderr, "Info: bedextract is located at: [%s]\n", bs_globals.bedextract_path);
+            fprintf(stderr, "Info: bedops is located at:     [%s]\n", bs_globals.bedops_path);
+            fprintf(stderr, "Info: bedmap is located at:     [%s]\n", bs_globals.bedmap_path);
+            fprintf(stderr, "Info: sort-bed is located at:   [%s]\n", bs_globals.sortbed_path);
             bs_globals.lookup_ptr = lookup;
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
@@ -365,11 +367,11 @@ main(int argc, char** argv)
                     "Or:\n"\
                     "\t'$ curl -i -X GET \"%s://%s:%d/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://%s:%d/elements\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/elements.bed\" \"%s://%s:%d/elements\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://%s:%d/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/elements.bed\" \"%s://%s:%d/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
                     "Etc.\n\n"\
-                    "(Add the \"-k\" option if using self-signed certificates.)\n", 
+                    "%s",
                     (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
                     bs_globals.store_query_daemon_port, 
@@ -381,7 +383,8 @@ main(int argc, char** argv)
                     bs_globals.store_query_daemon_port, 
                     (bs_globals.enable_ssl ? "https" : "http"),
                     bs_globals.store_query_daemon_hostname, 
-                    bs_globals.store_query_daemon_port);
+                    bs_globals.store_query_daemon_port,
+                    (bs_globals.enable_ssl ? "(Add the \"-k\" option if using SSL with self-signed certificates.)\n" : ""));
             }
             else {
                 fprintf(stdout, "Info: Examples of requests include:\n"\
@@ -389,15 +392,16 @@ main(int argc, char** argv)
                     "Or:\n"\
                     "\t'$ curl -i -X GET \"%s://hostname:port/random?filter-type=greater-than-inclusive&filter-value=0.50\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://hostname:port/elements\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/elements.bed\" \"%s://hostname:port/elements\"'\n"\
                     "Or:\n"\
-                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/vec_test10k.bed\" \"%s://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
+                    "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/elements.bed\" \"%s://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
                     "Etc.\n\n"\
-                    "(Add the \"-k\" option if using self-signed certificates.)\n", 
+                    "%s", 
                     (bs_globals.enable_ssl ? "https" : "http"),
                     (bs_globals.enable_ssl ? "https" : "http"),
                     (bs_globals.enable_ssl ? "https" : "http"),
-                    (bs_globals.enable_ssl ? "https" : "http"));
+                    (bs_globals.enable_ssl ? "https" : "http"),
+                    (bs_globals.enable_ssl ? "(Add the \"-k\" option if using SSL with self-signed certificates.)\n" : ""));
             }
             fprintf(stdout, "\nPress <Return> to stop the server...\n");
             getchar(); /* wait for it... */
@@ -587,12 +591,18 @@ bs_qd_request_type_to_str(bs_qd_request_t t)
             return "Generic request";
         case kBSQDRequestInformation:
             return "Information";
+        case kBSQDRequestRandom:
+            return "Random";
         case kBSQDRequestRandomViaHeap:
             return "Random (via in-heap buffer)";
         case kBSQDRequestRandomViaTemporaryFile:
             return "Random (via temporary file)";
         case kBSQDRequestElements:
             return "Elements";
+        case kBSQDRequestElementsViaHeap:
+            return "Elements (via in-heap buffer)";
+        case kBSQDRequestElementsViaTemporaryFile:
+            return "Elements (via temporary file)";
         case kBSQDRequestUndefined:
             return "Undefined";
         case kBSQDRequestMalformed:
@@ -670,7 +680,7 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
     }
 
     /* instantiate and populate connection information struct members */
-    /* launch necessary handler */
+    /* launch desired URL handler */
     if (! *con_cls) {
         con_info = malloc(sizeof(bs_qd_connection_info_t));
         if (!con_info) {
@@ -695,13 +705,24 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
         con_info->query_index_filename = NULL;
         *con_cls = (void*) con_info;
 
-        if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD)) {
+        if (!request_pages[i].url) {
+            ret = MHD_NO;
+        }
+        else if ((con_info->method == kBSQDConnectionMethodGET) || (con_info->method == kBSQDConnectionMethodHEAD)) {
             ret = request_pages[i].handler(request_pages[i].handler_cls, request_pages[i].mime, connection, con_info, NULL, NULL);
         }
         else if (con_info->method == kBSQDConnectionMethodPOST) {
             /* allowed POST requests */
-            if (strcmp(request_pages[i].url, kBSQDURLElements) == 0) {
-                con_info->request_type = kBSQDRequestElements;
+            if ((strcmp(request_pages[i].url, kBSQDURLElements) == 0) || (strcmp(request_pages[i].url, kBSQDURLElementsViaHeap) == 0) || (strcmp(request_pages[i].url, kBSQDURLElementsViaTemporaryFile) == 0)) {
+                if (strcmp(request_pages[i].url, kBSQDURLElements) == 0) {
+                    con_info->request_type = kBSQDRequestElementsViaHeap;
+                }
+                else if (strcmp(request_pages[i].url, kBSQDURLElementsViaHeap) == 0) {
+                    con_info->request_type = kBSQDRequestElementsViaHeap;
+                }
+                else if (strcmp(request_pages[i].url, kBSQDURLElementsViaTemporaryFile) == 0) {
+                    con_info->request_type = kBSQDRequestElementsViaTemporaryFile;
+                }
                 con_info->post_processor = MHD_create_post_processor(connection, BS_QD_POST_BUFFER_SIZE, &bs_qd_iterate_elements_post, con_info);
                 ret = MHD_YES;
             }
@@ -714,7 +735,7 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
     }
     else {
         con_info = (bs_qd_connection_info_t*) *con_cls;
-        if ((con_info->method == kBSQDConnectionMethodPOST) && (strcmp(request_pages[i].url, kBSQDURLElements) == 0)) {
+        if ((con_info->method == kBSQDConnectionMethodPOST) && ((strcmp(request_pages[i].url, kBSQDURLElements) == 0) || (strcmp(request_pages[i].url, kBSQDURLElementsViaHeap) == 0) || (strcmp(request_pages[i].url, kBSQDURLElementsViaTemporaryFile) == 0))) {
             if (*upload_data_size != 0) {
                 if (MHD_post_process(con_info->post_processor, upload_data, *upload_data_size) != MHD_YES) {
                     return bs_qd_request_malformed(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
@@ -731,7 +752,15 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
                     return bs_qd_request_upload_too_large(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
                 }
                 /* now it is safe to open and process file before finishing request */ 
-                return bs_qd_request_elements_via_buffer(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                if (strcmp(request_pages[i].url, kBSQDURLElements) == 0) {
+                    return bs_qd_request_elements_via_heap(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                }
+                else if (strcmp(request_pages[i].url, kBSQDURLElementsViaHeap) == 0) {
+                    return bs_qd_request_elements_via_heap(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                }
+                else if (strcmp(request_pages[i].url, kBSQDURLElementsViaTemporaryFile) == 0) {
+                    return bs_qd_request_elements_via_temporary_file(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
+                }
             }
         }
     }
@@ -804,7 +833,6 @@ bs_qd_iterate_elements_post(void *coninfo_cls, enum MHD_ValueKind kind, const ch
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 static int
 bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value)
@@ -812,7 +840,6 @@ bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* 
     fprintf(stderr, "key [%s] -> value [%s]\n", key, value);
     return MHD_YES;
 }
-#pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 
 /**
@@ -850,7 +877,8 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
             else if (strcmp(value, kScoreFilterRangedOutsideExclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideExclusive; }
             else if (strcmp(value, kScoreFilterRangedOutsideInclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideInclusive; }
         }
-        if (strcmp(key, "filter-value") == 0) {
+        
+        else if (strcmp(key, "filter-value") == 0) {
             /* two forms of filter values: "float", or "float:float" */
             char* cptr = NULL;
             cptr = strchr(value, ':');
@@ -871,12 +899,24 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
                 params->bounds_set = kTrue;
             }
         }
-        if (strcmp(key, "padding") == 0) {
+
+        else if (strcmp(key, "padding") == 0) {
             if (sscanf(value, "%d", &params->padding) != 1) {
                 params->padding_set = kFalse;
                 return MHD_NO;
             }
             params->padding_set = kTrue;
+        }
+
+        else if (strcmp(key, "pairing") == 0) {
+            params->pairing = kBSQDPairingUndefined;
+            if (strcmp(value, kBSQDPairingWholeGenomeStr) == 0) { params->pairing = kBSQDPairingWholeGenome; }
+            else if (strcmp(value, kBSQDPairingMutualStr) == 0) { params->pairing = kBSQDPairingMutual; }
+            params->pairing_set = kTrue;
+        }
+
+        else if (strcmp(key, "postsort") == 0) {
+            params->postsort_set = kTrue;
         }
     }
     return MHD_YES;
@@ -915,7 +955,7 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     struct MHD_Response *response;
     int ret = MHD_NO;
@@ -925,6 +965,8 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
     filter_parameters->padding_set = kFalse;
+    filter_parameters->pairing_set = kFalse;
+    filter_parameters->postsort_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
 
     /* if parameters were not specified correctly, return appropriate error message */
@@ -1063,6 +1105,270 @@ bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_
 }
 #pragma GCC diagnostic pop
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int
+bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+{
+    struct MHD_Response *response;
+    int ret = MHD_NO;
+
+    /* read filter parameters from query string, if specified */
+    bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
+    filter_parameters->type = kScoreFilterNone;
+    filter_parameters->bounds_set = kFalse;
+    filter_parameters->padding_set = kFalse;
+    filter_parameters->pairing_set = kFalse;
+    filter_parameters->postsort_set = kFalse;
+    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
+
+    /* if parameters were not specified correctly, return appropriate error message */
+    if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
+        free(filter_parameters), filter_parameters = NULL;
+        return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* process the uploaded file to get the element ranges of interest, and then write to output */
+    FILE* range_fp = NULL;
+    char cmd[PATH_MAX] = {0};
+
+    /* set up a temporary file for storing query indices */
+    char indices_fn[] = "/tmp/bs_XXXXXX";
+    mkstemp(indices_fn);
+    con_info->query_index_filename = malloc(strlen(indices_fn) + 1);
+    if (!con_info->query_index_filename) {
+        fprintf(stdout, "Request [%" PRIu64 "]: Query index filename could not be allocated to memory\n", con_info->timestamp);
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    memcpy(con_info->query_index_filename, indices_fn, strlen(indices_fn) + 1);
+    fprintf(stdout, "Request [%" PRIu64 "]: Writing query indices to [%s]\n", con_info->timestamp, con_info->query_index_filename);
+    
+    /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
+    if (filter_parameters->padding_set) {
+        sprintf(cmd, "%s --range %d --everything %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            bs_globals.bedops_path, 
+            filter_parameters->padding,
+            con_info->upload_filename, 
+            bs_globals.bedops_path,
+            bs_globals.bedextract_path, 
+            bs_globals.lookup_fn, 
+            con_info->query_index_filename);
+    }
+    else {
+        sprintf(cmd, "%s --merge %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            bs_globals.bedops_path, 
+            con_info->upload_filename, 
+            bs_globals.bedextract_path, 
+            bs_globals.lookup_fn, 
+            con_info->query_index_filename);
+    }
+    //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
+    if (NULL == (range_fp = popen(cmd, "r"))) {
+       fprintf(stdout, "Error: Could not popen bedextract command to generate query indices [%s]\n", cmd);
+       return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    int status = pclose(range_fp);
+    if (status == -1) {
+        fprintf(stderr, "Error: pclose() failed!\n");
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* create temporary file and write a random element to it */
+    char write_fn[] = "/tmp/bs_XXXXXX";
+    int write_fd = mkstemp(write_fn);
+    FILE* write_fp = fdopen(write_fd, "w");
+    fprintf(stderr, "Request [%" PRIu64 "]: Writing elements to temporary file [%s]\n", con_info->timestamp, write_fn);
+
+    /* write output */
+    switch (bs_globals.store_type) {
+    case kStorePearsonRSquareMatrixSplit:
+    case kStoreSpearmanRhoSquareMatrixSplit:
+        switch (filter_parameters->type) {
+            case kScoreFilterNone:
+                bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
+                                                                    bs_globals.sqr_store_ptr, 
+                                                                    con_info->query_index_filename,
+                                                                    write_fp);
+                break;
+            case kScoreFilterGtEq:
+            case kScoreFilterGt:
+            case kScoreFilterEq:
+            case kScoreFilterLtEq:
+            case kScoreFilterLt:
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
+                                                                             bs_globals.sqr_store_ptr, 
+                                                                             con_info->query_index_filename,
+                                                                             write_fp,
+                                                                             filter_parameters->lone_bound, 
+                                                                             0, 
+                                                                             0, 
+                                                                             filter_parameters->type);
+                break;
+            case kScoreFilterRangedWithinExclusive:
+            case kScoreFilterRangedWithinInclusive:
+            case kScoreFilterRangedOutsideExclusive:
+            case kScoreFilterRangedOutsideInclusive:
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
+                                                                             bs_globals.sqr_store_ptr, 
+                                                                             con_info->query_index_filename,
+                                                                             write_fp, 
+                                                                             0, 
+                                                                             filter_parameters->lower_bound, 
+                                                                             filter_parameters->upper_bound, 
+                                                                             filter_parameters->type);
+                break;
+            case kScoreFilterUndefined:
+                fprintf(stderr, "Error: You should never see this error (qd_B)\n");
+                return MHD_NO;
+            default:
+                break;
+        }
+        break;
+    case kStoreRandomBufferedSquareMatrix:
+    case kStoreRandomSquareMatrix:
+    case kStorePearsonRSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStorePearsonRSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStorePearsonRSquareMatrixBzip2Split:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
+    case kStorePearsonRSquareMatrixSplitSingleChunk:
+    case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+    case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreUndefined:
+        /* cleanup */
+        fclose(write_fp), write_fp = NULL;
+        unlink(write_fn);
+        /* no data found for specified store type */
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* close write_fn pointer */
+    fclose(write_fp), write_fp = NULL;
+
+    if (filter_parameters->pairing_set && filter_parameters->pairing == kBSQDPairingMutual) {
+        /* 
+            If pairing type is mutual, we want any elements from the result, where the 
+            first interval ("A1") has a paired interval ("B1"), which in turn overlaps 
+            any other first interval ("An").
+
+            One way to do this is to get the paired intervals and run a bedmap statement 
+            to map the original intervals against the paired intervals. Where there are
+            exact overlaps, we know there is at least one pairing in the original set 
+            that is mutual.
+
+            We apply a final sort as the cost of doing this is likely minimal, at this 
+            juncture.
+
+            $ awk 'BEGIN{ OFS="\t"; }{ print $4,$5,$6,$1,$2,$3,$7 }' original.bed | sort-bed - | bedops --everything original.bed - | sort-bed - | uniq -d > mutualPairs.bed
+        */
+        FILE* mutual_fp = NULL;
+        char mutual_fn[] = "/tmp/bs_XXXXXX";
+        mkstemp(mutual_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Writing mutual elements to temporary file [%s]\n", con_info->timestamp, mutual_fn);
+        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s", 
+            write_fn, 
+            bs_globals.sortbed_path, 
+            bs_globals.bedops_path, 
+            write_fn,
+            bs_globals.sortbed_path, 
+            mutual_fn);
+        if (NULL == (mutual_fp = popen(cmd, "r"))) {
+           fprintf(stdout, "Error: Could not popen bedops command to generate mutual items [%s]\n", cmd);
+           return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        int status = pclose(mutual_fp);
+        if (status == -1) {
+            fprintf(stderr, "Error: pclose() failed!\n");
+            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        /* copy the mutual_fn to the write_fn and delete/unlink mutual_fn */
+        /* by using filename tricks, we can eliminate a file copy operation and just copy by way of moving filenames */
+        char old_write_fn[] = "/tmp/bs_XXXXXX";
+        memcpy(old_write_fn, write_fn, strlen(write_fn) + 1);
+        memcpy(write_fn, mutual_fn, strlen(mutual_fn) + 1);
+        unlink(old_write_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
+    }
+    else if (filter_parameters->postsort_set) {
+        FILE* postsort_fp = NULL;
+        char postsort_fn[] = "/tmp/bs_XXXXXX";
+        mkstemp(postsort_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
+        sprintf(cmd, "%s %s > %s", 
+            bs_globals.sortbed_path,
+            write_fn,  
+            postsort_fn);
+        if (NULL == (postsort_fp = popen(cmd, "r"))) {
+           fprintf(stdout, "Error: Could not popen sort-bed command to generate sorted items [%s]\n", cmd);
+           return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        int status = pclose(postsort_fp);
+        if (status == -1) {
+            fprintf(stderr, "Error: pclose() failed!\n");
+            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        char old_write_fn[] = "/tmp/bs_XXXXXX";
+        memcpy(old_write_fn, write_fn, strlen(write_fn) + 1);
+        memcpy(write_fn, postsort_fn, strlen(postsort_fn) + 1);
+        unlink(old_write_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
+    }
+
+    /* clean up parameters */
+    free(filter_parameters), filter_parameters = NULL;
+
+    /* read from temporary file, or whatever file results from any post-processing */
+    fprintf(stderr, "Request [%" PRIu64 "]: Will try to read elements from temporary file [%s]\n", con_info->timestamp, write_fn);
+    FILE* read_fp = NULL;
+    read_fp = fopen(write_fn, "r");
+    int read_fd = fileno(read_fp);
+    if (read_fd == -1) {
+        (void) fclose(read_fp);
+        return MHD_NO; /* internal error */
+    }
+    struct stat read_buf;
+    if ((fstat(read_fd, &read_buf) != 0) || (!S_ISREG(read_buf.st_mode))) {
+        /* not a regular file, cleanup */
+        fclose(read_fp), read_fp = NULL;
+        fclose(write_fp), write_fp = NULL;
+        unlink(write_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, write_fn);
+    }
+    if (!read_fp) {
+        return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    else {
+        long sz = sysconf(_SC_PAGESIZE);
+        bs_qd_io_t* io = NULL;
+        io = malloc(sizeof(bs_qd_io_t));
+        io->con_info = con_info;
+        io->write_fn = NULL;
+        io->write_fn = malloc(strlen(write_fn) + 1);
+        if (!io->write_fn) {
+            fclose(read_fp);
+            return MHD_NO;
+        }
+        memcpy(io->write_fn, write_fn, strlen(write_fn) + 1);
+        io->write_fp = write_fp;
+        io->read_fp = read_fp;
+        response = MHD_create_response_from_callback(read_buf.st_size, (size_t) sz, &bs_qd_temporary_file_buffer_reader, io, &bs_qd_temporary_file_buffer_callback);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        if (!response) {
+            fclose(read_fp);
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+    }
+    return ret;
+}
+#pragma GCC diagnostic pop
+
 /* query daemon - random element */
 
 #pragma GCC diagnostic push
@@ -1083,6 +1389,9 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
+    filter_parameters->padding_set = kFalse;
+    filter_parameters->pairing_set = kFalse;
+    filter_parameters->postsort_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
 
     /* if parameters were not specified correctly, return appropriate error message */
@@ -1158,6 +1467,8 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     }
     /* clean up parameters */
     free(filter_parameters), filter_parameters = NULL;
+    fclose(write_fp), write_fp = NULL;
+
     /* read from temporary file */
     FILE* read_fp = NULL;
     read_fp = fopen(write_fn, "r");
@@ -1209,7 +1520,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int
-bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
+bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size)
 {
     int ret;
     struct MHD_Response* response = NULL;
@@ -1224,6 +1535,9 @@ bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struc
     bs_qd_filter_param_t* filter_parameters = malloc(sizeof(*filter_parameters));
     filter_parameters->type = kScoreFilterNone;
     filter_parameters->bounds_set = kFalse;
+    filter_parameters->padding_set = kFalse;
+    filter_parameters->pairing_set = kFalse;
+    filter_parameters->postsort_set = kFalse;
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, bs_qd_populate_filter_parameters, filter_parameters);
 
     /* if parameters were not specified correctly, return appropriate error message */
@@ -1586,6 +1900,8 @@ bs_qd_test_dependencies()
     }
     memcpy(path, p, strlen(p) + 1);
 
+    /* bedextract */
+
     char *bedextract = NULL;
     bedextract = malloc(strlen(bs_qd_bedextract) + 1);
     if (!bedextract) {
@@ -1608,6 +1924,8 @@ bs_qd_test_dependencies()
     }
     free(path_bedextract), path_bedextract = NULL;
     free(bedextract), bedextract = NULL;
+
+    /* bedops */
 
     char *bedops = NULL;
     bedops = malloc(strlen(bs_qd_bedops) + 1);
@@ -1632,6 +1950,56 @@ bs_qd_test_dependencies()
     free(path_bedops), path_bedops = NULL;
     free(bedops), bedops = NULL;
 
+    /* bedmap */
+
+    char *bedmap = NULL;
+    bedmap = malloc(strlen(bs_qd_bedmap) + 1);
+    if (!bedmap) {
+        fprintf(stderr, "Error: Cannot allocate space for bedmap variable copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(bedmap, bs_qd_bedmap, strlen(bs_qd_bedmap) + 1);
+
+    char *path_bedmap = NULL;
+    path_bedmap = malloc(strlen(path) + 1);
+    if (!path_bedmap) {
+        fprintf(stderr, "Error: Cannot allocate space for path (bedmap) copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path_bedmap, path, strlen(path) + 1);
+
+    if (bs_qd_print_matches(path_bedmap, bedmap) != kTrue) {
+        fprintf(stderr, "Error: Cannot find bedmap binary required for querying BED\n");
+        exit(ENOENT); /* No such file or directory (POSIX.1) */
+    }
+    free(path_bedmap), path_bedmap = NULL;
+    free(bedmap), bedmap = NULL;
+
+    /* sort-bed */
+
+    char *sortbed = NULL;
+    sortbed = malloc(strlen(bs_qd_sortbed) + 1);
+    if (!sortbed) {
+        fprintf(stderr, "Error: Cannot allocate space for sortbed variable copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(sortbed, bs_qd_sortbed, strlen(bs_qd_sortbed) + 1);
+
+    char *path_sortbed = NULL;
+    path_sortbed = malloc(strlen(path) + 1);
+    if (!path_sortbed) {
+        fprintf(stderr, "Error: Cannot allocate space for path (sortbed) copy\n");
+        exit(ENOMEM); /* Not enough space (POSIX.1) */
+    }
+    memcpy(path_sortbed, path, strlen(path) + 1);
+
+    if (bs_qd_print_matches(path_sortbed, sortbed) != kTrue) {
+        fprintf(stderr, "Error: Cannot find sort-bed binary required for querying BED\n");
+        exit(ENOENT); /* No such file or directory (POSIX.1) */
+    }
+    free(path_sortbed), path_sortbed = NULL;
+    free(sortbed), sortbed = NULL;
+
     return kTrue;
 }
 
@@ -1655,6 +2023,7 @@ bs_qd_print_matches(char* path, char* fn)
         }
         if (bs_qd_is_there(candidate)) {
             found = kTrue;
+            /* bedmap */
             if (strcmp(fn, bs_qd_bedextract) == 0) {
                 bs_globals.bedextract_path = malloc(strlen(candidate) + 1);
                 if (!bs_globals.bedextract_path) {
@@ -1664,7 +2033,8 @@ bs_qd_print_matches(char* path, char* fn)
                 memcpy(bs_globals.bedextract_path, candidate, strlen(candidate));
                 bs_globals.bedextract_path[strlen(candidate)] = '\0';
             }
-            if (strcmp(fn, bs_qd_bedops) == 0) {
+            /* bedops */
+            else if (strcmp(fn, bs_qd_bedops) == 0) {
                 bs_globals.bedops_path = malloc(strlen(candidate) + 1);
                 if (!bs_globals.bedops_path) {
                     fprintf(stderr, "Error: Could not allocate space for storing bedops path global\n");
@@ -1672,6 +2042,26 @@ bs_qd_print_matches(char* path, char* fn)
                 }
                 memcpy(bs_globals.bedops_path, candidate, strlen(candidate));
                 bs_globals.bedops_path[strlen(candidate)] = '\0';
+            }
+            /* bedmap */
+            else if (strcmp(fn, bs_qd_bedmap) == 0) {
+                bs_globals.bedmap_path = malloc(strlen(candidate) + 1);
+                if (!bs_globals.bedmap_path) {
+                    fprintf(stderr, "Error: Could not allocate space for storing bedmap path global\n");
+                    exit(ENOMEM); /* Not enough space (POSIX.1) */
+                }
+                memcpy(bs_globals.bedmap_path, candidate, strlen(candidate));
+                bs_globals.bedmap_path[strlen(candidate)] = '\0';
+            }
+            /* sort-bed */
+            else if (strcmp(fn, bs_qd_sortbed) == 0) {
+                bs_globals.sortbed_path = malloc(strlen(candidate) + 1);
+                if (!bs_globals.sortbed_path) {
+                    fprintf(stderr, "Error: Could not allocate space for storing sort-bed path global\n");
+                    exit(ENOMEM); /* Not enough space (POSIX.1) */
+                }
+                memcpy(bs_globals.sortbed_path, candidate, strlen(candidate));
+                bs_globals.sortbed_path[strlen(candidate)] = '\0';
             }
             break;
         }
@@ -3497,6 +3887,8 @@ bs_init_globals()
     bs_globals.score_ptr = NULL;
     bs_globals.bedextract_path = NULL;
     bs_globals.bedops_path = NULL;
+    bs_globals.bedmap_path = NULL;
+    bs_globals.sortbed_path = NULL;
     bs_globals.enable_ssl = kFalse;
     bs_globals.ssl_key_pem = NULL;
     bs_globals.ssl_cert_pem = NULL;
@@ -3515,6 +3907,8 @@ bs_delete_globals()
     free(bs_globals.ssl_cert_pem), bs_globals.ssl_cert_pem = NULL;
     free(bs_globals.bedextract_path), bs_globals.bedextract_path = NULL;
     free(bs_globals.bedops_path), bs_globals.bedops_path = NULL;
+    free(bs_globals.bedmap_path), bs_globals.bedmap_path = NULL;
+    free(bs_globals.sortbed_path), bs_globals.sortbed_path = NULL;
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
     free(bs_globals.store_query_daemon_hostname), bs_globals.store_query_daemon_hostname = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);

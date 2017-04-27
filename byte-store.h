@@ -451,6 +451,8 @@ extern "C" {
         sqr_store_t* sqr_store_ptr;
         char* bedextract_path;
         char* bedops_path;
+        char* bedmap_path;
+        char* sortbed_path;
         boolean_t enable_ssl;
         char* ssl_key_pem;
         char* ssl_cert_pem;
@@ -597,11 +599,38 @@ extern "C" {
         kBSQDRequestParametersNotFound,
         kBSQDRequestGeneric,
         kBSQDRequestInformation,
+        kBSQDRequestRandom,
         kBSQDRequestRandomViaHeap,
         kBSQDRequestRandomViaTemporaryFile,
         kBSQDRequestElements,
+        kBSQDRequestElementsViaHeap,
+        kBSQDRequestElementsViaTemporaryFile,
         kBSQDRequestUndefined
     } bs_qd_request_t;
+
+    extern const char* kBSQDPairingWholeGenomeStr;
+    extern const char* kBSQDPairingMutualStr;
+    const char* kBSQDPairingWholeGenomeStr = "wholeGenome";
+    const char* kBSQDPairingMutualStr = "mutual";
+
+    typedef enum bs_qd_pairing {
+        kBSQDPairingWholeGenome,
+        kBSQDPairingMutual,
+        kBSQDPairingUndefined
+    } bs_qd_pairing_t;
+
+    typedef struct bs_qd_filter_param {
+        score_filter_t type;
+        score_t lone_bound;
+        score_t lower_bound;
+        score_t upper_bound;
+        boolean_t bounds_set;
+        int32_t padding;
+        boolean_t padding_set;
+        bs_qd_pairing_t pairing;
+        boolean_t pairing_set;
+        boolean_t postsort_set;
+    } bs_qd_filter_param_t;
 
     typedef struct bs_qd_connection_info {
         bs_qd_connection_method_t method;
@@ -616,15 +645,19 @@ extern "C" {
     } bs_qd_connection_info_t;
 
     extern const char* bs_qd_bedextract;
-    const char* bs_qd_bedextract = "bedextract";
-
     extern const char* bs_qd_bedops;
+    extern const char* bs_qd_bedmap;
+    extern const char* bs_qd_sortbed;
+    const char* bs_qd_bedextract = "bedextract";
     const char* bs_qd_bedops = "bedops";
+    const char* bs_qd_bedmap = "bedmap";
+    const char* bs_qd_sortbed = "sort-bed";
 
     static int                   bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
-    static int                   bs_qd_request_elements_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
-    static int                   bs_qd_request_random_element_via_buffer(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
+    static int                   bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct MHD_Connection* connection, bs_qd_connection_info_t* con_info, const char* upload_data, size_t* upload_data_size);
     static int                   bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static int                   bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value);
     static ssize_t               bs_qd_temporary_file_buffer_reader(void* cls, uint64_t pos, char* buf, size_t max);
@@ -669,16 +702,20 @@ extern "C" {
 
     #define kBSQDURLHome "/"
     #define kBSQDURLRandom "/random"
-    #define kBSQDURLRandomViaTemporaryFile "/random_via_temporary_file"
-    #define kBSQDURLRandomViaBuffer "/random_via_buffer"
+    #define kBSQDURLRandomViaTemporaryFile "/random_via_tf"
+    #define kBSQDURLRandomViaHeap "/random_via_heap"
     #define kBSQDURLElements "/elements"
+    #define kBSQDURLElementsViaTemporaryFile "/elements_via_tf"
+    #define kBSQDURLElementsViaHeap "/elements_via_heap"
 
     static bs_qd_request_page_t request_pages[] = {
         { kBSQDURLHome,                                "text/html",   &bs_qd_request_generic_information,                      MAIN_PAGE },
-        { kBSQDURLRandom,                              "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
+        { kBSQDURLRandom,                              "text/plain",  &bs_qd_request_random_element_via_heap,                  NULL },
         { kBSQDURLRandomViaTemporaryFile,              "text/plain",  &bs_qd_request_random_element_via_temporary_file,        NULL },
-        { kBSQDURLRandomViaBuffer,                     "text/plain",  &bs_qd_request_random_element_via_buffer,                NULL },
-        { kBSQDURLElements,                            "text/plain",  &bs_qd_request_elements_via_buffer,                      NULL },
+        { kBSQDURLRandomViaHeap,                       "text/plain",  &bs_qd_request_random_element_via_heap,                  NULL },
+        { kBSQDURLElements,                            "text/plain",  &bs_qd_request_elements_via_heap,                        NULL },
+        { kBSQDURLElementsViaTemporaryFile,            "text/plain",  &bs_qd_request_elements_via_temporary_file,              NULL },
+        { kBSQDURLElementsViaHeap,                     "text/plain",  &bs_qd_request_elements_via_heap,                        NULL },
         { NULL,                                         NULL,         &bs_qd_request_not_found,                                NULL } /* 404 */
     };
 
@@ -688,16 +725,6 @@ extern "C" {
         FILE* write_fp;
         FILE* read_fp;
     } bs_qd_io_t;
-
-    typedef struct bs_qd_filter_param {
-        score_filter_t type;
-        score_t lone_bound;
-        score_t lower_bound;
-        score_t upper_bound;
-        boolean_t bounds_set;
-        int32_t padding;
-        boolean_t padding_set;
-    } bs_qd_filter_param_t;
 
     /* non-daemon function declarations */
 
