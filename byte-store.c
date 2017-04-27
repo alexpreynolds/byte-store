@@ -1465,9 +1465,83 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         /* no data found for specified store type */
         return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
+    
+    /* cleanup */
+    fclose(write_fp), write_fp = NULL;
+
+    if (filter_parameters->pairing_set && filter_parameters->pairing == kBSQDPairingMutual) {
+        /* 
+            If pairing type is mutual, we want any elements from the result, where the 
+            first interval ("A1") has a paired interval ("B1"), which in turn overlaps 
+            any other first interval ("An").
+
+            One way to do this is to get the paired intervals and run a bedmap statement 
+            to map the original intervals against the paired intervals. Where there are
+            exact overlaps, we know there is at least one pairing in the original set 
+            that is mutual.
+
+            We apply a final sort as the cost of doing this is likely minimal, at this 
+            juncture.
+
+            $ awk 'BEGIN{ OFS="\t"; }{ print $4,$5,$6,$1,$2,$3,$7 }' original.bed | sort-bed - | bedops --everything original.bed - | sort-bed - | uniq -d > mutualPairs.bed
+        */
+        char cmd[PATH_MAX] = {0};
+        FILE* mutual_fp = NULL;
+        char mutual_fn[] = "/tmp/bs_XXXXXX";
+        mkstemp(mutual_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Writing mutual elements to temporary file [%s]\n", con_info->timestamp, mutual_fn);
+        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s", 
+            write_fn, 
+            bs_globals.sortbed_path, 
+            bs_globals.bedops_path, 
+            write_fn,
+            bs_globals.sortbed_path, 
+            mutual_fn);
+        if (NULL == (mutual_fp = popen(cmd, "r"))) {
+           fprintf(stdout, "Error: Could not popen bedops command to generate mutual items [%s]\n", cmd);
+           return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        int status = pclose(mutual_fp);
+        if (status == -1) {
+            fprintf(stderr, "Error: pclose() failed!\n");
+            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        /* copy the mutual_fn to the write_fn and delete/unlink mutual_fn */
+        /* by using filename tricks, we can eliminate a file copy operation and just copy by way of moving filenames */
+        char old_write_fn[] = "/tmp/bs_XXXXXX";
+        memcpy(old_write_fn, write_fn, strlen(write_fn) + 1);
+        memcpy(write_fn, mutual_fn, strlen(mutual_fn) + 1);
+        unlink(old_write_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
+    }
+    else if (filter_parameters->postsort_set) {
+        char cmd[PATH_MAX] = {0};
+        FILE* postsort_fp = NULL;
+        char postsort_fn[] = "/tmp/bs_XXXXXX";
+        mkstemp(postsort_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
+        sprintf(cmd, "%s %s > %s", 
+            bs_globals.sortbed_path,
+            write_fn,  
+            postsort_fn);
+        if (NULL == (postsort_fp = popen(cmd, "r"))) {
+           fprintf(stdout, "Error: Could not popen sort-bed command to generate sorted items [%s]\n", cmd);
+           return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        int status = pclose(postsort_fp);
+        if (status == -1) {
+            fprintf(stderr, "Error: pclose() failed!\n");
+            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+        }
+        char old_write_fn[] = "/tmp/bs_XXXXXX";
+        memcpy(old_write_fn, write_fn, strlen(write_fn) + 1);
+        memcpy(write_fn, postsort_fn, strlen(postsort_fn) + 1);
+        unlink(old_write_fn);
+        fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
+    }
+
     /* clean up parameters */
     free(filter_parameters), filter_parameters = NULL;
-    fclose(write_fp), write_fp = NULL;
 
     /* read from temporary file */
     FILE* read_fp = NULL;
