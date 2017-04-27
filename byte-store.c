@@ -1662,8 +1662,10 @@ static void
 bs_qd_temporary_file_buffer_callback(void* cls)
 {
     bs_qd_io_t* io = (bs_qd_io_t *) cls;
-    fclose(io->read_fp), io->read_fp = NULL;
-    fclose(io->write_fp), io->write_fp = NULL;
+    if (io->read_fp)
+        fclose(io->read_fp), io->read_fp = NULL;
+    if (io->write_fp)
+        fclose(io->write_fp), io->write_fp = NULL;
     int err = unlink(io->write_fn);
     if (err == -1) {
         fprintf(stderr, "Error: Could not delete temporary buffer! [%s]\n", strerror(errno));
