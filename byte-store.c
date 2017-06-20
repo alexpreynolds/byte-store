@@ -912,11 +912,26 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
             params->pairing = kBSQDPairingUndefined;
             if (strcmp(value, kBSQDPairingWholeGenomeStr) == 0) { params->pairing = kBSQDPairingWholeGenome; }
             else if (strcmp(value, kBSQDPairingMutualStr) == 0) { params->pairing = kBSQDPairingMutual; }
-            params->pairing_set = kTrue;
+            if (params->pairing == kBSQDPairingUndefined) {
+                params->pairing_set = kFalse;
+            }
+            else {
+                params->pairing_set = kTrue;
+            }
         }
 
         else if (strcmp(key, "postsort") == 0) {
-            params->postsort_set = kTrue;
+            params->postsort = kBSQDSortUndefined;
+            if (strcmp(value, kBSQDSortOffStr) == 0) { params->postsort = kBSQDSortOff; }
+            else if (strcmp(value, kBSQDSortIntervalStr) == 0) { params->postsort = kBSQDSortInterval; }
+            else if (strcmp(value, kBSQDSortScoreStr) == 0) { params->postsort = kBSQDSortScore; }
+            if (params->postsort == kBSQDSortUndefined) {
+                params->postsort_set = kFalse;
+                params->postsort = kBSQDSortOff;
+            }
+            else {
+                params->postsort_set = kTrue;
+            }
         }
     }
     return MHD_YES;
@@ -992,19 +1007,19 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "%s --range %d --everything %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-            bs_globals.bedops_path, 
-            filter_parameters->padding,
-            con_info->upload_filename, 
-            bs_globals.bedops_path,
-            bs_globals.bedextract_path, 
-            bs_globals.lookup_fn, 
-            con_info->query_index_filename);
+        sprintf(cmd, "sed '/^$/d' %s | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+                con_info->upload_filename,
+                bs_globals.bedops_path, 
+                filter_parameters->padding,
+                bs_globals.bedops_path,
+                bs_globals.bedextract_path, 
+                bs_globals.lookup_fn, 
+                con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "%s --merge %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-            bs_globals.bedops_path, 
+        sprintf(cmd, "sed '/^$/d' %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
             con_info->upload_filename, 
+            bs_globals.bedops_path, 
             bs_globals.bedextract_path, 
             bs_globals.lookup_fn, 
             con_info->query_index_filename);
@@ -1145,19 +1160,19 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "%s --range %d --everything %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "sed '/^$/d' %s | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+            con_info->upload_filename, 
             bs_globals.bedops_path, 
             filter_parameters->padding,
-            con_info->upload_filename, 
             bs_globals.bedops_path,
             bs_globals.bedextract_path, 
             bs_globals.lookup_fn, 
             con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "%s --merge %s | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-            bs_globals.bedops_path, 
+        sprintf(cmd, "sed '/^$/d' %s | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
             con_info->upload_filename, 
+            bs_globals.bedops_path, 
             bs_globals.bedextract_path, 
             bs_globals.lookup_fn, 
             con_info->query_index_filename);
@@ -1293,17 +1308,26 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
         unlink(old_write_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
     }
-    else if (filter_parameters->postsort_set) {
+
+    /* apply postsort, if specified */
+    if (filter_parameters->postsort_set && (filter_parameters->postsort != kBSQDSortOff)) {
         FILE* postsort_fp = NULL;
         char postsort_fn[] = "/tmp/bs_XXXXXX";
         mkstemp(postsort_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
-        sprintf(cmd, "%s %s > %s", 
-            bs_globals.sortbed_path,
-            write_fn,  
-            postsort_fn);
+        if (filter_parameters->postsort == kBSQDSortInterval) {
+            sprintf(cmd, "%s %s > %s", 
+                    bs_globals.sortbed_path,
+                    write_fn,  
+                    postsort_fn);
+        }
+        else if (filter_parameters->postsort == kBSQDSortScore) {
+            sprintf(cmd, "sort -k7 -nr %s > %s", 
+                    write_fn,
+                    postsort_fn);            
+        }
         if (NULL == (postsort_fp = popen(cmd, "r"))) {
-           fprintf(stdout, "Error: Could not popen sort-bed command to generate sorted items [%s]\n", cmd);
+           fprintf(stdout, "Error: Could not popen sorting command to generate sorted items [%s]\n", cmd);
            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
         }
         int status = pclose(postsort_fp);
@@ -1514,18 +1538,27 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         unlink(old_write_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Deleted temporary file [%s]\n", con_info->timestamp, old_write_fn);
     }
-    else if (filter_parameters->postsort_set) {
+
+    /* apply postsort, if specified */
+    if (filter_parameters->postsort_set  && (filter_parameters->postsort != kBSQDSortOff)) {
         char cmd[PATH_MAX] = {0};
         FILE* postsort_fp = NULL;
         char postsort_fn[] = "/tmp/bs_XXXXXX";
         mkstemp(postsort_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
-        sprintf(cmd, "%s %s > %s", 
-            bs_globals.sortbed_path,
-            write_fn,  
-            postsort_fn);
+        if (filter_parameters->postsort == kBSQDSortInterval) {
+            sprintf(cmd, "%s %s > %s", 
+                    bs_globals.sortbed_path,
+                    write_fn,
+                    postsort_fn);
+        }
+        else if (filter_parameters->postsort == kBSQDSortScore) {
+            sprintf(cmd, "sort -k7 -nr %s > %s", 
+                    write_fn,
+                    postsort_fn);
+        }
         if (NULL == (postsort_fp = popen(cmd, "r"))) {
-           fprintf(stdout, "Error: Could not popen sort-bed command to generate sorted items [%s]\n", cmd);
+           fprintf(stdout, "Error: Could not popen sorting command to generate sorted items [%s]\n", cmd);
            return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
         }
         int status = pclose(postsort_fp);

@@ -619,6 +619,20 @@ extern "C" {
         kBSQDPairingUndefined
     } bs_qd_pairing_t;
 
+    extern const char* kBSQDSortOffStr;
+    extern const char* kBSQDSortIntervalStr;
+    extern const char* kBSQDSortScoreStr;
+    const char* kBSQDSortOffStr = "off";
+    const char* kBSQDSortIntervalStr = "interval";
+    const char* kBSQDSortScoreStr = "score";
+
+    typedef enum bs_qd_postsort {
+        kBSQDSortOff,
+        kBSQDSortInterval,
+        kBSQDSortScore,
+        kBSQDSortUndefined
+    } bs_qd_postsort_t;
+
     typedef struct bs_qd_filter_param {
         score_filter_t type;
         score_t lone_bound;
@@ -629,6 +643,7 @@ extern "C" {
         boolean_t padding_set;
         bs_qd_pairing_t pairing;
         boolean_t pairing_set;
+        bs_qd_postsort_t postsort;
         boolean_t postsort_set;
     } bs_qd_filter_param_t;
 
