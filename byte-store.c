@@ -1007,7 +1007,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
                 con_info->upload_filename,
                 con_info->upload_filename,
                 bs_globals.sortbed_path,
@@ -1019,7 +1019,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
                 con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
                 con_info->upload_filename, 
                 con_info->upload_filename, 
                 bs_globals.sortbed_path,
@@ -1164,7 +1164,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
                 con_info->upload_filename, 
                 con_info->upload_filename, 
                 bs_globals.sortbed_path,
@@ -1176,7 +1176,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
                 con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
                 con_info->upload_filename, 
                 con_info->upload_filename, 
                 bs_globals.sortbed_path,
