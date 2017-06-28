@@ -332,7 +332,18 @@ main(int argc, char** argv)
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
             if (!bs_globals.enable_ssl) {
+                /*
                 daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
+                                          bs_globals.store_query_daemon_port, 
+                                          NULL, 
+                                          NULL,
+                                          &bs_qd_answer_to_connection,
+                                          NULL, 
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          NULL,
+                                          MHD_OPTION_END);
+                */
+                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION, 
                                           bs_globals.store_query_daemon_port, 
                                           NULL, 
                                           NULL,
@@ -343,7 +354,20 @@ main(int argc, char** argv)
                                           MHD_OPTION_END);
             }
             else {
+                /*
                 daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_SSL, 
+                                          bs_globals.store_query_daemon_port, 
+                                          NULL, 
+                                          NULL,
+                                          &bs_qd_answer_to_connection,
+                                          NULL, 
+                                          MHD_OPTION_HTTPS_MEM_KEY, bs_globals.ssl_key_pem,
+                                          MHD_OPTION_HTTPS_MEM_CERT, bs_globals.ssl_cert_pem,
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          NULL,
+                                          MHD_OPTION_END);
+                */
+                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SSL, 
                                           bs_globals.store_query_daemon_port, 
                                           NULL, 
                                           NULL,
@@ -990,6 +1014,22 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
         return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
 
+    /* if uploaded file is empty, then quit early */
+    if (bs_file_size(con_info->upload_filename) <= 2) {
+        free(filter_parameters);
+        filter_parameters = NULL;
+        /* write empty buffer to response */
+        response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_MUST_FREE);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        if (!response) {
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+        return ret;
+    }
+
     /* process the uploaded file to get the element ranges of interest, and then write to output */
     FILE* range_fp = NULL;
     char cmd[PATH_MAX] = {0};
@@ -1037,6 +1077,20 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     if (status == -1) {
         fprintf(stderr, "Error: pclose() failed!\n");
         return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    if (bs_file_size(con_info->query_index_filename) == 0) {
+        free(filter_parameters);
+        filter_parameters = NULL;
+        /* write empty buffer to response */
+        response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_MUST_FREE);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        if (!response) {
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+        return ret;
     }
 
     /* set up temporary buffer */
@@ -1107,7 +1161,8 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     }
 
     /* clean up parameters */
-    free(filter_parameters), filter_parameters = NULL;
+    free(filter_parameters);
+    filter_parameters = NULL;
 
     /* write temporary buffer to response */
     response = MHD_create_response_from_buffer(strlen(temporary_buf), temporary_buf, MHD_RESPMEM_MUST_FREE);
@@ -1145,6 +1200,22 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     if ((filter_parameters->type == kScoreFilterUndefined) || ((filter_parameters->type != kScoreFilterNone) && (!filter_parameters->bounds_set))) {
         free(filter_parameters), filter_parameters = NULL;
         return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+
+    /* if uploaded file is empty, then quit early */
+    if (bs_file_size(con_info->upload_filename) <= 2) {
+        free(filter_parameters);
+        filter_parameters = NULL;
+        /* write empty buffer to response */
+        response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_MUST_FREE);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        if (!response) {
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+        return ret;
     }
 
     /* process the uploaded file to get the element ranges of interest, and then write to output */
@@ -1194,6 +1265,20 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     if (status == -1) {
         fprintf(stderr, "Error: pclose() failed!\n");
         return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
+    }
+    if (bs_file_size(con_info->query_index_filename) == 0) {
+        free(filter_parameters);
+        filter_parameters = NULL;
+        /* write empty buffer to response */
+        response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_MUST_FREE);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_ENCODING, mime);
+        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        if (!response) {
+            return MHD_NO;
+        }
+        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+        MHD_destroy_response(response);
+        return ret;
     }
 
     /* create temporary file and write a random element to it */
@@ -7678,13 +7763,20 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
     } /* while */
     
     /* clean up */
-    fclose(is), is = NULL;
-    fclose(qs), qs = NULL;
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
+    fclose(is);
+    is = NULL;
+    fclose(qs); 
+    qs = NULL;
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    free(md_src_fn); 
+    md_src_fn = NULL;
+    free(md_string); 
+    md_string = NULL;
+    free(md); 
+    md = NULL;
+    free(byte_buf); 
+    byte_buf = NULL;
 }
 
 /**
@@ -7885,13 +7977,20 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
     *b = result_buf;
     
     /* clean up */
-    fclose(is), is = NULL;
-    fclose(qs), qs = NULL;
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
+    fclose(is); 
+    is = NULL;
+    fclose(qs); 
+    qs = NULL;
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    free(md_src_fn); 
+    md_src_fn = NULL;
+    free(md_string); 
+    md_string = NULL;
+    free(md); 
+    md = NULL;
+    free(byte_buf); 
+    byte_buf = NULL;
 }
 
 /**
@@ -8084,13 +8183,20 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     } /* while */
     
     /* clean up */
-    fclose(is), is = NULL;
-    fclose(qs), qs = NULL;
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
+    fclose(is); 
+    is = NULL;
+    fclose(qs);
+    qs = NULL;
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    free(md_src_fn); 
+    md_src_fn = NULL;
+    free(md_string); 
+    md_string = NULL;
+    free(md); 
+    md = NULL;
+    free(byte_buf); 
+    byte_buf = NULL;
 }
 
 /**
@@ -8308,13 +8414,20 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
     *b = result_buf;
 
     /* clean up */
-    fclose(is), is = NULL;
-    fclose(qs), qs = NULL;
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
+    fclose(is); 
+    is = NULL;
+    fclose(qs); 
+    qs = NULL;
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    free(md_src_fn); 
+    md_src_fn = NULL;
+    free(md_string); 
+    md_string = NULL;
+    free(md); 
+    md = NULL;
+    free(byte_buf); 
+    byte_buf = NULL;
 }
 
 /**
