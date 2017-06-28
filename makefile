@@ -116,11 +116,12 @@ byte-store: prep
 debug-byte-store: prep
 	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -c byte-store.c -o byte-store.o
+	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o debug.byte-store mt19937.a $(LIBS)
 
 clean:
 	rm -rf byte-store
+	rm -f debug.byte-store
 	rm -rf *.a
 	rm -rf *.o
 	rm -rf *~
