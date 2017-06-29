@@ -815,12 +815,12 @@ extern "C" {
     char*                        bs_init_sqr_bzip2_split_store_fn_str(char* p, uint32_t i);
     char*                        bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d);
     off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
-    void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
-    void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
-    void                         bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b);
-    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
-    void                         bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re);
+    void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re);
+    void                         bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re);
+    void                         bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, uint32_t rs, uint32_t re);
+    void                         bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re);
+    void                         bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);

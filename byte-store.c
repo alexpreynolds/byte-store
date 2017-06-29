@@ -187,6 +187,17 @@ main(int argc, char** argv)
             }
 
             if (contiguous_rows_found) {
+                /* set up ROI */
+                int32_t* query_roi = NULL;
+                uint32_t query_roi_num = bs_globals.store_query_idx_end - bs_globals.store_query_idx_start + 1;
+                query_roi = malloc(query_roi_num * sizeof(*query_roi));
+                if (!query_roi) {
+                    fprintf(stderr, "Error: Could not allocate space for query ROI array (client)\n");
+                    exit(EXIT_FAILURE);
+                }
+                for (uint32_t idx = 0; idx < query_roi_num; idx++) {
+                    query_roi[idx] = bs_globals.store_query_idx_start + idx;
+                }
                 /* extract from raw or uncompressed square matrix */
                 switch (bs_globals.store_type) {
                 case kStoreRandomBufferedSquareMatrix:
@@ -194,16 +205,32 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrix:
                 case kStoreSpearmanRhoSquareMatrix:
                     if (bs_globals.store_filter == kScoreFilterNone) 
-                        bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout);
+                        bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
                     else 
-                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
+                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
-                    if (bs_globals.store_filter == kScoreFilterNone)
-                        bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout);
-                    else
-                        bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);            
+                    if (bs_globals.store_filter == kScoreFilterNone) {
+                        //bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+                        bs_print_sqr_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
+                                                                       bs_globals.sqr_store_ptr,
+                                                                       stdout, 
+                                                                       query_roi, 
+                                                                       query_roi_num);
+                    }
+                    else {
+                        //bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+                        bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
+                                                                                bs_globals.sqr_store_ptr,
+                                                                                stdout,
+                                                                                query_roi,
+                                                                                query_roi_num, 
+                                                                                bs_globals.score_filter_cutoff,
+                                                                                bs_globals.score_filter_cutoff_lower_bound,
+                                                                                bs_globals.score_filter_cutoff_upper_bound,
+                                                                                bs_globals.store_filter);
+                    }
                     break;
                 case kStorePearsonRSquareMatrixBzip2:
                 case kStoreSpearmanRhoSquareMatrixBzip2:
@@ -229,6 +256,9 @@ main(int argc, char** argv)
                     fprintf(stderr, "Error: You should never see this error! (C1)\n");
                     exit(EXIT_FAILURE);
                 }
+                /* clean-up */
+                free(query_roi);
+                query_roi = NULL;
             }
             if (separate_rows_found) {
                 switch (bs_globals.store_type) {
@@ -1530,8 +1560,18 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         mt19937_seed_rng(time(NULL));
 
     /* generate random row index */
-    bs_globals.store_query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
-    bs_globals.store_query_idx_end = bs_globals.store_query_idx_start;
+    uint32_t query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
+    /* uint32_t query_idx_end = query_idx_start; */
+
+    /* write index range to query row array */
+    int32_t* query_roi = NULL;
+    uint32_t query_roi_num = 1; /* for now, this value is 1 */
+    query_roi = malloc(query_roi_num * sizeof(*query_roi));
+    if (!query_roi) {
+        fprintf(stdout, "Request [%" PRIu64 "]: Could not allocate memory for query ROI array\n", con_info->timestamp);
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);        
+    }
+    query_roi[0] = query_idx_start;
 
     /* write a random row to the temporary file */
     switch (bs_globals.store_type) {
@@ -1539,20 +1579,43 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreSpearmanRhoSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp);
+                //bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, query_idx_start, query_idx_end);
+                bs_print_sqr_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
+                                                               bs_globals.sqr_store_ptr,
+                                                               write_fp, 
+                                                               query_roi, 
+                                                               query_roi_num);
                 break;
             case kScoreFilterGtEq:
             case kScoreFilterGt:
             case kScoreFilterEq:
             case kScoreFilterLtEq:
             case kScoreFilterLt:
-                bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, filter_parameters->lone_bound, 0, 0, filter_parameters->type);
+                //bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, filter_parameters->lone_bound, 0, 0, filter_parameters->type, query_idx_start, query_idx_end);
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
+                                                                        bs_globals.sqr_store_ptr,
+                                                                        write_fp,
+                                                                        query_roi,
+                                                                        query_roi_num,
+                                                                        filter_parameters->lone_bound, 
+                                                                        0, 
+                                                                        0, 
+                                                                        filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
             case kScoreFilterRangedWithinInclusive:
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
-                bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type);
+                //bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type, query_idx_start, query_idx_end);
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
+                                                                        bs_globals.sqr_store_ptr,
+                                                                        write_fp,
+                                                                        query_roi,
+                                                                        query_roi_num,
+                                                                        0,
+                                                                        filter_parameters->lower_bound, 
+                                                                        filter_parameters->upper_bound, 
+                                                                        filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
                 fprintf(stderr, "Error: You should never see this error (qd_A)\n");
@@ -1753,8 +1816,18 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
         mt19937_seed_rng(time(NULL));
 
     /* generate random row index */
-    bs_globals.store_query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
-    bs_globals.store_query_idx_end = bs_globals.store_query_idx_start;
+    uint32_t query_idx_start = (uint32_t) (mt19937_generate_random_ulong() % bs_globals.lookup_ptr->nelems);
+    /* uint32_t query_idx_end = query_idx_start; */
+
+    /* write index range to query row array */
+    int32_t* query_roi = NULL;
+    uint32_t query_roi_num = 1; /* for now, this value is 1 */
+    query_roi = malloc(query_roi_num * sizeof(*query_roi));
+    if (!query_roi) {
+        fprintf(stdout, "Request [%" PRIu64 "]: Could not allocate memory for query ROI array\n", con_info->timestamp);
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);        
+    }
+    query_roi[0] = query_idx_start;
 
     /* set up temporary buffer */
     char* temporary_buf = NULL;
@@ -1765,22 +1838,47 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreSpearmanRhoSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf);
+                //bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, query_idx_start, query_idx_end);
+                bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
+                                                                          bs_globals.sqr_store_ptr, 
+                                                                          &temporary_buf, 
+                                                                          query_roi, 
+                                                                          query_roi_num);
                 break;
             case kScoreFilterGtEq:
             case kScoreFilterGt:
             case kScoreFilterEq:
             case kScoreFilterLtEq:
             case kScoreFilterLt:
-                bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, filter_parameters->lone_bound, 0, 0, filter_parameters->type);
+                //bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, filter_parameters->lone_bound, 0, 0, filter_parameters->type, query_idx_start, query_idx_end);
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
+                                                                                   bs_globals.sqr_store_ptr, 
+                                                                                   &temporary_buf, 
+                                                                                   query_roi,
+                                                                                   query_roi_num,
+                                                                                   filter_parameters->lone_bound, 
+                                                                                   0, 
+                                                                                   0, 
+                                                                                   filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
             case kScoreFilterRangedWithinInclusive:
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
-                bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type);
+                //bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type, query_idx_start, query_idx_end);
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
+                                                                                   bs_globals.sqr_store_ptr, 
+                                                                                   &temporary_buf, 
+                                                                                   query_roi,
+                                                                                   query_roi_num,
+                                                                                   0, 
+                                                                                   filter_parameters->lower_bound, 
+                                                                                   filter_parameters->upper_bound, 
+                                                                                   filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
+                free(query_roi);
+                query_roi = NULL;
                 fprintf(stderr, "Error: You should never see this error (qd_A)\n");
                 return MHD_NO;
             default:
@@ -1803,11 +1901,18 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
     case kStoreUndefined:
         /* no data found for specified store type */
+        free(query_roi);
+        query_roi = NULL;
+        free(filter_parameters);
+        filter_parameters = NULL;
         return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
 
     /* clean up parameters */
-    free(filter_parameters), filter_parameters = NULL;
+    free(query_roi);
+    query_roi = NULL;    
+    free(filter_parameters);
+    filter_parameters = NULL;
 
     /* write temporary buffer to response */
     response = MHD_create_response_from_buffer(strlen(temporary_buf), temporary_buf, MHD_RESPMEM_MUST_FREE);
@@ -6403,7 +6508,7 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 }
 
 /**
- * @brief      bs_print_sqr_store_to_bed7(l, s, os)
+ * @brief      bs_print_sqr_store_to_bed7(l, s, os, rs, re)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -6414,10 +6519,12 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
+ *             rs     (uint32_t) row start index
+ *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -6441,10 +6548,10 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     /* fseek(is) to the starting offset */
-    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, bs_globals.store_query_idx_start, 0);
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, 0);
     fseek(is, start_offset, SEEK_SET);
 
-    uint32_t row_idx = bs_globals.store_query_idx_start;
+    uint32_t row_idx = rs;
     uint32_t col_idx = 0;
 
     do {
@@ -6470,7 +6577,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
         } while (col_idx < l->nelems);
         row_idx++;
         col_idx = 0;
-    } while (row_idx <= bs_globals.store_query_idx_end);
+    } while (row_idx <= re);
 
     free(byte_buf);
 
@@ -6478,7 +6585,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, flb, fub, fo, rs, re)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -6494,10 +6601,12 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
  *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
+ *             rs     (uint32_t) row start index
+ *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -6521,10 +6630,10 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
     }
 
     /* fseek(is) to the starting offset */
-    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, bs_globals.store_query_idx_start, 0);
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, 0);
     fseek(is, start_offset, SEEK_SET);
 
-    uint32_t row_idx = bs_globals.store_query_idx_start;
+    uint32_t row_idx = rs;
     uint32_t col_idx = 0;
 
     do {
@@ -6560,7 +6669,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
         } while (col_idx < l->nelems);
         row_idx++;
         col_idx = 0;
-    } while (row_idx <= bs_globals.store_query_idx_end);
+    } while (row_idx <= re);
 
     free(byte_buf);
 
@@ -6568,7 +6677,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
 }
 
 /**
- * @brief      bs_print_sqr_split_store_to_bed7(l, s, os)
+ * @brief      bs_print_sqr_split_store_to_bed7(l, s, os, rs, re)
  *
  * @details    Queries raw square matrix store folder for
  *             provided index range globals and prints BED7 (BED3 
@@ -6577,10 +6686,12 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
+ *             rs     (uint32_t) row start index
+ *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
+bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -6634,8 +6745,8 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
     }    
     
     /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
-    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+    int32_t query_start = (int32_t) rs;
+    int32_t query_end = (int32_t) re;
 
     uint32_t query_start_block = 0;
     while (query_start >= (int32_t) md->block_row_size) {
@@ -6670,12 +6781,12 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
        /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
 
         /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < bs_globals.store_query_idx_start) {
-            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-            row_idx = bs_globals.store_query_idx_start;
+        if (row_idx < rs) {
+            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
+            row_idx = rs;
         }
 
         do {
@@ -6686,7 +6797,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
                 exit(EXIT_FAILURE);
             }
             do {
-                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
                     bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
@@ -6718,7 +6829,7 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
 }
 
 /**
- * @brief      bs_print_sqr_split_store_to_bed7_via_buffer(l, s, b)
+ * @brief      bs_print_sqr_split_store_to_bed7_via_buffer(l, s, b, rs, re)
  *
  * @details    Queries raw square matrix store folder for
  *             provided index range globals and prints BED7 (BED3 
@@ -6727,10 +6838,12 @@ bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os)
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             b      (char**) pointer to output buffer
+ *             rs     (uint32_t) row start index
+ *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b)
+bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, uint32_t rs, uint32_t re)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -6784,8 +6897,8 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
     }    
     
     /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
-    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+    int32_t query_start = (int32_t) rs;
+    int32_t query_end = (int32_t) re;
 
     uint32_t query_start_block = 0;
     while (query_start >= (int32_t) md->block_row_size) {
@@ -6830,12 +6943,12 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
        /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
 
         /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < bs_globals.store_query_idx_start) {
-            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-            row_idx = bs_globals.store_query_idx_start;
+        if (row_idx < rs) {
+            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
+            row_idx = rs;
         }
 
         do {
@@ -6846,7 +6959,7 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
                 exit(EXIT_FAILURE);
             }
             do {
-                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
                     bs_print_pair_to_buffer(result_buf + l_result_buf,
                                             &l_result_buf, 
                                             l->elems[row_idx]->chr,
@@ -6893,7 +7006,7 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, flb, fub, fo, rs, re)
  *
  * @details    Queries raw split square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -6906,10 +7019,12 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
  *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
+ *             rs     (uint32_t) row start index
+ *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -6963,8 +7078,8 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
     }    
     
     /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
-    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+    int32_t query_start = (int32_t) rs;
+    int32_t query_end = (int32_t) re;
 
     uint32_t query_start_block = 0;
     while (query_start >= (int32_t) md->block_row_size) {
@@ -6999,12 +7114,12 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
         /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
 
         /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < bs_globals.store_query_idx_start) {
-            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-            row_idx = bs_globals.store_query_idx_start;
+        if (row_idx < rs) {
+            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
+            row_idx = rs;
         }
 
         do {
@@ -7015,7 +7130,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
                 exit(EXIT_FAILURE);
             }
             do {
-                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
                         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
                         bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
@@ -7057,7 +7172,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7_via_buffer(l, s, b, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_to_bed7_via_buffer(l, s, b, fc, flb, fub, fo, rs, re)
  *
  * @details    Queries raw split square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -7070,10 +7185,12 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
  *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
  *             fo     (score_filter_t) score filter operation
+ *             rs     (uint32_t) start row index
+ *             re     (uint32_t) end row index
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -7127,8 +7244,8 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
     }    
     
     /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) bs_globals.store_query_idx_start;
-    int32_t query_end = (int32_t) bs_globals.store_query_idx_end;
+    int32_t query_start = (int32_t) rs;
+    int32_t query_end = (int32_t) re;
 
     uint32_t query_start_block = 0;
     while (query_start >= (int32_t) md->block_row_size) {
@@ -7140,7 +7257,7 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
         query_end_block++;
         query_end -= md->block_row_size;
     }
-    
+
     /* allocate byte buffer -- we read in one row at a time */
     byte_t* byte_buf = NULL;
     ssize_t n_byte_buf = l->nelems;
@@ -7173,12 +7290,12 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
         /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
         uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < bs_globals.store_query_idx_end) ? (block_idx + 1) * md->block_row_size - 1 : bs_globals.store_query_idx_end;
+        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
 
         /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < bs_globals.store_query_idx_start) {
-            fseek(is, (bs_globals.store_query_idx_start - row_idx) * l->nelems, SEEK_SET);
-            row_idx = bs_globals.store_query_idx_start;
+        if (row_idx < rs) {
+            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
+            row_idx = rs;
         }
 
         do {
@@ -7189,7 +7306,7 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
                 exit(EXIT_FAILURE);
             }
             do {
-                if ((row_idx != col_idx) && (row_idx >= bs_globals.store_query_idx_start) && (row_idx <= bs_globals.store_query_idx_end)) {
+                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
                         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
                         bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
@@ -7416,7 +7533,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
  *             s      (sqr_store_t*) pointer to square matrix store
  *             b      (char**) pointer to output buffer
  *             r      (int32_t*) pointer to list of query rows of interest 
- *             rn     (uint32) number of rows of query interest
+ *             rn     (uint32_t) number of rows of query interest
  */
 
 void
@@ -7894,6 +8011,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
             exit(EXIT_FAILURE);
         }
 
+        fprintf(stderr, "first [%d] last [%d]\n", first, last);
+
         /* iterate through separate rows, calculating associated block */
         int32_t current_block_idx = -1;
         int32_t new_block_idx = -1;
@@ -7939,6 +8058,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
                 fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
                 exit(EXIT_FAILURE);
             }
+
+            fprintf(stderr, "offset rows -> row_idx [%u] col_idx [%u]\n", row_idx, col_idx);
+
             do {
                 if (row_idx != col_idx) {
                     bs_print_pair_to_buffer(result_buf + l_result_buf,
@@ -8142,6 +8264,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
             /* read a row from current block and print its signal to the output stream os */
             row_idx = (uint32_t) query_row;
             col_idx = 0;
+
             size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
             if (items_read != l->nelems) {
                 fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
