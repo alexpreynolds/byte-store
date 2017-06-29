@@ -99,7 +99,9 @@ libmicrohttpd:
 		ln -sf ${HTTPD_DIR} ${HTTPD_SYM_DIR}; \
 		cd ${HTTPD_SYM_DIR}; \
 		if [[ "$(PLATFORM)" == "Linux" ]]; then \
-			./configure --enable-static --enable-https=yes --with-gnutls --prefix=${HTTPD_SYM_DIR}; \
+			export CPPFLAGS='-I/usr/include'; \
+			export LDFLAGS='-L/usr/lib64'; \
+			./configure --enable-https=yes --with-gnutls --prefix=${HTTPD_SYM_DIR}; \
 		elif [[ "$(PLATFORM)" == "Darwin" ]]; then \
 			./configure --enable-https=yes --with-libgcrypt-prefix=/usr/local --with-gnutls=/usr/local --prefix=${HTTPD_SYM_DIR}; \
 		fi; \
