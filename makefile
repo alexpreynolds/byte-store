@@ -25,8 +25,8 @@ BZIP2_LIB_DIR    = $(BZIP2_SYM_DIR)
 HTTPD_ARC        = $(THIRD_PARTY)/libmicrohttpd-0.9.53.tar.gz
 HTTPD_DIR        = $(THIRD_PARTY)/libmicrohttpd-0.9.53
 HTTPD_SYM_DIR    = $(THIRD_PARTY)/libmicrohttpd
-HTTPD_INC_DIR    = $(HTTPD_SYM_DIR)/include
-HTTPD_LIB_DIR    = $(HTTPD_SYM_DIR)/lib
+HTTPD_INC_DIR    = $(HTTPD_DIR)/include
+HTTPD_LIB_DIR    = $(HTTPD_DIR)/lib
 
 # -----------------------------------------
 #  - OS X Clang can't build static binaries

@@ -266,12 +266,13 @@ main(int argc, char** argv)
                 case kStoreSpearmanRhoSquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
-                        if (bs_globals.store_filter == kScoreFilterNone)
+                        if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup, 
                                                                                 sqr_store,
                                                                                 bs_globals.store_query_str,
                                                                                 stdout);
-                        else
+                        }
+                        else {
                             bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup, 
                                                                                          sqr_store,
                                                                                          bs_globals.store_query_str,
@@ -280,15 +281,17 @@ main(int argc, char** argv)
                                                                                          bs_globals.score_filter_cutoff_lower_bound,
                                                                                          bs_globals.score_filter_cutoff_upper_bound,
                                                                                          bs_globals.store_filter);
+                            }
                         break;
                     default:
-                        if (bs_globals.store_filter == kScoreFilterNone)
+                        if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_to_bed7(lookup, 
                                                                            sqr_store, 
                                                                            stdout, 
                                                                            bs_globals.store_query_indices, 
                                                                            bs_globals.store_query_indices_num);
-                        else
+                        }
+                        else {
                             bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup, 
                                                                                     sqr_store, 
                                                                                     stdout, 
@@ -298,6 +301,7 @@ main(int argc, char** argv)
                                                                                     bs_globals.score_filter_cutoff_lower_bound,
                                                                                     bs_globals.score_filter_cutoff_upper_bound,
                                                                                     bs_globals.store_filter);
+                        }
                         break;
                     }
                     break;
@@ -2876,14 +2880,32 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
         fprintf(stderr, "Error: Could not allocate space for multiple indices!\n");
         exit(EXIT_FAILURE);
     }
+    bs_globals.store_query_indices_capacity = MULT_IDX_MAX_NUM;
 
     int32_t first = 0;
     int32_t last = 0;
     int count = 0;
     uint32_t current_idx = 0;
-    while ( !feof(fptr) ) {
+
+    while (!feof(fptr)) {
+        /* resize array of indices, if necessary */
+        if ((current_idx - 2) == bs_globals.store_query_indices_capacity) {
+            int32_t *resized_indices_arr = NULL;
+            uint32_t resized_indices_arr_capacity = bs_globals.store_query_indices_capacity * 2;
+            resized_indices_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices));
+            if (!resized_indices_arr) {
+                fprintf(stderr, "Error: Could not allocate space for resized multiple indices!\n");
+                exit(EXIT_FAILURE);
+            }
+            for (uint32_t idx = 0; idx < current_idx; idx++) {
+                resized_indices_arr[idx] = bs_globals.store_query_indices[idx];
+            }
+            free(bs_globals.store_query_indices);
+            bs_globals.store_query_indices = resized_indices_arr;
+            bs_globals.store_query_indices_capacity = resized_indices_arr_capacity;
+        }
         count = fscanf(fptr, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
-        if ( count != 2 ) {
+        if (count != 2) {
             fprintf(stderr, "found something not a range of A-B in the input index file!\n");
             exit(EXIT_FAILURE);
         } else if ( first > last ) {
@@ -2894,7 +2916,6 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
             bs_print_usage(stderr);
             exit(EXIT_FAILURE);
         }
-
         /* mark start and end (inclusive) in group of 2 */
         bs_globals.store_query_indices[current_idx++] = first;
         bs_globals.store_query_indices[current_idx++] = last;
@@ -4163,6 +4184,8 @@ bs_init_globals()
     bs_globals.store_query_idx_start = kQueryIndexDefaultStart;
     bs_globals.store_query_idx_end = kQueryIndexDefaultEnd;
     bs_globals.store_query_indices = NULL;
+    bs_globals.store_query_indices_num = 0;
+    bs_globals.store_query_indices_capacity = 0;
     bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
@@ -8011,8 +8034,6 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
             exit(EXIT_FAILURE);
         }
 
-        fprintf(stderr, "first [%d] last [%d]\n", first, last);
-
         /* iterate through separate rows, calculating associated block */
         int32_t current_block_idx = -1;
         int32_t new_block_idx = -1;
@@ -8204,6 +8225,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     }
 
     int32_t block_row_size = (int32_t) md->block_row_size;
+
     while (!feof(qs)) {
         int32_t first = 1;
         int32_t last = 0;

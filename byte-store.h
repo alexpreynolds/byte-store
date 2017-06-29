@@ -417,6 +417,7 @@ extern "C" {
         uint32_t store_query_idx_end;
         int32_t* store_query_indices;
         uint32_t store_query_indices_num;
+        uint32_t store_query_indices_capacity;
         bed_t* store_query_range_start;
         bed_t* store_query_range_end;
         score_filter_t store_filter;
