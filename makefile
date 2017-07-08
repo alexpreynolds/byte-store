@@ -3,9 +3,9 @@ PWD             := $(shell pwd)
 CC               = gcc
 BLDFLAGS         = -Wall -Wextra -std=c99
 BLDDFLAGS        = -Wall -Wextra -std=c99 -pedantic
-CFLAGS           = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3
+CFLAGS           = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -O3 -ffast-math
 CDFLAGS          = -D__USE_POSIX -D__STDC_CONSTANT_MACROS -D__STDINT_MACROS -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE=1 -DDEBUG=1 -O
-LIBS             = -lm -lbz2 -lmicrohttpd 
+LIBS             = -lm -lbz2 -lmicrohttpd
 .PHONY           = test
 SAMPLE          := $(shell `which sample` --help 2> /dev/null)
 TEST_DIR         = $(PWD)/test

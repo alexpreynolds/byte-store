@@ -1,7 +1,7 @@
 #include "byte-store.h"
 
 int
-main(int argc, char** argv) 
+main(int argc, char** argv)
 {
     bs_init_globals();
     bs_init_command_line_options(argc, argv);
@@ -10,31 +10,41 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
-    if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) || 
+    if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse, kFalse);
+        lookup = bs_init_lookup(bs_globals.lookup_fn, 
+                                kFalse, 
+                                kFalse);
     }
     else if ((bs_globals.store_type == kStorePearsonRSquareMatrix) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixSplit) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
+        lookup = bs_init_lookup(bs_globals.lookup_fn, 
+                                !bs_globals.store_query_flag, 
+                                kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) && 
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
              (!bs_globals.store_query_daemon_flag)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kTrue);
+        lookup = bs_init_lookup(bs_globals.lookup_fn, 
+                                !bs_globals.store_query_flag, 
+                                kTrue);
     }
     else if (bs_globals.store_query_daemon_flag) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, kFalse, kFalse);
+        lookup = bs_init_lookup(bs_globals.lookup_fn, 
+                                kFalse, 
+                                kFalse);
     }
     else {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, !bs_globals.store_query_flag, kFalse);
-    } 
+        lookup = bs_init_lookup(bs_globals.lookup_fn, 
+                                !bs_globals.store_query_flag, 
+                                kFalse);
+    }
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -46,7 +56,9 @@ main(int argc, char** argv)
                 bs_populate_sut_store_with_random_scores(sut_store);
                 break;
             case kStorePearsonRSUT:
-                bs_populate_sut_store_with_pearsonr_scores(sut_store, lookup);
+                bs_populate_sut_store(sut_store, 
+                                      lookup, 
+                                      &bs_pearson_r_signal);
                 break;
             case kStoreRandomBufferedSquareMatrix:
             case kStoreRandomSquareMatrix:
@@ -86,12 +98,20 @@ main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
             if (rows_found && (bs_globals.store_filter == kScoreFilterNone))
-                bs_print_sut_store_to_bed7(lookup, sut_store, stdout);
+                bs_print_sut_store_to_bed7(lookup, 
+                                           sut_store, 
+                                           stdout);
             else if (rows_found)
-                bs_print_sut_filtered_store_to_bed7(lookup, sut_store, stdout, bs_globals.score_filter_cutoff, bs_globals.store_filter);
+                bs_print_sut_filtered_store_to_bed7(lookup, 
+                                                    sut_store, 
+                                                    stdout, 
+                                                    bs_globals.score_filter_cutoff, 
+                                                    bs_globals.store_filter);
         }
         else if (bs_globals.store_frequency_flag) {
-            bs_print_sut_frequency_to_txt(lookup, sut_store, stdout);
+            bs_print_sut_frequency_to_txt(lookup, 
+                                          sut_store, 
+                                          stdout);
         }
         bs_delete_sut_store(&sut_store);
         break;
@@ -119,40 +139,82 @@ main(int argc, char** argv)
                 bs_populate_sqr_store_with_random_scores(sqr_store);
                 break;
             case kStorePearsonRSquareMatrix:
-                bs_populate_sqr_store(sqr_store, lookup, &bs_pearson_r_signal);
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_pearson_r_signal);
                 break;
             case kStorePearsonRSquareMatrixSplit:
-                bs_populate_sqr_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_pearson_r_signal, 
+                                            kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixSplitSingleChunk:
-                bs_populate_sqr_split_store_chunk(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset, &bs_pearson_r_signal);
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_pearson_r_signal);
                 break;
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
-                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size, kScoreVarietyPearsonR);
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
-                bs_populate_sqr_bzip2_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
+                bs_populate_sqr_bzip2_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_pearson_r_signal, 
+                                            kScoreVarietyPearsonR);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
-                bs_populate_sqr_bzip2_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_pearson_r_signal, kScoreVarietyPearsonR);
+                bs_populate_sqr_bzip2_split_store(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  &bs_pearson_r_signal, 
+                                                  kScoreVarietyPearsonR);
                 break;
             case kStoreSpearmanRhoSquareMatrix:
-                bs_populate_sqr_store(sqr_store, lookup, &bs_spearman_rho_signal_v2);
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_spearman_rho_signal_v2);
                 break;
             case kStoreSpearmanRhoSquareMatrixSplit:
-                bs_populate_sqr_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_spearman_rho_signal_v2, 
+                                            kScoreVarietySpearmanRho);
                 break;
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
-                bs_populate_sqr_split_store_chunk(sqr_store, lookup, bs_globals.store_row_chunk_size, bs_globals.store_row_chunk_offset, &bs_spearman_rho_signal_v2);
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_spearman_rho_signal_v2);
                 break;
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
-                bs_populate_sqr_split_store_chunk_metadata(sqr_store, lookup, bs_globals.store_row_chunk_size, kScoreVarietySpearmanRho);
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietySpearmanRho);
                 break;
             case kStoreSpearmanRhoSquareMatrixBzip2:
-                bs_populate_sqr_bzip2_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
+                bs_populate_sqr_bzip2_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_spearman_rho_signal_v2, 
+                                            kScoreVarietySpearmanRho);
                 break;
             case kStoreSpearmanRhoSquareMatrixBzip2Split:
-                bs_populate_sqr_bzip2_split_store(sqr_store, lookup, bs_globals.store_row_chunk_size, &bs_spearman_rho_signal_v2, kScoreVarietySpearmanRho);
+                bs_populate_sqr_bzip2_split_store(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  &bs_spearman_rho_signal_v2, 
+                                                  kScoreVarietySpearmanRho);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -176,10 +238,12 @@ main(int argc, char** argv)
                                                                  &bs_globals.store_query_idx_end);
                 break;
             case kQueryKindMultipleIndices:
-                separate_rows_found = bs_parse_query_multiple_index_str(lookup, bs_globals.store_query_str);
+                separate_rows_found = bs_parse_query_multiple_index_str(lookup, 
+                                                                        bs_globals.store_query_str);
                 break;
             case kQueryKindMultipleIndicesFromFile:
-                separate_rows_found = bs_parse_query_multiple_index_file(lookup, bs_globals.store_query_str);
+                separate_rows_found = bs_parse_query_multiple_index_file(lookup, 
+                                                                         bs_globals.store_query_str);
                 break;
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
@@ -204,28 +268,38 @@ main(int argc, char** argv)
                 case kStoreRandomSquareMatrix:
                 case kStorePearsonRSquareMatrix:
                 case kStoreSpearmanRhoSquareMatrix:
-                    if (bs_globals.store_filter == kScoreFilterNone) 
-                        bs_print_sqr_store_to_bed7(lookup, sqr_store, stdout, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
-                    else 
-                        bs_print_sqr_filtered_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
+                    if (bs_globals.store_filter == kScoreFilterNone)
+                        bs_print_sqr_store_to_bed7(lookup, 
+                                                   sqr_store, 
+                                                   stdout, 
+                                                   bs_globals.store_query_idx_start, 
+                                                   bs_globals.store_query_idx_end);
+                    else
+                        bs_print_sqr_filtered_store_to_bed7(lookup, 
+                                                            sqr_store, 
+                                                            stdout, 
+                                                            bs_globals.score_filter_cutoff, 
+                                                            bs_globals.score_filter_cutoff_lower_bound, 
+                                                            bs_globals.score_filter_cutoff_upper_bound, 
+                                                            bs_globals.store_filter, 
+                                                            bs_globals.store_query_idx_start, 
+                                                            bs_globals.store_query_idx_end);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone) {
-                        //bs_print_sqr_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
-                        bs_print_sqr_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
-                                                                       bs_globals.sqr_store_ptr,
-                                                                       stdout, 
-                                                                       query_roi, 
+                        bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
+                                                                       sqr_store,
+                                                                       stdout,
+                                                                       query_roi,
                                                                        query_roi_num);
                     }
                     else {
-                        //bs_print_sqr_filtered_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter, bs_globals.store_query_idx_start, bs_globals.store_query_idx_end);
-                        bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
-                                                                                bs_globals.sqr_store_ptr,
+                        bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
+                                                                                sqr_store,
                                                                                 stdout,
                                                                                 query_roi,
-                                                                                query_roi_num, 
+                                                                                query_roi_num,
                                                                                 bs_globals.score_filter_cutoff,
                                                                                 bs_globals.score_filter_cutoff_lower_bound,
                                                                                 bs_globals.score_filter_cutoff_upper_bound,
@@ -235,16 +309,32 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixBzip2:
                 case kStoreSpearmanRhoSquareMatrixBzip2:
                     if (bs_globals.store_filter == kScoreFilterNone)
-                        bs_print_sqr_bzip2_store_to_bed7(lookup, sqr_store, stdout);
+                        bs_print_sqr_bzip2_store_to_bed7(lookup, 
+                                                         sqr_store, 
+                                                         stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_store_to_bed7(lookup, 
+                                                                  sqr_store, 
+                                                                  stdout, 
+                                                                  bs_globals.score_filter_cutoff, 
+                                                                  bs_globals.score_filter_cutoff_lower_bound, 
+                                                                  bs_globals.score_filter_cutoff_upper_bound, 
+                                                                  bs_globals.store_filter);
                     break;
                 case kStorePearsonRSquareMatrixBzip2Split:
                 case kStoreSpearmanRhoSquareMatrixBzip2Split:
                     if (bs_globals.store_filter == kScoreFilterNone)
-                        bs_print_sqr_bzip2_split_store_to_bed7(lookup, sqr_store, stdout);
+                        bs_print_sqr_bzip2_split_store_to_bed7(lookup, 
+                                                               sqr_store, 
+                                                               stdout);
                     else
-                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, sqr_store, stdout, bs_globals.score_filter_cutoff, bs_globals.score_filter_cutoff_lower_bound, bs_globals.score_filter_cutoff_upper_bound, bs_globals.store_filter);
+                        bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup, 
+                                                                        sqr_store, 
+                                                                        stdout, 
+                                                                        bs_globals.score_filter_cutoff, 
+                                                                        bs_globals.score_filter_cutoff_lower_bound, 
+                                                                        bs_globals.score_filter_cutoff_upper_bound, 
+                                                                        bs_globals.store_filter);
                     break;
                 case kStorePearsonRSUT:
                 case kStoreRandomSUT:
@@ -267,13 +357,13 @@ main(int argc, char** argv)
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
-                            bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup, 
+                            bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup,
                                                                                 sqr_store,
                                                                                 bs_globals.store_query_str,
                                                                                 stdout);
                         }
                         else {
-                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup, 
+                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup,
                                                                                          sqr_store,
                                                                                          bs_globals.store_query_str,
                                                                                          stdout,
@@ -285,18 +375,18 @@ main(int argc, char** argv)
                         break;
                     default:
                         if (bs_globals.store_filter == kScoreFilterNone) {
-                            bs_print_sqr_split_store_separate_rows_to_bed7(lookup, 
-                                                                           sqr_store, 
-                                                                           stdout, 
-                                                                           bs_globals.store_query_indices, 
+                            bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
+                                                                           sqr_store,
+                                                                           stdout,
+                                                                           bs_globals.store_query_indices,
                                                                            bs_globals.store_query_indices_num);
                         }
                         else {
-                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup, 
-                                                                                    sqr_store, 
-                                                                                    stdout, 
-                                                                                    bs_globals.store_query_indices, 
-                                                                                    bs_globals.store_query_indices_num, 
+                            bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
+                                                                                    sqr_store,
+                                                                                    stdout,
+                                                                                    bs_globals.store_query_indices,
+                                                                                    bs_globals.store_query_indices_num,
                                                                                     bs_globals.score_filter_cutoff,
                                                                                     bs_globals.score_filter_cutoff_lower_bound,
                                                                                     bs_globals.score_filter_cutoff_upper_bound,
@@ -331,19 +421,27 @@ main(int argc, char** argv)
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
             case kStoreSpearmanRhoSquareMatrix:
-                bs_print_sqr_store_frequency_to_txt(lookup, sqr_store, stdout);
+                bs_print_sqr_store_frequency_to_txt(lookup, 
+                                                    sqr_store, 
+                                                    stdout);
                 break;
             case kStorePearsonRSquareMatrixSplit:
             case kStoreSpearmanRhoSquareMatrixSplit:
-                bs_print_sqr_split_store_frequency_to_txt(lookup, sqr_store, stdout);
+                bs_print_sqr_split_store_frequency_to_txt(lookup, 
+                                                          sqr_store, 
+                                                          stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2:
             case kStoreSpearmanRhoSquareMatrixBzip2:
-                bs_print_sqr_bzip2_store_frequency_to_txt(lookup, sqr_store, stdout);
+                bs_print_sqr_bzip2_store_frequency_to_txt(lookup, 
+                                                          sqr_store, 
+                                                          stdout);
                 break;
             case kStorePearsonRSquareMatrixBzip2Split:
             case kStoreSpearmanRhoSquareMatrixBzip2Split:
-                bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, sqr_store, stdout);
+                bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup, 
+                                                                sqr_store, 
+                                                                stdout);
                 break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
@@ -377,13 +475,13 @@ main(int argc, char** argv)
                                           NULL,
                                           MHD_OPTION_END);
                 */
-                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION, 
-                                          bs_globals.store_query_daemon_port, 
-                                          NULL, 
+                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
+                                          bs_globals.store_query_daemon_port,
+                                          NULL,
                                           NULL,
                                           &bs_qd_answer_to_connection,
-                                          NULL, 
-                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          NULL,
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed,
                                           NULL,
                                           MHD_OPTION_END);
             }
@@ -401,19 +499,19 @@ main(int argc, char** argv)
                                           NULL,
                                           MHD_OPTION_END);
                 */
-                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SSL, 
-                                          bs_globals.store_query_daemon_port, 
-                                          NULL, 
+                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SSL,
+                                          bs_globals.store_query_daemon_port,
+                                          NULL,
                                           NULL,
                                           &bs_qd_answer_to_connection,
-                                          NULL, 
+                                          NULL,
                                           MHD_OPTION_HTTPS_MEM_KEY, bs_globals.ssl_key_pem,
                                           MHD_OPTION_HTTPS_MEM_CERT, bs_globals.ssl_cert_pem,
-                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
+                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed,
                                           NULL,
                                           MHD_OPTION_END);
             }
-            
+
             if (!daemon) {
                 fprintf(stderr, "Error: Unable to initialize query daemon!\n");
                 exit(EXIT_FAILURE);
@@ -431,16 +529,16 @@ main(int argc, char** argv)
                     "Etc.\n\n"\
                     "%s",
                     (bs_globals.enable_ssl ? "https" : "http"),
-                    bs_globals.store_query_daemon_hostname, 
-                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname,
+                    bs_globals.store_query_daemon_port,
                     (bs_globals.enable_ssl ? "https" : "http"),
-                    bs_globals.store_query_daemon_hostname, 
-                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname,
+                    bs_globals.store_query_daemon_port,
                     (bs_globals.enable_ssl ? "https" : "http"),
-                    bs_globals.store_query_daemon_hostname, 
-                    bs_globals.store_query_daemon_port, 
+                    bs_globals.store_query_daemon_hostname,
+                    bs_globals.store_query_daemon_port,
                     (bs_globals.enable_ssl ? "https" : "http"),
-                    bs_globals.store_query_daemon_hostname, 
+                    bs_globals.store_query_daemon_hostname,
                     bs_globals.store_query_daemon_port,
                     (bs_globals.enable_ssl ? "(Add the \"-k\" option if using SSL with self-signed certificates.)\n" : ""));
             }
@@ -454,7 +552,7 @@ main(int argc, char** argv)
                     "Or:\n"\
                     "\t'$ curl -i -X POST -H \"Content-Type: multipart/form-data\" -F \"file=@test/elements.bed\" \"%s://hostname:port/elements?filter-type=within-exclusive&filter-value=0.35:1\"'\n"\
                     "Etc.\n\n"\
-                    "%s", 
+                    "%s",
                     (bs_globals.enable_ssl ? "https" : "http"),
                     (bs_globals.enable_ssl ? "https" : "http"),
                     (bs_globals.enable_ssl ? "https" : "http"),
@@ -529,7 +627,7 @@ bs_qd_get_file_size(const char* filename)
     long size = 0;
 
     fp = fopen(filename, "rb");
-    if (fp) {    
+    if (fp) {
         if ((fseek(fp, 0, SEEK_END) != 0) || ((size = ftell(fp)) == -1)) {
             size = 0;
         }
@@ -552,7 +650,7 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
         fprintf(stdout, "Request: Requested completed without connection information!\n");
         return;
     }
-    
+
     /* clean up connection information struct */
     if (con_info) {
         timestamp = con_info->timestamp;
@@ -604,7 +702,7 @@ bs_qd_request_completed(void* cls, struct MHD_Connection* connection, void** con
             fprintf(stdout, "Request [%" PRIu64 "]: Request completed OK!\n", timestamp);
             break;
         case MHD_REQUEST_TERMINATED_WITH_ERROR:
-            fprintf(stdout, "Request [%" PRIu64 "]: Request completed with an error!\n", timestamp);   
+            fprintf(stdout, "Request [%" PRIu64 "]: Request completed with an error!\n", timestamp);
             break;
         case MHD_REQUEST_TERMINATED_TIMEOUT_REACHED:
             fprintf(stdout, "Request [%" PRIu64 "]: Request timed out!\n", timestamp);
@@ -673,8 +771,8 @@ bs_qd_request_type_to_str(bs_qd_request_t t)
     return NULL;
 }
 
-static uint64_t 
-bs_qd_timestamp() 
+static uint64_t
+bs_qd_timestamp()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -809,7 +907,7 @@ bs_qd_answer_to_connection(void* cls, struct MHD_Connection *connection, const c
                 if (con_info->upload_filesize >= UPLOAD_FILESIZE_MAX) {
                     return bs_qd_request_upload_too_large(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
                 }
-                /* now it is safe to open and process file before finishing request */ 
+                /* now it is safe to open and process file before finishing request */
                 if (strcmp(request_pages[i].url, kBSQDURLElements) == 0) {
                     return bs_qd_request_elements_via_heap(cls, request_pages[i].mime, connection, con_info, upload_data, upload_data_size);
                 }
@@ -918,7 +1016,7 @@ bs_qd_debug_kv(void* cls, enum MHD_ValueKind kind, const char* key, const char* 
 static int
 bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char* key, const char* value)
 {
-    if (kind != MHD_GET_ARGUMENT_KIND) { 
+    if (kind != MHD_GET_ARGUMENT_KIND) {
         return MHD_NO;
     }
     bs_qd_filter_param_t* params = (bs_qd_filter_param_t*) cls;
@@ -935,7 +1033,7 @@ bs_qd_populate_filter_parameters(void* cls, enum MHD_ValueKind kind, const char*
             else if (strcmp(value, kScoreFilterRangedOutsideExclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideExclusive; }
             else if (strcmp(value, kScoreFilterRangedOutsideInclusiveStr) == 0) { params->type = kScoreFilterRangedOutsideInclusive; }
         }
-        
+
         else if (strcmp(key, "filter-value") == 0) {
             /* two forms of filter values: "float", or "float:float" */
             char* cptr = NULL;
@@ -1009,7 +1107,7 @@ bs_qd_request_generic_information(const void* cls, const char* mime, struct MHD_
         return MHD_NO; /* oops */
     }
     memcpy(reply, generic_information, strlen(generic_information) + 1);
-    
+
     /* update connection information */
     con_info->request_type = kBSQDRequestGeneric;
 
@@ -1078,28 +1176,28 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     }
     memcpy(con_info->query_index_filename, write_fn, strlen(write_fn) + 1);
     fprintf(stdout, "Request [%" PRIu64 "]: Writing query indices to [%s]\n", con_info->timestamp, con_info->query_index_filename);
-    
+
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s",
                 con_info->upload_filename,
                 con_info->upload_filename,
                 bs_globals.sortbed_path,
-                bs_globals.bedops_path, 
+                bs_globals.bedops_path,
                 filter_parameters->padding,
                 bs_globals.bedops_path,
-                bs_globals.bedextract_path, 
-                bs_globals.lookup_fn, 
+                bs_globals.bedextract_path,
+                bs_globals.lookup_fn,
                 con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-                con_info->upload_filename, 
-                con_info->upload_filename, 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s",
+                con_info->upload_filename,
+                con_info->upload_filename,
                 bs_globals.sortbed_path,
-                bs_globals.bedops_path, 
-                bs_globals.bedextract_path, 
-                bs_globals.lookup_fn, 
+                bs_globals.bedops_path,
+                bs_globals.bedextract_path,
+                bs_globals.lookup_fn,
                 con_info->query_index_filename);
     }
     //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
@@ -1136,8 +1234,8 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreSpearmanRhoSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
-                                                                               bs_globals.sqr_store_ptr, 
+                bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
+                                                                               bs_globals.sqr_store_ptr,
                                                                                con_info->query_index_filename,
                                                                                &temporary_buf);
                 break;
@@ -1146,26 +1244,26 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
             case kScoreFilterEq:
             case kScoreFilterLtEq:
             case kScoreFilterLt:
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
-                                                                                        bs_globals.sqr_store_ptr, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
+                                                                                        bs_globals.sqr_store_ptr,
                                                                                         con_info->query_index_filename,
                                                                                         &temporary_buf,
-                                                                                        filter_parameters->lone_bound, 
-                                                                                        0, 
-                                                                                        0, 
+                                                                                        filter_parameters->lone_bound,
+                                                                                        0,
+                                                                                        0,
                                                                                         filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
             case kScoreFilterRangedWithinInclusive:
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr, 
-                                                                                        bs_globals.sqr_store_ptr, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
+                                                                                        bs_globals.sqr_store_ptr,
                                                                                         con_info->query_index_filename,
-                                                                                        &temporary_buf, 
-                                                                                        0, 
-                                                                                        filter_parameters->lower_bound, 
-                                                                                        filter_parameters->upper_bound, 
+                                                                                        &temporary_buf,
+                                                                                        0,
+                                                                                        filter_parameters->lower_bound,
+                                                                                        filter_parameters->upper_bound,
                                                                                         filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
@@ -1266,28 +1364,28 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     }
     memcpy(con_info->query_index_filename, indices_fn, strlen(indices_fn) + 1);
     fprintf(stdout, "Request [%" PRIu64 "]: Writing query indices to [%s]\n", con_info->timestamp, con_info->query_index_filename);
-    
+
     /* write query indices via Shane's query-bytestore script -- possible avenue for later optimization */
     if (filter_parameters->padding_set) {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-                con_info->upload_filename, 
-                con_info->upload_filename, 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --range %d --everything - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s",
+                con_info->upload_filename,
+                con_info->upload_filename,
                 bs_globals.sortbed_path,
-                bs_globals.bedops_path, 
+                bs_globals.bedops_path,
                 filter_parameters->padding,
                 bs_globals.bedops_path,
-                bs_globals.bedextract_path, 
-                bs_globals.lookup_fn, 
+                bs_globals.bedextract_path,
+                bs_globals.lookup_fn,
                 con_info->query_index_filename);
     }
     else {
-        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s", 
-                con_info->upload_filename, 
-                con_info->upload_filename, 
+        sprintf(cmd, "echo >> %s && sed '/^$/d' %s | tr -d '\r' | %s - | %s --merge - | %s %s - | awk 'BEGIN {fst=-99; lst=-99} ; { if ( int($4) != lst+1 ) { if ( lst >= 0 ) { print fst\"-\"lst; } fst = int($4); lst = int($4); } else { lst = int($4); } } END { if (lst >= 0) { print fst\"-\"lst; } }' > %s",
+                con_info->upload_filename,
+                con_info->upload_filename,
                 bs_globals.sortbed_path,
-                bs_globals.bedops_path, 
-                bs_globals.bedextract_path, 
-                bs_globals.lookup_fn, 
+                bs_globals.bedops_path,
+                bs_globals.bedextract_path,
+                bs_globals.lookup_fn,
                 con_info->query_index_filename);
     }
     //fprintf(stdout, "Debug: cmd [%s]\n", cmd);
@@ -1327,8 +1425,8 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreSpearmanRhoSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
-                                                                    bs_globals.sqr_store_ptr, 
+                bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
+                                                                    bs_globals.sqr_store_ptr,
                                                                     con_info->query_index_filename,
                                                                     write_fp);
                 break;
@@ -1337,26 +1435,26 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
             case kScoreFilterEq:
             case kScoreFilterLtEq:
             case kScoreFilterLt:
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
-                                                                             bs_globals.sqr_store_ptr, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
+                                                                             bs_globals.sqr_store_ptr,
                                                                              con_info->query_index_filename,
                                                                              write_fp,
-                                                                             filter_parameters->lone_bound, 
-                                                                             0, 
-                                                                             0, 
+                                                                             filter_parameters->lone_bound,
+                                                                             0,
+                                                                             0,
                                                                              filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
             case kScoreFilterRangedWithinInclusive:
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr, 
-                                                                             bs_globals.sqr_store_ptr, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
+                                                                             bs_globals.sqr_store_ptr,
                                                                              con_info->query_index_filename,
-                                                                             write_fp, 
-                                                                             0, 
-                                                                             filter_parameters->lower_bound, 
-                                                                             filter_parameters->upper_bound, 
+                                                                             write_fp,
+                                                                             0,
+                                                                             filter_parameters->lower_bound,
+                                                                             filter_parameters->upper_bound,
                                                                              filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
@@ -1411,12 +1509,12 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
         char mutual_fn[] = "/tmp/bs_XXXXXX";
         mkstemp(mutual_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing mutual elements to temporary file [%s]\n", con_info->timestamp, mutual_fn);
-        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s", 
-            write_fn, 
-            bs_globals.sortbed_path, 
-            bs_globals.bedops_path, 
+        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s",
             write_fn,
-            bs_globals.sortbed_path, 
+            bs_globals.sortbed_path,
+            bs_globals.bedops_path,
+            write_fn,
+            bs_globals.sortbed_path,
             mutual_fn);
         if (NULL == (mutual_fp = popen(cmd, "r"))) {
            fprintf(stdout, "Error: Could not popen bedops command to generate mutual items [%s]\n", cmd);
@@ -1443,15 +1541,15 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
         mkstemp(postsort_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
         if (filter_parameters->postsort == kBSQDSortInterval) {
-            sprintf(cmd, "%s %s > %s", 
+            sprintf(cmd, "%s %s > %s",
                     bs_globals.sortbed_path,
-                    write_fn,  
+                    write_fn,
                     postsort_fn);
         }
         else if (filter_parameters->postsort == kBSQDSortScore) {
-            sprintf(cmd, "sort -k7 -nr %s > %s", 
+            sprintf(cmd, "sort -k7 -nr %s > %s",
                     write_fn,
-                    postsort_fn);            
+                    postsort_fn);
         }
         if (NULL == (postsort_fp = popen(cmd, "r"))) {
            fprintf(stdout, "Error: Could not popen sorting command to generate sorted items [%s]\n", cmd);
@@ -1573,7 +1671,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     query_roi = malloc(query_roi_num * sizeof(*query_roi));
     if (!query_roi) {
         fprintf(stdout, "Request [%" PRIu64 "]: Could not allocate memory for query ROI array\n", con_info->timestamp);
-        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);        
+        return bs_qd_request_malformed(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
     query_roi[0] = query_idx_start;
 
@@ -1586,8 +1684,8 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
                 //bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, query_idx_start, query_idx_end);
                 bs_print_sqr_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                bs_globals.sqr_store_ptr,
-                                                               write_fp, 
-                                                               query_roi, 
+                                                               write_fp,
+                                                               query_roi,
                                                                query_roi_num);
                 break;
             case kScoreFilterGtEq:
@@ -1601,9 +1699,9 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
                                                                         write_fp,
                                                                         query_roi,
                                                                         query_roi_num,
-                                                                        filter_parameters->lone_bound, 
-                                                                        0, 
-                                                                        0, 
+                                                                        filter_parameters->lone_bound,
+                                                                        0,
+                                                                        0,
                                                                         filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
@@ -1617,8 +1715,8 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
                                                                         query_roi,
                                                                         query_roi_num,
                                                                         0,
-                                                                        filter_parameters->lower_bound, 
-                                                                        filter_parameters->upper_bound, 
+                                                                        filter_parameters->lower_bound,
+                                                                        filter_parameters->upper_bound,
                                                                         filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
@@ -1649,7 +1747,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         /* no data found for specified store type */
         return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
-    
+
     /* cleanup */
     fclose(write_fp), write_fp = NULL;
 
@@ -1674,12 +1772,12 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         char mutual_fn[] = "/tmp/bs_XXXXXX";
         mkstemp(mutual_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing mutual elements to temporary file [%s]\n", con_info->timestamp, mutual_fn);
-        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s", 
-            write_fn, 
-            bs_globals.sortbed_path, 
-            bs_globals.bedops_path, 
+        sprintf(cmd, "awk 'BEGIN { OFS=\"\t\"; } { print $4, $5, $6, $1, $2, $3, $7; }' %s | %s - | %s --everything %s - | %s - | uniq -d > %s",
             write_fn,
-            bs_globals.sortbed_path, 
+            bs_globals.sortbed_path,
+            bs_globals.bedops_path,
+            write_fn,
+            bs_globals.sortbed_path,
             mutual_fn);
         if (NULL == (mutual_fp = popen(cmd, "r"))) {
            fprintf(stdout, "Error: Could not popen bedops command to generate mutual items [%s]\n", cmd);
@@ -1707,13 +1805,13 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
         mkstemp(postsort_fn);
         fprintf(stderr, "Request [%" PRIu64 "]: Writing sorted elements to temporary file [%s]\n", con_info->timestamp, postsort_fn);
         if (filter_parameters->postsort == kBSQDSortInterval) {
-            sprintf(cmd, "%s %s > %s", 
+            sprintf(cmd, "%s %s > %s",
                     bs_globals.sortbed_path,
                     write_fn,
                     postsort_fn);
         }
         else if (filter_parameters->postsort == kBSQDSortScore) {
-            sprintf(cmd, "sort -k7 -nr %s > %s", 
+            sprintf(cmd, "sort -k7 -nr %s > %s",
                     write_fn,
                     postsort_fn);
         }
@@ -1794,7 +1892,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
 
     /* update connection information */
     con_info->request_type = kBSQDRequestRandomViaHeap;
-    
+
     /* start */
     fprintf(stdout, "Request [%" PRIu64 "]: [%s] => [%s] started\n", con_info->timestamp, bs_qd_connection_method_type_to_str(con_info->method), bs_qd_request_type_to_str(con_info->request_type));
 
@@ -1812,7 +1910,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
         free(filter_parameters), filter_parameters = NULL;
         return bs_qd_parameters_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
     }
-    
+
     /* seed RNG */
     if (bs_globals.rng_seed_flag)
         mt19937_seed_rng(bs_globals.rng_seed_value);
@@ -1843,10 +1941,10 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 //bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, query_idx_start, query_idx_end);
-                bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
-                                                                          bs_globals.sqr_store_ptr, 
-                                                                          &temporary_buf, 
-                                                                          query_roi, 
+                bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
+                                                                          bs_globals.sqr_store_ptr,
+                                                                          &temporary_buf,
+                                                                          query_roi,
                                                                           query_roi_num);
                 break;
             case kScoreFilterGtEq:
@@ -1855,14 +1953,14 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
             case kScoreFilterLtEq:
             case kScoreFilterLt:
                 //bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, filter_parameters->lone_bound, 0, 0, filter_parameters->type, query_idx_start, query_idx_end);
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
-                                                                                   bs_globals.sqr_store_ptr, 
-                                                                                   &temporary_buf, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
+                                                                                   bs_globals.sqr_store_ptr,
+                                                                                   &temporary_buf,
                                                                                    query_roi,
                                                                                    query_roi_num,
-                                                                                   filter_parameters->lone_bound, 
-                                                                                   0, 
-                                                                                   0, 
+                                                                                   filter_parameters->lone_bound,
+                                                                                   0,
+                                                                                   0,
                                                                                    filter_parameters->type);
                 break;
             case kScoreFilterRangedWithinExclusive:
@@ -1870,14 +1968,14 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
                 //bs_print_sqr_filtered_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type, query_idx_start, query_idx_end);
-                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr, 
-                                                                                   bs_globals.sqr_store_ptr, 
-                                                                                   &temporary_buf, 
+                bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
+                                                                                   bs_globals.sqr_store_ptr,
+                                                                                   &temporary_buf,
                                                                                    query_roi,
                                                                                    query_roi_num,
-                                                                                   0, 
-                                                                                   filter_parameters->lower_bound, 
-                                                                                   filter_parameters->upper_bound, 
+                                                                                   0,
+                                                                                   filter_parameters->lower_bound,
+                                                                                   filter_parameters->upper_bound,
                                                                                    filter_parameters->type);
                 break;
             case kScoreFilterUndefined:
@@ -1914,7 +2012,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
 
     /* clean up parameters */
     free(query_roi);
-    query_roi = NULL;    
+    query_roi = NULL;
     free(filter_parameters);
     filter_parameters = NULL;
 
@@ -2477,9 +2575,8 @@ bs_encode_score_to_byte(score_t d)
     if (isnan(d)) {
         return kNANEncodedByte;
     }
-    d += (d < 0) ? -kEpsilon : kEpsilon; // jitter is used to deal with interval edges
-    d = bs_truncate_score_to_precision(d, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
+    int encode_d = (int)(100*d) + 100 + bs_signbit(-d);
+    //fprintf(stderr, "%d\t%02x\n", encode_d, (byte_t) encode_d);
     return (byte_t) encode_d;
 }
 
@@ -3068,7 +3165,9 @@ bs_init_lookup(char* fn, boolean_t pi, boolean_t ir)
         sscanf(buf, "%s\t%s\t%s\t%s\n", chr_str, start_str, stop_str, id_str);
         sscanf(start_str, "%" SCNu64, &start_val);
         sscanf(stop_str, "%" SCNu64, &stop_val);
-        element_t* e = bs_init_element(chr_str, start_val, stop_val, id_str, pi, ir);
+        element_t* e = NULL;
+        signal_t* sp = NULL;
+        bs_init_element(chr_str, start_val, stop_val, id_str, pi, ir, sp, &e);
         bs_push_elem_to_lookup(e, &l, pi, ir);
     }
 
@@ -3149,7 +3248,31 @@ bs_permute_lookup(lookup_t *l, FILE* os)
         for (uint32_t elem_idx = 0; elem_idx < l->nelems; elem_idx++) {
             bs_shuffle_signal_data(l->elems[elem_idx]->signal->data, l->elems[elem_idx]->signal->n);
         }
-        bs_increment_lookup_frequency(freq_table, l);
+        switch (bs_globals.store_type) {
+            case kStorePearsonRSUT:
+            case kStorePearsonRSquareMatrix:
+            case kStorePearsonRSquareMatrixSplit:
+            case kStorePearsonRSquareMatrixSplitSingleChunk:
+            case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+            case kStorePearsonRSquareMatrixBzip2:
+            case kStorePearsonRSquareMatrixBzip2Split:
+                bs_increment_lookup_frequency(freq_table, l, &bs_pearson_r_signal);
+                break;
+            case kStoreSpearmanRhoSquareMatrix:
+            case kStoreSpearmanRhoSquareMatrixSplit:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+            case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+            case kStoreSpearmanRhoSquareMatrixBzip2:
+            case kStoreSpearmanRhoSquareMatrixBzip2Split:
+                bs_increment_lookup_frequency(freq_table, l, &bs_spearman_rho_signal_v2);
+                break;
+            case kStoreRandomSquareMatrix:
+            case kStoreRandomBufferedSquareMatrix:
+            case kStoreRandomSUT:
+            case kStoreUndefined:
+            default:
+                break;
+        }
     }
 
     uint64_t non_diagonal_n = bs_globals.permutation_count * (((uint64_t) l->nelems * l->nelems) - l->nelems);
@@ -3264,23 +3387,48 @@ bs_print_lookup_frequency(lookup_t* l, FILE* os)
         fprintf(stderr, "Error: Could not allocate space for permutation frequency table!\n");
         exit(EXIT_FAILURE);
     }
-    bs_increment_lookup_frequency(freq_table, l);
+    switch (bs_globals.store_type) {
+        case kStorePearsonRSUT:
+        case kStorePearsonRSquareMatrix:
+        case kStorePearsonRSquareMatrixSplit:
+        case kStorePearsonRSquareMatrixSplitSingleChunk:
+        case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+        case kStorePearsonRSquareMatrixBzip2:
+        case kStorePearsonRSquareMatrixBzip2Split:
+            bs_increment_lookup_frequency(freq_table, l, &bs_pearson_r_signal);
+            break;
+        case kStoreSpearmanRhoSquareMatrix:
+        case kStoreSpearmanRhoSquareMatrixSplit:
+        case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
+        case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+        case kStoreSpearmanRhoSquareMatrixBzip2:
+        case kStoreSpearmanRhoSquareMatrixBzip2Split:
+            bs_increment_lookup_frequency(freq_table, l, &bs_spearman_rho_signal_v2);
+            break;
+        case kStoreRandomSquareMatrix:
+        case kStoreRandomBufferedSquareMatrix:
+        case kStoreRandomSUT:
+        case kStoreUndefined:
+        default:
+            break;
+    }
     uint64_t n_bytes = (uint64_t) l->nelems * l->nelems;
     bs_print_frequency_buffer(freq_table, n_bytes, os);
     free(freq_table), freq_table = NULL;
 }
 
 /**
- * @brief      bs_increment_lookup_frequency(t, l)
+ * @brief      bs_increment_lookup_frequency(t, l, *sf)
  *
  * @details    Update score frequency table from lookup struct.
  *
  * @param      t      (uint64_t*) frequency table
  *             l      (lookup_t*) pointer to lookup struct
+ *             *sf    (score_t) score function pointer
  */
 
 void
-bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
+bs_increment_lookup_frequency(uint64_t* t, lookup_t* l, score_t (*sf)(signal_t*, signal_t*, uint32_t))
 {
     byte_t self_correlation_score =
         (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
@@ -3293,7 +3441,16 @@ bs_increment_lookup_frequency(uint64_t* t, lookup_t* l)
         t[self_correlation_score]++;
         for (uint32_t col_idx = row_idx + 1; col_idx < l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
-            score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
+            }
+            score_t corr = NAN;
+            if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                corr = (*sf)(row_signal, col_signal, row_signal->n);
+            }
             byte_t corr_uc =
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -3322,20 +3479,72 @@ bs_delete_lookup(lookup_t** l)
 }
 
 /**
- * @brief      bs_init_signal(cds)
+ * @brief      bs_copy_signal(src, dest, ir)
+ *
+ * @details    Copy a signal_t pointer.
+ *
+ * @param      src    (signal_t*)     pointer to signal_t (source)
+ *             dest   (signal_t**)    pointer to signal_t pointer (destination)
+ *             ir     (boolean_t)     copy ranks and related statistics from src
+ */
+
+void
+bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ir)
+{
+    signal_t* s = NULL;
+    s = malloc(sizeof(signal_t));
+    if (!s) {
+        fprintf(stderr, "Error: Could not allocate space for signal_t pointer copy!\n");
+        exit(EXIT_FAILURE);
+    }
+    s->n = src->n;
+    s->data = NULL;
+    int data_alloc_result = posix_memalign((void **) &(s->data), kSignalByteAlignment, s->n * sizeof(*s->data));
+    if ((data_alloc_result != 0) || (!s->data)) {
+        fprintf(stderr, "Error: Could not allocate space for signal data pointer!\n");
+        exit(EXIT_FAILURE);
+    }
+    for (uint32_t idx = 0; idx < s->n; idx++) {
+        s->data[idx] = src->data[idx];
+    }
+    s->mean = src->mean;
+    s->sd = src->sd;
+
+    s->ranks = NULL;
+    s->mean_ranks = NAN;
+    s->sd_ranks = NAN;
+
+    /* if we need to copy src->ranks, src->mean_ranks, src->sd_ranks */
+    if (ir) {
+        int ranks_alloc_result = posix_memalign((void **) &(s->ranks), kSignalByteAlignment, s->n * sizeof(*s->ranks));
+        if ((ranks_alloc_result != 0) || (!s->ranks)) {
+            fprintf(stderr, "Error: Could not allocate space for signal ranks pointer!\n");
+            exit(EXIT_FAILURE);
+        }
+        for (uint32_t idx = 0; idx < s->n; idx++) {
+            s->ranks[idx] = src->ranks[idx];
+        }
+        s->mean_ranks = src->mean_ranks;
+        s->sd_ranks = src->sd_ranks;
+    }
+
+    *dest = s;
+}
+
+/**
+ * @brief      bs_init_signal(cds, dest, ir)
  *
  * @details    Initialize a signal_t pointer with a vector of score_t's,
  *             along with mean and sample standard deviation of the
  *             vector.
  *
- * @param      cds    (char*)     pointer to comma-delimited string of numerical values
- *             ir     (boolean_t) parse ranks from cds
- *
- * @return     (signal_t*) pointer to signal struct populated with signal data
+ * @param      cds    (char*)      pointer to comma-delimited string of numerical values
+ *             dest   (signal_t**) pointer to signal struct populated with signal data
+ *             ir     (boolean_t)  parse ranks from cds
  */
 
-signal_t*
-bs_init_signal(char* cds, boolean_t ir)
+void
+bs_init_signal(char* cds, signal_t** dest, boolean_t ir)
 {
     rank_t rank_idx = 0;
     rank_t* ranks_temp = NULL;
@@ -3357,8 +3566,8 @@ bs_init_signal(char* cds, boolean_t ir)
             s->n++;
         }
     }
-    s->data = malloc(sizeof(*s->data) * s->n);
-    if (!s->data) {
+    int data_alloc_result = posix_memalign((void **) &(s->data), kSignalByteAlignment, s->n * sizeof(*s->data));
+    if ((data_alloc_result != 0) || (!s->data)) {
         fprintf(stderr, "Error: Could not allocate space for signal data pointer!\n");
         exit(EXIT_FAILURE);
     }
@@ -3373,13 +3582,13 @@ bs_init_signal(char* cds, boolean_t ir)
             fprintf(stderr, "Error: There are more signal data points than the ranks pointer can store!\n");
             exit(EXIT_FAILURE);
         }
-        ranks_temp = malloc(sizeof(*s->ranks) * s->n);
-        if (!ranks_temp) {
+        int ranks_temp_alloc_result = posix_memalign((void **) &ranks_temp, kSignalByteAlignment, s->n * sizeof(*s->ranks));
+        if ((ranks_temp_alloc_result != 0) || (!ranks_temp)) {
             fprintf(stderr, "Error: Could not allocate space for temporary signal ranks pointer!\n");
             exit(EXIT_FAILURE);
         }
-        s->ranks = malloc(sizeof(*s->ranks) * s->n);
-        if (!s->ranks) {
+        int ranks_alloc_result = posix_memalign((void **) &(s->ranks), kSignalByteAlignment, s->n * sizeof(*s->ranks));
+        if ((ranks_alloc_result != 0) || (!s->ranks)) {
             fprintf(stderr, "Error: Could not allocate space for signal ranks pointer!\n");
             exit(EXIT_FAILURE);
         }
@@ -3504,13 +3713,16 @@ bs_init_signal(char* cds, boolean_t ir)
         /* 
             We no longer need temporary rank data
         */
-        free(ranks_temp), ranks_temp = NULL;
+        free(ranks_temp);
+        ranks_temp = NULL;
         /*
             If we replace data and data summary statistics with ranks and rank summary statistics, we should be able to release the data values. For now we'll keep data while this is reviewed.
         */
-        //free(s->data), s->data = NULL;
+        //free(s->data);
+        //s->data = NULL;
     }
-    return s;
+
+    *dest = s;
 }
 
 /**
@@ -3581,7 +3793,7 @@ bs_print_signal(signal_t* s, FILE* os)
  * @return     (score_t) mean value of score_t array
  */
 
-score_t
+static inline score_t
 bs_mean_signal(score_t* d, uint32_t len)
 {
     score_t s = 0.0f;
@@ -3603,7 +3815,7 @@ bs_mean_signal(score_t* d, uint32_t len)
  * @return     (score_t) mean value of rank_t array
  */
 
-score_t
+static inline score_t
 bs_mean_ranks(rank_t* d, uint32_t len)
 {
     score_t s = 0.0f;
@@ -3626,7 +3838,7 @@ bs_mean_ranks(rank_t* d, uint32_t len)
  * @return     (score_t) sample standard deviation value of score_t array
  */
 
-score_t
+static inline score_t
 bs_sample_sd_signal(score_t* d, uint32_t len, score_t m)
 {
     score_t s = 0.0f;
@@ -3667,30 +3879,18 @@ bs_sample_sd_ranks(rank_t* d, uint32_t len, score_t m)
  *
  * @param      a      (signal_t*) pointer to first signal struct
  *             b      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
  *
  * @return     (score_t) Pearson's r correlation score result
  */
 
-score_t
-bs_pearson_r_signal(signal_t* a, signal_t* b)
+static inline score_t
+bs_pearson_r_signal(signal_t* a, signal_t* b, uint32_t len)
 {
-    if (a->n != b->n) {
-        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-        bs_print_signal(a, stderr);
-        bs_print_signal(b, stderr);
-        exit(EXIT_FAILURE);
-    }
-    if ((a->sd == 0.0f) || (b->sd == 0.0f)) {
-        if (!bs_globals.zero_sd_warning_issued) {
-            fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
-            bs_globals.zero_sd_warning_issued = kTrue;
-        }
-        return NAN;
-    }
     score_t s = 0.0f;
-    for (uint32_t idx = 0; idx < a->n; idx++)
+    for (uint32_t idx = 0; idx < len; idx++)
         s += (a->data[idx] - a->mean) * (b->data[idx] - b->mean);
-    return s / ((a->n - 1.0f) * a->sd * b->sd);
+    return s / ((len - 1.0f) * a->sd * b->sd);
 }
 
 /**
@@ -3703,29 +3903,24 @@ bs_pearson_r_signal(signal_t* a, signal_t* b)
  *
  * @param      a      (signal_t*) pointer to first signal struct
  *             b      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
  *
  * @return     (score_t) Spearman's rho correlation score result
  */
 
-score_t
-bs_spearman_rho_signal_v1(signal_t* a, signal_t* b)
+static inline score_t
+bs_spearman_rho_signal_v1(signal_t* a, signal_t* b, uint32_t len)
 {
-    if (a->n != b->n) {
-        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-        bs_print_signal(a, stderr);
-        bs_print_signal(b, stderr);
-        exit(EXIT_FAILURE);
-    }
-    int n = a->n;
     int64_t sum_of_squared_differences = 0;
-    int idx = 0;
-    for (idx = 0; idx < n; ++idx) {
+    uint32_t idx = 0;
+    for (idx = 0; idx < len; ++idx) {
         if (isnan(a->data[idx]) || isnan(b->data[idx])) {
             return NAN;
         }
         sum_of_squared_differences += ((a->ranks[idx] - b->ranks[idx]) * (a->ranks[idx] - b->ranks[idx]));
     }
-    return 1.0f - (( 6.0f * (score_t) sum_of_squared_differences ) / ((n * n * n) - n));
+    /* possible overflow in denominator? */
+    return 1.0f - (( 6.0f * (score_t) sum_of_squared_differences ) / ((len * len * len) - len));
 }
 
 /**
@@ -3736,34 +3931,20 @@ bs_spearman_rho_signal_v1(signal_t* a, signal_t* b)
  *
  * @param      a      (signal_t*) pointer to first signal struct
  *             b      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
  *
  * @return     (score_t) Spearman's rho correlation score result
  */
 
-score_t
-bs_spearman_rho_signal_v2(signal_t* a, signal_t* b)
+static inline score_t
+bs_spearman_rho_signal_v2(signal_t* a, signal_t* b, uint32_t len)
 {
-    if (a->n != b->n) {
-        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-        bs_print_signal(a, stderr);
-        bs_print_signal(b, stderr);
-        exit(EXIT_FAILURE);
-    }
-    if ((a->sd_ranks == 0.0f) || (b->sd_ranks == 0.0f)) {
-        if (!bs_globals.zero_sd_warning_issued) {
-            fprintf(stderr, "Warning: One or more vectors have ranks with zero standard deviation!\n");
-            bs_globals.zero_sd_warning_issued = kTrue;
-        }
-        return NAN;
-    }
-    int n = a->n;
-    int idx = 0;
+    uint32_t idx = 0;
     score_t covariance_ranks = 0.0f;
-    for (idx = 0; idx < n; ++idx) {
+    for (idx = 0; idx < len; ++idx) {
         covariance_ranks += ((a->ranks[idx] - a->mean_ranks) * (b->ranks[idx] - b->mean_ranks));
     }
-    covariance_ranks /= (n - 1);
-    return covariance_ranks / (a->sd_ranks * b->sd_ranks);
+    return covariance_ranks / ((len - 1.0f) * a->sd_ranks * b->sd_ranks);
 }
 
 /**
@@ -3783,7 +3964,7 @@ bs_delete_signal(signal_t** s)
 }
 
 /**
- * @brief      bs_init_element(chr, start, stop, id, pi, ir)
+ * @brief      bs_init_element(chr, start, stop, id, pi, ir, sp, e)
  *
  * @details    Allocates space for element_t* and copies chr, start, stop
  *             and id values to element.
@@ -3794,42 +3975,52 @@ bs_delete_signal(signal_t** s)
  *             id     (char*) id string 
  *             pi     (boolean_t) parse ID string
  *             ir     (boolean_t) parse ID string with ranks
+ *             sp     (signal_t*) signal_t pointer
+ *             e      (element_t**) pointer to element_t pointer
  *
- * @return     (element_t*) element pointer
  */
 
-element_t*
-bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ir)
+void
+bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ir, signal_t* sp, element_t** e)
 {
-    element_t *e = NULL;
+    element_t *elem = NULL;
 
-    e = malloc(sizeof(element_t));
-    if (!e) {
+    elem = malloc(sizeof(element_t));
+    if (!elem) {
         fprintf(stderr, "Error: Could not allocate space for element!\n");
         exit(EXIT_FAILURE);
     }
-    e->chr = NULL;
+    elem->chr = NULL;
     if (strlen(chr) > 0) {
-        e->chr = malloc(sizeof(*chr) * strlen(chr) + 1);
-        if (!e->chr) {
+        elem->chr = malloc(sizeof(*chr) * strlen(chr) + 1);
+        if (!elem->chr) {
             fprintf(stderr, "Error: Could not allocate space for element chromosome!\n");
             exit(EXIT_FAILURE);
         }
-        memcpy(e->chr, chr, strlen(chr) + 1);
+        memcpy(elem->chr, chr, strlen(chr) + 1);
     }
-    e->start = start;
-    e->stop = stop;
-    e->id = NULL;
+    elem->start = start;
+    elem->stop = stop;
+    elem->id = NULL;
     if (id && (strlen(id) > 0) && pi) {
-        e->id = malloc(sizeof(*id) * strlen(id) + 1);
-        if (!e->id) {
+        elem->id = malloc(sizeof(*id) * strlen(id) + 1);
+        if (!elem->id) {
             fprintf(stderr,"Error: Could not allocate space for element id!\n");
             exit(EXIT_FAILURE);
         }
-        memcpy(e->id, id, strlen(id) + 1);
+        memcpy(elem->id, id, strlen(id) + 1);
     }
-    e->signal = (e->id && pi) ? bs_init_signal(e->id, ir) : NULL;    
-    return e;
+    elem->signal = NULL;
+    if (pi) {
+        if (!sp) {
+            bs_init_signal(elem->id, &(elem->signal), ir);
+        }
+        else {
+            bs_copy_signal(sp, &(elem->signal), ir);
+        }
+    }
+    
+    *e = elem;
 }
 
 /**
@@ -3874,12 +4065,14 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ir)
         (*l)->capacity *= 2;
         element_t** new_elems = malloc(sizeof(element_t *) * (*l)->capacity);
         for (uint32_t idx = 0; idx < (*l)->nelems; idx++) {
-            new_elems[idx] = bs_init_element((*l)->elems[idx]->chr,
-                                             (*l)->elems[idx]->start,
-                                             (*l)->elems[idx]->stop,
-                                             (*l)->elems[idx]->id,
-                                             pi,
-                                             ir);
+            bs_init_element((*l)->elems[idx]->chr,
+                            (*l)->elems[idx]->start,
+                            (*l)->elems[idx]->stop,
+                            (*l)->elems[idx]->id,
+                            pi,
+                            ir,
+                            (*l)->elems[idx]->signal,
+                            &(new_elems[idx]));
             bs_delete_element(&((*l)->elems[idx]));
         }   
         (*l)->elems = new_elems;     
@@ -3900,13 +4093,13 @@ void
 bs_test_spearman_rho()
 {
     signal_t* x = NULL;
-    x = bs_init_signal((char*) kTestVectorX, kTrue);
+    bs_init_signal((char*) kTestVectorX, &x, kTrue);
     if (!x) {
         fprintf(stderr, "Error: Could not allocate space for test (X) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* y = NULL;
-    y = bs_init_signal((char*) kTestVectorY, kTrue);
+    bs_init_signal((char*) kTestVectorY, &y, kTrue);
     if (!y) {
         fprintf(stderr, "Error: Could not allocate space for test (Y) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
@@ -3914,7 +4107,16 @@ bs_test_spearman_rho()
     bs_print_signal(x, stdout);
 
     fprintf(stderr, "Comparing XY\n---\nX -> %s\nY -> %s\n---\n", kTestVectorX, kTestVectorY);
-    score_t unencoded_observed_xy_score = bs_spearman_rho_signal_v1(x, y);
+    if (x->n != y->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(x, stderr);
+        bs_print_signal(y, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_xy_score = NAN;
+    if ((x->sd_ranks != 0.0f) && (y->sd_ranks != 0.0f)) {
+        unencoded_observed_xy_score = bs_spearman_rho_signal_v1(x, y, x->n);
+    }
     fprintf(stderr, "Expected - unencoded XY Spearman's rho score: %3.6f\n", kSpearmanRhoTestXYCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded XY Spearman's rho score: %3.6f\n", unencoded_observed_xy_score);
     score_t absolute_diff_unencoded_xy_scores = fabs(kSpearmanRhoTestXYCorrelationUnencoded - unencoded_observed_xy_score);
@@ -3933,14 +4135,23 @@ bs_test_spearman_rho()
     fprintf(stderr, "\t-> Expected computed and observed computed XY scores do not differ\n");
 
     signal_t* z = NULL;
-    z = bs_init_signal((char*) kTestVectorZ, kTrue);
+    bs_init_signal((char*) kTestVectorZ, &z, kTrue);
     if (!z) {
         fprintf(stderr, "Error: Could not allocate space for test (Z) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
 
     fprintf(stderr, "Comparing XZ\n---\nX -> %s\nZ -> %s\n---\n", kTestVectorX, kTestVectorZ);
-    score_t unencoded_observed_xz_score = bs_spearman_rho_signal_v2(x, z);
+    if (x->n != z->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(x, stderr);
+        bs_print_signal(z, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_xz_score = NAN;
+    if ((x->sd_ranks != 0.0f) && (z->sd_ranks != 0.0f)) {
+        unencoded_observed_xz_score = bs_spearman_rho_signal_v1(x, z, x->n);
+    } 
     fprintf(stderr, "Expected - unencoded XZ Spearman's rho score: %3.6f\n", kSpearmanRhoTestXZCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded XZ Spearman's rho score: %3.6f\n", unencoded_observed_xz_score);
     byte_t encoded_expected_xz_score_byte = bs_encode_score_to_byte(kSpearmanRhoTestXZCorrelationUnencoded);
@@ -3960,20 +4171,29 @@ bs_test_spearman_rho()
     bs_delete_signal(&z);
 
     signal_t* a = NULL;
-    a = bs_init_signal((char*) kTestVectorA, kTrue);
+    bs_init_signal((char*) kTestVectorA, &a, kTrue);
     if (!a) {
         fprintf(stderr, "Error: Could not allocate space for test (A) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* b = NULL;
-    b = bs_init_signal((char*) kTestVectorB, kTrue);
+    bs_init_signal((char*) kTestVectorB, &b, kTrue);
     if (!b) {
         fprintf(stderr, "Error: Could not allocate space for test (B) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
 
     fprintf(stderr, "(V1) Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
-    score_t unencoded_observed_ab_score_v1 = bs_spearman_rho_signal_v1(a, b);
+    if (a->n != b->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ab_score_v1 = NAN;
+    if ((a->sd_ranks != 0.0f) && (b->sd_ranks != 0.0f)) {
+        unencoded_observed_ab_score_v1 = bs_spearman_rho_signal_v1(a, b, a->n);
+    }
     fprintf(stderr, "Expected - unencoded AB Spearman's rho score: %3.6f\n", kSpearmanRhoTestABCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AB Spearman's rho score (v1): %3.6f\n", unencoded_observed_ab_score_v1);
     score_t absolute_diff_unencoded_ab_scores_v1 = fabs(kSpearmanRhoTestABCorrelationUnencoded - unencoded_observed_ab_score_v1);
@@ -3992,7 +4212,10 @@ bs_test_spearman_rho()
     fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
     fprintf(stderr, "(V2) Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
-    score_t unencoded_observed_ab_score_v2 = bs_spearman_rho_signal_v2(a, b);
+    score_t unencoded_observed_ab_score_v2 = NAN;
+    if ((a->sd_ranks != 0.0f) && (b->sd_ranks != 0.0f)) {
+        unencoded_observed_ab_score_v2 = bs_spearman_rho_signal_v2(a, b, a->n);
+    } 
     fprintf(stderr, "Expected - unencoded AB Spearman's rho score: %3.6f\n", kSpearmanRhoTestABCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AB Spearman's rho score (v2): %3.6f\n", unencoded_observed_ab_score_v2);
     score_t absolute_diff_unencoded_ab_scores_v2 = fabs(kSpearmanRhoTestABCorrelationUnencoded - unencoded_observed_ab_score_v2);
@@ -4011,14 +4234,23 @@ bs_test_spearman_rho()
     fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
     signal_t* c = NULL;
-    c = bs_init_signal((char*) kTestVectorC, kTrue);
+    bs_init_signal((char*) kTestVectorC, &c, kTrue);
     if (!c) {
         fprintf(stderr, "Error: Could not allocate space for test (C) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
 
     fprintf(stderr, "(V2) Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kTestVectorA, kTestVectorC);
-    score_t unencoded_observed_ac_score_v2 = bs_spearman_rho_signal_v2(a, c);
+    if (a->n != c->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(c, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ac_score_v2 = NAN;
+    if ((a->sd_ranks != 0.0f) && (c->sd_ranks != 0.0f)) {
+        unencoded_observed_ac_score_v2 = bs_spearman_rho_signal_v2(a, c, a->n);
+    }
     fprintf(stderr, "Expected - unencoded AC Spearman's rho score: %3.6f\n", kSpearmanRhoTestACCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AC Spearman's rho score (v2): %3.6f\n", unencoded_observed_ac_score_v2);
     fprintf(stderr, "\t-> Expected and observed (v2) AC scores do not differ within %3.7f error\n", kEpsilon);
@@ -4050,26 +4282,35 @@ void
 bs_test_pearsons_r()
 {
     signal_t* a = NULL;
-    a = bs_init_signal((char*) kTestVectorA, kFalse);
+    bs_init_signal((char*) kTestVectorA, &a, kFalse);
     if (!a) {
         fprintf(stderr, "Error: Could not allocate space for test (A) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* b = NULL;
-    b = bs_init_signal((char*) kTestVectorB, kFalse);
+    bs_init_signal((char*) kTestVectorB, &b, kFalse);
     if (!b) {
         fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* c = NULL;
-    c = bs_init_signal((char*) kTestVectorC, kFalse);
+    bs_init_signal((char*) kTestVectorC, &c, kFalse);
     if (!c) {
         fprintf(stderr, "Error: Could not allocate space for test (C) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     
     fprintf(stderr, "Comparing AB\n---\nA -> %s\nB -> %s\n---\n", kTestVectorA, kTestVectorB);
-    score_t unencoded_observed_ab_score = bs_pearson_r_signal(a, b);
+    if (a->n != b->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(b, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ab_score = NAN;
+    if ((a->sd != 0.0f) && (b->sd != 0.0f)) {
+        unencoded_observed_ab_score = bs_pearson_r_signal(a, b, a->n);
+    }
     fprintf(stderr, "Expected - unencoded AB Pearson's r score: %3.6f\n", kPearsonRTestABCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AB Pearson's r score: %3.6f\n", unencoded_observed_ab_score);
     score_t absolute_diff_unencoded_ab_scores = fabs(kPearsonRTestABCorrelationUnencoded - unencoded_observed_ab_score);
@@ -4088,7 +4329,16 @@ bs_test_pearsons_r()
     fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
     fprintf(stderr, "Comparing AC\n---\nA -> %s\nC -> %s\n---\n", kTestVectorA, kTestVectorC);
-    score_t unencoded_observed_ac_score = bs_pearson_r_signal(a, c);
+    if (a->n != c->n) {
+        fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+        bs_print_signal(a, stderr);
+        bs_print_signal(c, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ac_score = NAN;
+    if ((a->sd != 0.0f) && (c->sd != 0.0f)) {
+        unencoded_observed_ac_score = bs_pearson_r_signal(a, c, a->n);
+    }
     fprintf(stderr, "Expected - unencoded AC Pearson's r score: %3.6f\n", kPearsonRTestACCorrelationUnencoded);
     fprintf(stderr, "Observed - unencoded AC Pearson's r score: %3.6f\n", unencoded_observed_ac_score);
     byte_t encoded_expected_ac_score_byte = bs_encode_score_to_byte(kPearsonRTestACCorrelationUnencoded);
@@ -4935,18 +5185,19 @@ bs_populate_sut_store_with_random_scores(sut_store_t* s)
 }
 
 /**
- * @brief      bs_populate_sut_store_with_pearsonr_scores(s, l)
+ * @brief      bs_populate_sut_store(s, l, *sf)
  *
- * @details    Write Pearson's r correlation scores as encoded 
- *             byte_t bytes to a FILE* handle associated 
- *             with the specified SUT store filename.
+ * @details    Write scores as encoded byte_t bytes 
+ *             to a FILE* handle associated with the
+ *             specified SUT store filename.
  *
  * @param      s      (sut_store_t*) pointer to SUT struct
  *             l      (lookup_t*) pointer to lookup table
+ *             *sf    (score_t) score function pointer
  */
 
 void
-bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
+bs_populate_sut_store(sut_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, signal_t*, uint32_t))
 {
     FILE* os = NULL;
 
@@ -4963,12 +5214,25 @@ bs_populate_sut_store_with_pearsonr_scores(sut_store_t* s, lookup_t* l)
     byte_t* buf = NULL;
     buf = malloc(n_buf * sizeof(*buf));    
 
-    /* write Pearson's r correlation scores to output stream ptr */
+    /* write scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = row_idx + 1; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
-            score_t corr = bs_pearson_r_signal(row_signal, col_signal);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
+            }
+            score_t corr = NAN;
+            if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                corr = (*sf)(row_signal, col_signal, row_signal->n);
+            }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
             buf[s_buf++] = 
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -5593,7 +5857,7 @@ bs_populate_sqr_store_with_buffered_random_scores(sqr_store_t* s)
  */
 
 void
-bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, signal_t*))
+bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, signal_t*, uint32_t))
 {
     FILE* os = NULL;
     byte_t self_correlation_score =
@@ -5615,13 +5879,26 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
     byte_t* buf = NULL;
     buf = malloc(n_buf * sizeof(*buf));
     
-    /* write Pearson's r correlation scores to output stream ptr */
+    /* write scores to output stream ptr */
     for (uint32_t row_idx = 0; row_idx < s->attr->nelems; row_idx++) {
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
             if (row_idx != col_idx) {
-                score_t corr = (*sf)(row_signal, col_signal);
+                if (row_signal->n != col_signal->n) {
+                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                    bs_print_signal(row_signal, stderr);
+                    bs_print_signal(col_signal, stderr);
+                    exit(EXIT_FAILURE);
+                }
+                score_t corr = NAN;
+                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else if (!bs_globals.zero_sd_warning_issued) {
+                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    bs_globals.zero_sd_warning_issued = kTrue;
+                }
                 buf[s_buf++] = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -5691,12 +5968,22 @@ char*
 bs_init_sqr_split_store_dir_str(char* p)
 {
     char* block_dest_dir = NULL;
-    block_dest_dir = malloc(strlen(p) + strlen(kRawMetadataSplitDirSuffix) + 2);
-    if (!block_dest_dir) {
-        fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
-        exit(EXIT_FAILURE);
+    if (strlen(kRawMetadataSplitDirSuffix) > 0) {
+        block_dest_dir = malloc(strlen(p) + strlen(kRawMetadataSplitDirSuffix) + 2);
+        if (!block_dest_dir) {
+            fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(block_dest_dir, strlen(p) + strlen(kRawMetadataSplitDirSuffix) + 2, "%s.%s", p, kRawMetadataSplitDirSuffix);
     }
-    snprintf(block_dest_dir, strlen(p) + strlen(kRawMetadataSplitDirSuffix) + 2, "%s.%s", p, kRawMetadataSplitDirSuffix);
+    else {
+        block_dest_dir = malloc(strlen(p) + 1);
+        if (!block_dest_dir) {
+            fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(block_dest_dir, strlen(p) + 1, "%s", p);
+    }
     return block_dest_dir;
 }
 
@@ -5740,7 +6027,7 @@ bs_init_sqr_split_store_metadata_fn_str(char* d)
  */
 
 void
-bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
+bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*, uint32_t), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -5800,12 +6087,31 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                //score_t corr = bs_pearson_r_signal(row_signal, col_signal);
-                score_t corr = (*sf)(row_signal, col_signal);
+                if (row_signal->n != col_signal->n) {
+                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                    bs_print_signal(row_signal, stderr);
+                    bs_print_signal(col_signal, stderr);
+                    exit(EXIT_FAILURE);
+                }
+                score_t corr = NAN;
+                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else if (!bs_globals.zero_sd_warning_issued) {
+                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    bs_globals.zero_sd_warning_issued = kTrue;
+                }
+                //fprintf(stderr, "-----\n");
+                //bs_print_signal(row_signal, stderr);
+                //fprintf(stderr, "-----\n");
+                //bs_print_signal(col_signal, stderr);
+                //fprintf(stderr, "-----\n");
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
                     bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                //fprintf(stderr, "-----\n");
+                //exit(0);
             }
             else {
                 score = self_correlation_score;
@@ -5893,7 +6199,7 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
  */
 
 void
-bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o, score_t (*sf)(signal_t*, signal_t*))
+bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint32_t o, score_t (*sf)(signal_t*, signal_t*, uint32_t))
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -5948,7 +6254,20 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
         for (uint32_t col_idx = 1; col_idx <= l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = (*sf)(row_signal, col_signal);
+                if (row_signal->n != col_signal->n) {
+                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                    bs_print_signal(row_signal, stderr);
+                    bs_print_signal(col_signal, stderr);
+                    exit(EXIT_FAILURE);
+                }
+                score_t corr = NAN;
+                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else if (!bs_globals.zero_sd_warning_issued) {
+                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    bs_globals.zero_sd_warning_issued = kTrue;
+                }
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -6060,7 +6379,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
  */
 
 void
-bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
+bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*, uint32_t), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -6131,7 +6450,20 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = (*sf)(row_signal, col_signal);
+                if (row_signal->n != col_signal->n) {
+                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                    bs_print_signal(row_signal, stderr);
+                    bs_print_signal(col_signal, stderr);
+                    exit(EXIT_FAILURE);
+                }
+                score_t corr = NAN;
+                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else if (!bs_globals.zero_sd_warning_issued) {
+                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    bs_globals.zero_sd_warning_issued = kTrue;
+                }
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -6251,7 +6583,7 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
  */
 
 void
-bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*), score_variety_t sv)
+bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*sf)(signal_t*, signal_t*, uint32_t), score_variety_t sv)
 {
     byte_t score = 0;
     FILE* os = NULL;
@@ -6337,7 +6669,20 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
             if (row_idx != col_idx) {
-                score_t corr = (*sf)(row_signal, col_signal);
+                if (row_signal->n != col_signal->n) {
+                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                    bs_print_signal(row_signal, stderr);
+                    bs_print_signal(col_signal, stderr);
+                    exit(EXIT_FAILURE);
+                }
+                score_t corr = NAN;
+                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else if (!bs_globals.zero_sd_warning_issued) {
+                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    bs_globals.zero_sd_warning_issued = kTrue;
+                }
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
@@ -6452,12 +6797,22 @@ char*
 bs_init_sqr_bzip2_split_store_dir_str(char* p)
 {
     char* block_dest_dir = NULL;
-    block_dest_dir = malloc(strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2);
-    if (!block_dest_dir) {
-        fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
-        exit(EXIT_FAILURE);
+    if (strlen(kCompressionMetadataSplitDirSuffix) > 0) {
+        block_dest_dir = malloc(strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2);
+        if (!block_dest_dir) {
+            fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(block_dest_dir, strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2, "%s.%s", p, kCompressionMetadataSplitDirSuffix);
     }
-    snprintf(block_dest_dir, strlen(p) + strlen(kCompressionMetadataSplitDirSuffix) + 2, "%s.%s", p, kCompressionMetadataSplitDirSuffix);
+    else {
+        block_dest_dir = malloc(strlen(p) + 1);
+        if (!block_dest_dir) {
+            fprintf(stderr, "Error: Could not allocate space for block destination string!\n");
+            exit(EXIT_FAILURE);
+        }
+        snprintf(block_dest_dir, strlen(p) + 1, "%s", p);
+    }
     return block_dest_dir;
 }
 
