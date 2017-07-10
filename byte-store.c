@@ -2525,24 +2525,6 @@ bs_qd_is_there(char* candidate)
 }
 
 /**
- * @brief      bs_truncate_score_to_precision(d, prec)
- *
- * @details    Truncates double-like score value to specified precision.
- *
- * @param      d      (score_t) value to be truncated
- *             prec   (int) value to determine precision of truncated value
- *
- * @return     (score_t) truncated value
- */
-
-inline score_t
-bs_truncate_score_to_precision(score_t d, int prec)
-{
-    score_t factor = (score_t) powf(10, prec);
-    return (d < 0) ? (score_t) ceil(d * factor)/factor : (score_t) floor((d + kEpsilon) * factor)/factor;
-}
-
-/**
  * @brief      bs_encode_score_to_byte(d)
  *
  * @details    Encodes double-like score value between -1 and +1 to 
@@ -2569,14 +2551,15 @@ bs_truncate_score_to_precision(score_t d, int prec)
  *             bs_encode_score_to_byte(+0.142) = 0x73
  */
 
-inline byte_t
+static inline byte_t
 bs_encode_score_to_byte(score_t d) 
 {
     if (isnan(d)) {
         return kNANEncodedByte;
     }
+    d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
     int encode_d = (int)(100*d) + 100 + bs_signbit(-d);
-    //fprintf(stderr, "%d\t%02x\n", encode_d, (byte_t) encode_d);
+    //fprintf(stderr, "%f\t%d\t%d\t%d\t%02x\n", d, (int)(100*d), bs_signbit(-d), encode_d, (byte_t) encode_d);
     return (byte_t) encode_d;
 }
 
@@ -2593,15 +2576,14 @@ bs_encode_score_to_byte(score_t d)
  * @return     (byte_t) encoded score byte value
  */
 
-inline byte_t
+static inline byte_t
 bs_encode_score_to_byte_mqz(score_t d) 
 {
     if (isnan(d)) {
         return kNANEncodedByte;
-    }    
+    }
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
-    d = bs_truncate_score_to_precision(d, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
+    int encode_d = (int)(100*d) + 100 + bs_signbit(-d);
     if ((encode_d > 76) && (encode_d < 127))
         encode_d = 100;
     return (byte_t) encode_d;
@@ -2621,21 +2603,16 @@ bs_encode_score_to_byte_mqz(score_t d)
  * @return     (byte_t) encoded score byte value
  */
 
-byte_t
+static byte_t
 bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max) 
 {
     if (isnan(d)) {
         return kNANEncodedByte;
-    }    
+    }
     d += (d < 0) ? -kEpsilon : kEpsilon; /* jitter is used to deal with interval edges */
-    min += (min < 0) ? -kEpsilon : kEpsilon;
-    max += (max < 0) ? -kEpsilon : kEpsilon;
-    d = bs_truncate_score_to_precision(d, 2);
-    min = bs_truncate_score_to_precision(min, 2);
-    max = bs_truncate_score_to_precision(max, 2);
-    int encode_d = (int) ((d < 0) ? (ceil(d * 1000.0f)/10.0f + 100) : (floor(d * 1000.0f)/10.0f + 100)) + bs_signbit(-d);
-    int encode_min = (int) ((min < 0) ? (ceil(min * 1000.0f)/10.0f + 100) : (floor(min * 1000.0f)/10.0f + 100)) + bs_signbit(-min);
-    int encode_max = (int) ((max < 0) ? (ceil(max * 1000.0f)/10.0f + 100) : (floor(max * 1000.0f)/10.0f + 100)) + bs_signbit(-max);
+    int encode_d = (int)(100*d) + 100 + bs_signbit(-d);
+    int encode_min = (int)(100*min) + 100 + bs_signbit(-min);
+    int encode_max = (int)(100*min) + 100 + bs_signbit(-max);
     if ((encode_d > encode_min) && (encode_d < encode_max))
         encode_d = 100;
     return (byte_t) encode_d;
@@ -2653,7 +2630,7 @@ bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max)
  * @return     (boolean_t) true, if sign is negative; false, if sign is positive
  */
 
-inline boolean_t
+static inline boolean_t
 bs_signbit(score_t d)
 {
     return (signbit(d) > 0) ? kTrue : kFalse;

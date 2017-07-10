@@ -136,7 +136,7 @@ extern "C" {
     /* encoding to two decimals of precision specifies needed accuracy */
     extern const score_t kEpsilon;
     extern const score_t kEpsilonLessStringent;
-    const score_t kEpsilon = 0.0000001f;
+    const score_t kEpsilon = 0.000001f;
     const score_t kEpsilonLessStringent = 0.001f;
 
     extern const score_t kSelfCorrelationScore;
@@ -747,11 +747,10 @@ extern "C" {
 
     /* non-daemon function declarations */
 
-    inline score_t               bs_truncate_score_to_precision(score_t d, int prec);
-    inline byte_t                bs_encode_score_to_byte(score_t d);
-    inline byte_t                bs_encode_score_to_byte_mqz(score_t d);
-    byte_t                       bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max);
-    inline boolean_t             bs_signbit(score_t d);
+    static inline byte_t         bs_encode_score_to_byte(score_t d);
+    static inline byte_t         bs_encode_score_to_byte_mqz(score_t d);
+    static inline byte_t         bs_encode_score_to_byte_custom(score_t d, score_t min, score_t max);
+    static inline boolean_t      bs_signbit(score_t d);
     static inline score_t        bs_decode_byte_to_score(byte_t uc);
     static inline score_t        bs_decode_byte_to_score_mqz(byte_t uc);
     static inline score_t        bs_decode_byte_to_score_custom(byte_t uc, score_t min, score_t max);
