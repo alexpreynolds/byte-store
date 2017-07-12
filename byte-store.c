@@ -5743,6 +5743,22 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2Str) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2SplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2Split :
+                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixStr) == 0) ? kStoreJaccardIndexSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitStr) == 0) ? kStoreJaccardIndexSquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitSingleChunkStr) == 0) ? kStoreJaccardIndexSquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixStr) == 0) ? kStoreOchiaiSimilaritySquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixSplitStr) == 0) ? kStoreOchiaiSimilaritySquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStorePearsonPhiSimilaritySquareMatrixStr) == 0) ? kStorePearsonPhiSimilaritySquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStorePearsonPhiSimilaritySquareMatrixSplitStr) == 0) ? kStorePearsonPhiSimilaritySquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :

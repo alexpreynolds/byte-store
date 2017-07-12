@@ -333,7 +333,7 @@ extern "C" {
     const int kSignalDelim = (int) ',';
 
     extern const int kSignalByteAlignment;
-    const int kSignalByteAlignment = 64;
+    const int kSignalByteAlignment = 32;
 
     typedef struct signal {
         uint32_t n;
