@@ -110,10 +110,10 @@ libmicrohttpd:
 	fi
 
 byte-store: prep
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
+	$(CC) $(BLDFLAGS) $(CFLAGS) -c mt19937.c -o mt19937.o
 	$(AR) rcs mt19937.a mt19937.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -c byte-store.c -o byte-store.o
-	$(CC) -g $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} $(LIB64) -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
+	$(CC) $(BLDFLAGS) $(CFLAGS) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} -c byte-store.c -o byte-store.o
+	$(CC) $(BLDFLAGS) $(CFLAGS) -I$(INCLUDES) -I${BZIP2_INC_DIR} -I${HTTPD_INC_DIR} $(LIB64) -L"${BZIP2_LIB_DIR}" -L"${HTTPD_LIB_DIR}" byte-store.o -o byte-store mt19937.a $(LIBS)
 
 debug-byte-store: prep
 	$(CC) -g $(BLDDFLAGS) $(CDFLAGS) -c mt19937.c -o mt19937.o
@@ -439,7 +439,7 @@ self-signed-certs:
 
 metadata-test-spearman-split-query-https-daemon:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs -E -K test/server.key -C test/server.pem
-
+	
 metadata-test-jaccard-split-create:
 	$(PWD)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.jaccard.bs -r 12
 

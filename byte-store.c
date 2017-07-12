@@ -17,7 +17,8 @@ main(int argc, char** argv)
         (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
-        (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata)) {
+        (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 kFalse,
                                 kFalse,
@@ -34,11 +35,11 @@ main(int argc, char** argv)
                                 kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
-              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
-              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
-              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
-              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
-              (!bs_globals.store_query_daemon_flag)) {
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
+             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
+             (!bs_globals.store_query_daemon_flag)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag,
                                 kTrue,
@@ -55,7 +56,10 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrix) ||
              (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplit) ||
-             (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk)) {
+             (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreNormalizedPointwiseMutualInformationSquareMatrix) ||
+             (bs_globals.store_type == kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag,
                                 kFalse,
@@ -120,6 +124,10 @@ main(int argc, char** argv)
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (A)\n");
                 exit(EXIT_FAILURE);
@@ -189,6 +197,10 @@ main(int argc, char** argv)
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
@@ -378,6 +390,31 @@ main(int argc, char** argv)
                                                            bs_globals.store_row_chunk_size, 
                                                            kScoreVarietyRogersAndTanimotoSimilarity);
                 break;
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_normalized_pointwise_mutual_information_signal);
+                break;
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_normalized_pointwise_mutual_information_signal, 
+                                            kScoreVarietyNormalizedPointwiseMutualInformation);
+                break;
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_normalized_pointwise_mutual_information_signal);
+                break;
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyNormalizedPointwiseMutualInformation);
+                break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
@@ -434,6 +471,7 @@ main(int argc, char** argv)
                 case kStoreOchiaiSimilaritySquareMatrix:
                 case kStorePearsonPhiSimilaritySquareMatrix:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_store_to_bed7(lookup, 
                                                    sqr_store, 
@@ -457,6 +495,7 @@ main(int argc, char** argv)
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone) {
                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
                                                                        sqr_store,
@@ -520,6 +559,8 @@ main(int argc, char** argv)
                 case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C1)\n");
                     exit(EXIT_FAILURE);
@@ -536,6 +577,7 @@ main(int argc, char** argv)
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
@@ -602,6 +644,9 @@ main(int argc, char** argv)
                 case kStoreRogersAndTanimotoSimilaritySquareMatrix:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+                case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
                 case kStoreRandomSUT:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C2)\n");
@@ -619,6 +664,7 @@ main(int argc, char** argv)
             case kStoreOchiaiSimilaritySquareMatrix:
             case kStorePearsonPhiSimilaritySquareMatrix:
             case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
                 bs_print_sqr_store_frequency_to_txt(lookup, 
                                                     sqr_store, 
                                                     stdout);
@@ -629,6 +675,7 @@ main(int argc, char** argv)
             case kStoreOchiaiSimilaritySquareMatrixSplit:
             case kStorePearsonPhiSimilaritySquareMatrixSplit:
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                 bs_print_sqr_split_store_frequency_to_txt(lookup, 
                                                           sqr_store, 
                                                           stdout);
@@ -659,6 +706,8 @@ main(int argc, char** argv)
             case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
             case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+            case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
@@ -1422,6 +1471,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
@@ -1487,6 +1537,9 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreRogersAndTanimotoSimilaritySquareMatrix:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
     case kStoreUndefined:
@@ -1629,6 +1682,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
@@ -1694,6 +1748,9 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreRogersAndTanimotoSimilaritySquareMatrix:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
     case kStoreUndefined:
@@ -1901,6 +1958,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 //bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, query_idx_start, query_idx_end);
@@ -1972,6 +2030,9 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreRogersAndTanimotoSimilaritySquareMatrix:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
     case kStoreUndefined:
@@ -2176,6 +2237,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 //bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, query_idx_start, query_idx_end);
@@ -2249,6 +2311,9 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreRogersAndTanimotoSimilaritySquareMatrix:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
     case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata:
     case kStorePearsonRSUT:
     case kStoreRandomSUT:
     case kStoreUndefined:
@@ -3676,7 +3741,6 @@ bs_increment_lookup_frequency(uint64_t* t, lookup_t* l, score_t (*sf)(signal_t*,
                 exit(EXIT_FAILURE);
             }
             score_t pairwise_score = NAN;
-            /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
             if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                 if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                     pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -4383,6 +4447,54 @@ bs_rogers_and_tanimoto_similarity_signal(signal_t* x, signal_t* y, uint32_t len)
 }
 
 /**
+ * @brief      bs_normalized_pointwise_mutual_information_signal(x, y, len)
+ *
+ * @details    Calculates the normalized pointwise mutual information
+ *             of two signal vectors; mostly meant for binary matrices
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) normalized PMI between [-1,1]
+ */
+
+static inline score_t
+bs_normalized_pointwise_mutual_information_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    /* 
+        We use a-b-c-d 2x2 contingency notation:
+        
+                 y
+               1   0
+              -------
+          1  | a | b |
+        x     -------
+          0  | c | d |
+              -------
+    */
+    score_t a = 0.0f;
+    score_t b = 0.0f;
+    score_t c = 0.0f;
+    score_t d = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        a += ( x->data[idx] &&  y->data[idx]);
+        b += ( x->data[idx] && !y->data[idx]);
+        c += (!x->data[idx] &&  y->data[idx]);
+        d += (!x->data[idx] && !y->data[idx]);
+    }
+    /*
+        When two vectors are in concordance, npmi(x, y) = 1
+        When they are independent, npmi(x, y) = 0 as the numerator is 0
+        When two vectors are in complete discordance, npmi(x, y) = -1
+    */
+    return ((a == len) || (d == len)) ?  1.0f :
+           (((b + c + d) == len) && (b < len) && (c < len)) ? 0.0f :
+           ((b == len) || (c == len)) ? -1.0f :
+           log((a * len)/((a + b)*(a + c)))/-log(a * len);
+}
+
+/**
  * @brief      bs_delete_signal(s)
  *
  * @details    Reset and release memory of provided pointer to signal struct
@@ -4517,6 +4629,198 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ss, b
     uint32_t n = (*l)->nelems;
     (*l)->elems[n] = e;
     (*l)->nelems++;
+}
+
+/**
+ * @brief      bs_test_normalized_pointwise_mutual_information()
+ *
+ * @details    Tests calculation and encoding of normalized pointwise
+ *             mutual information measure from test vectors
+ */
+ 
+void
+bs_test_normalized_pointwise_mutual_information()
+{
+    signal_t* m1 = NULL;
+    bs_init_signal((char*) kTestVectorM1, &m1, kFalse, kFalse);
+    if (!m1) {
+        fprintf(stderr, "Error: Could not allocate space for test (M1) normalized PMI vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* m2 = NULL;
+    bs_init_signal((char*) kTestVectorM2, &m2, kFalse, kFalse);
+    if (!m2) {
+        fprintf(stderr, "Error: Could not allocate space for test (M2) normalized PMI vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* m3 = NULL;
+    bs_init_signal((char*) kTestVectorM3, &m3, kFalse, kFalse);
+    if (!m3) {
+        fprintf(stderr, "Error: Could not allocate space for test (M3) normalized PMI vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* mz = NULL;
+    bs_init_signal((char*) kTestVectorMz, &mz, kFalse, kFalse);
+    if (!mz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Mz) normalized PMI vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* mu = NULL;
+    bs_init_signal((char*) kTestVectorMu, &mu, kFalse, kFalse);
+    if (!mu) {
+        fprintf(stderr, "Error: Could not allocate space for test (Mu) normalized PMI vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing M1 vs M2\n---\nM1 -> %s\nM2 -> %s\n---\n", kTestVectorM1, kTestVectorM2);
+    if (m1->n != m2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(m1, stderr);
+        bs_print_signal(m2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_m1m2_score = NAN;
+    if ((m1->data_contains_nan == kFalse) && (m2->data_contains_nan == kFalse)) {
+        unencoded_observed_m1m2_score = bs_normalized_pointwise_mutual_information_signal(m1, m2, m1->n);
+    }
+    fprintf(stderr, "Expected - unencoded M1-vs-M2 Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestM1M2Unencoded);
+    fprintf(stderr, "Observed - unencoded M1-vs-M2 Normalized PMI measure: %3.6f\n", unencoded_observed_m1m2_score);
+    score_t absolute_diff_unencoded_m1m2_scores = fabs(kNormalizedPointwiseMutualInformationTestM1M2Unencoded - unencoded_observed_m1m2_score);
+    assert(absolute_diff_unencoded_m1m2_scores + kEpsilon > 0 && absolute_diff_unencoded_m1m2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed M1-vs-M2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_m1m2_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestM1M2Unencoded);
+    byte_t encoded_observed_m1m2_score_byte = bs_encode_score_to_byte(unencoded_observed_m1m2_score);
+    fprintf(stderr, "Expected - encoded, precomputed M1-vs-M2 Normalized PMI measure: 0x%02x\n", kNormalizedPointwiseMutualInformationTestM1M2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed M1-vs-M2 Normalized PMI measure: 0x%02x\n", encoded_expected_m1m2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed M1-vs-M2 Normalized PMI measure: 0x%02x\n", encoded_observed_m1m2_score_byte);
+    assert(kNormalizedPointwiseMutualInformationTestM1M2EncodedByte == encoded_expected_m1m2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed M1-vs-M2 Normalized PMI measures do not differ\n");
+    assert(kNormalizedPointwiseMutualInformationTestM1M2EncodedByte == encoded_observed_m1m2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed M1-vs-M2 Normalized PMI measures do not differ\n");
+    assert(encoded_expected_m1m2_score_byte == encoded_observed_m1m2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed M1-vs-M2 Normalized PMI measures do not differ\n");
+
+    fprintf(stderr, "Comparing M1 vs M3\n---\nM1 -> %s\nM3 -> %s\n---\n", kTestVectorM1, kTestVectorM3);
+    if (m1->n != m3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(m1, stderr);
+        bs_print_signal(m3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_m1m3_score = NAN;
+    if ((m1->data_contains_nan == kFalse) && (m3->data_contains_nan == kFalse)) {
+        unencoded_observed_m1m3_score = bs_normalized_pointwise_mutual_information_signal(m1, m3, m1->n);
+    }
+    fprintf(stderr, "Expected - unencoded M1-vs-M3 Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestM1M3Unencoded);
+    fprintf(stderr, "Observed - unencoded M1-vs-M3 Normalized PMI measure: %3.6f\n", unencoded_observed_m1m3_score);
+    score_t absolute_diff_unencoded_m1m3_scores = fabs(kNormalizedPointwiseMutualInformationTestM1M3Unencoded - unencoded_observed_m1m3_score);
+    assert(absolute_diff_unencoded_m1m3_scores + kEpsilon > 0 && absolute_diff_unencoded_m1m3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed M1-vs-M3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_m1m3_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestM1M3Unencoded);
+    byte_t encoded_observed_m1m3_score_byte = bs_encode_score_to_byte(unencoded_observed_m1m3_score);
+    fprintf(stderr, "Expected - encoded, precomputed M1-vs-M3 Normalized PMI measure: 0x%02x\n", kNormalizedPointwiseMutualInformationTestM1M3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed M1-vs-M3 Normalized PMI measure: 0x%02x\n", encoded_expected_m1m3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed M1-vs-M3 Normalized PMI measure: 0x%02x\n", encoded_observed_m1m3_score_byte);
+    assert(kNormalizedPointwiseMutualInformationTestM1M3EncodedByte == encoded_expected_m1m3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed M1-vs-M3 Normalized PMI measures do not differ\n");
+    assert(kNormalizedPointwiseMutualInformationTestM1M3EncodedByte == encoded_observed_m1m3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed M1-vs-M3 Normalized PMI measures do not differ\n");
+    assert(encoded_expected_m1m3_score_byte == encoded_observed_m1m3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed M1-vs-M3 Normalized PMI measures do not differ\n");
+
+    fprintf(stderr, "Comparing Mz vs Mz\n---\nMz -> %s\nMz -> %s\n---\n", kTestVectorMz, kTestVectorMz);
+    if (mz->n != mz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(mz, stderr);
+        bs_print_signal(mz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_mzmz_score = NAN;
+    if ((mz->data_contains_nan == kFalse) && (mz->data_contains_nan == kFalse)) {
+        unencoded_observed_mzmz_score = bs_normalized_pointwise_mutual_information_signal(mz, mz, mz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Mz-vs-Mz Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestMzMzUnencoded);
+    fprintf(stderr, "Observed - unencoded Mz-vs-Mz Normalized PMI measure: %3.6f\n", unencoded_observed_mzmz_score);
+    score_t absolute_diff_unencoded_mzmz_scores = fabs(kNormalizedPointwiseMutualInformationTestMzMzUnencoded - unencoded_observed_mzmz_score);
+    assert(absolute_diff_unencoded_mzmz_scores + kEpsilon > 0 && absolute_diff_unencoded_mzmz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Mz-vs-Mz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_mzmz_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestMzMzUnencoded);
+    byte_t encoded_observed_mzmz_score_byte = bs_encode_score_to_byte(unencoded_observed_mzmz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Mz-vs-Mz Normalized PMI measure: 0x%02x\n", kNormalizedPointwiseMutualInformationTestMzMzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Mz-vs-Mz Normalized PMI measure: 0x%02x\n", encoded_expected_mzmz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Mz-vs-Mz Normalized PMI measure: 0x%02x\n", encoded_observed_mzmz_score_byte);
+    assert(kNormalizedPointwiseMutualInformationTestMzMzEncodedByte == encoded_expected_mzmz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Mz-vs-Mz Normalized PMI measures do not differ\n");
+    assert(kNormalizedPointwiseMutualInformationTestMzMzEncodedByte == encoded_observed_mzmz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Mz-vs-Mz Normalized PMI measures do not differ\n");
+    assert(encoded_expected_mzmz_score_byte == encoded_observed_mzmz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Mz-vs-Mz Normalized PMI measures do not differ\n");
+
+    fprintf(stderr, "Comparing Mz vs Mu\n---\nMz -> %s\nMu -> %s\n---\n", kTestVectorMz, kTestVectorMu);
+    if (mz->n != mu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(mz, stderr);
+        bs_print_signal(mu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_mzmu_score = NAN;
+    if ((mz->data_contains_nan == kFalse) && (mu->data_contains_nan == kFalse)) {
+        unencoded_observed_mzmu_score = bs_normalized_pointwise_mutual_information_signal(mz, mu, mz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Mz-vs-Mu Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestMzMuUnencoded);
+    fprintf(stderr, "Observed - unencoded Mz-vs-Mu Normalized PMI measure: %3.6f\n", unencoded_observed_mzmu_score);
+    score_t absolute_diff_unencoded_mzmu_scores = fabs(kNormalizedPointwiseMutualInformationTestMzMuUnencoded - unencoded_observed_mzmu_score);
+    assert(absolute_diff_unencoded_mzmu_scores + kEpsilon > 0 && absolute_diff_unencoded_mzmu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Mz-vs-Mu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_mzmu_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestMzMuEncoded);
+    byte_t encoded_observed_mzmu_score_byte = bs_encode_score_to_byte(unencoded_observed_mzmu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Mz-vs-Mu Normalized PMI measure: 0x%02x\n", kNormalizedPointwiseMutualInformationTestMzMuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Mz-vs-Mu Normalized PMI measure: 0x%02x\n", encoded_expected_mzmu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Mz-vs-Mu Normalized PMI measure: 0x%02x\n", encoded_observed_mzmu_score_byte);
+    assert(kNormalizedPointwiseMutualInformationTestMzMuEncodedByte == encoded_expected_mzmu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Mz-vs-Mu Normalized PMI measures do not differ\n");
+    assert(kNormalizedPointwiseMutualInformationTestMzMuEncodedByte == encoded_observed_mzmu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Mz-vs-Mu Normalized PMI measures do not differ\n");
+    assert(encoded_expected_mzmu_score_byte == encoded_observed_mzmu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Mz-vs-Mu Normalized PMI measures do not differ\n");
+
+    fprintf(stderr, "Comparing Mu vs Mu\n---\nMu -> %s\nMu -> %s\n---\n", kTestVectorMu, kTestVectorMu);
+    if (mu->n != mu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(mu, stderr);
+        bs_print_signal(mu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_mumu_score = NAN;
+    if ((mu->data_contains_nan == kFalse) && (mu->data_contains_nan == kFalse)) {
+        unencoded_observed_mumu_score = bs_normalized_pointwise_mutual_information_signal(mu, mu, mu->n);
+    }
+    fprintf(stderr, "Expected - unencoded Mu-vs-Mu Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestMuMuUnencoded);
+    fprintf(stderr, "Observed - unencoded Mu-vs-Mu Normalized PMI measure: %3.6f\n", unencoded_observed_mumu_score);
+    score_t absolute_diff_unencoded_mumu_scores = fabs(kNormalizedPointwiseMutualInformationTestMuMuUnencoded - unencoded_observed_mumu_score);
+    assert(absolute_diff_unencoded_mumu_scores + kEpsilon > 0 && absolute_diff_unencoded_mumu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Mu-vs-Mu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_mumu_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestMuMuEncoded);
+    byte_t encoded_observed_mumu_score_byte = bs_encode_score_to_byte(unencoded_observed_mumu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Mu-vs-Mu Normalized PMI measure: 0x%02x\n", kNormalizedPointwiseMutualInformationTestMuMuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Mu-vs-Mu Normalized PMI measure: 0x%02x\n", encoded_expected_mumu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Mu-vs-Mu Normalized PMI measure: 0x%02x\n", encoded_observed_mumu_score_byte);
+    assert(kNormalizedPointwiseMutualInformationTestMuMuEncodedByte == encoded_expected_mumu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Mu-vs-Mu Normalized PMI measures do not differ\n");
+    assert(kNormalizedPointwiseMutualInformationTestMuMuEncodedByte == encoded_observed_mumu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Mu-vs-Mu Normalized PMI measures do not differ\n");
+    assert(encoded_expected_mumu_score_byte == encoded_observed_mumu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Mu-vs-Mu Normalized PMI measures do not differ\n");
+
+    bs_delete_signal(&m1);
+    bs_delete_signal(&m2);
+    bs_delete_signal(&m3);
+    bs_delete_signal(&mz);
+    bs_delete_signal(&mu);
 }
 
 /**
@@ -5583,6 +5887,8 @@ bs_test_score_encoding()
     score_t d, decode_d;
     int count;
     byte_t encode_d;
+    
+    fprintf(stderr, "Testing score encoding for strategy...\n");
 
     if (bs_globals.encoding_strategy == kEncodingStrategyFull) {
         for (d = -1.0f, count = 0; d <= 1.0f; d += kEpsilon, ++count) {
@@ -5765,6 +6071,10 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk :
                 (strcmp(bs_globals.store_type_str, kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedPointwiseMutualInformationSquareMatrixStr) == 0) ? kStoreNormalizedPointwiseMutualInformationSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitStr) == 0) ? kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkStr) == 0) ? kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSUTStr) == 0) ? kStoreRandomSUT :
                 (strcmp(bs_globals.store_type_str, kStoreRandomSquareMatrixStr) == 0) ? kStoreRandomSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreRandomBufferedSquareMatrixStr) == 0) ? kStoreRandomBufferedSquareMatrix :
@@ -6080,6 +6390,13 @@ bs_init_command_line_options(int argc, char** argv)
             exit(EXIT_SUCCESS);
         case 'T':
             bs_test_rogers_and_tanimoto_similarity();
+            exit(EXIT_SUCCESS);
+        case 'M':
+            bs_test_normalized_pointwise_mutual_information();
+            exit(EXIT_SUCCESS);
+        case 'N':
+            bs_globals.encoding_strategy = kEncodingStrategyFull;
+            bs_test_score_encoding();
             exit(EXIT_SUCCESS);
         case 'h':
         case '?':
@@ -6461,7 +6778,6 @@ bs_populate_sut_store(sut_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                 exit(EXIT_FAILURE);
             }
             score_t pairwise_score = NAN;
-            /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
             if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                 if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                     pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -7133,7 +7449,6 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
                 if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                     if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                         pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -7341,7 +7656,6 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
                 if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                     if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                         pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -7429,7 +7743,7 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk(s, l, n, o, sf)
+ * @brief      bs_populate_sqr_split_store_chunk_with(s, l, n, o, sf)
  *
  * @details    Write one raw block of encoded correlation scores to a FILE* 
  *             handle associated with the specified square matrix store filename. 
@@ -7507,7 +7821,6 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
                 if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                     if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                         pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -7709,7 +8022,6 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
                 if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                     if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                         pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
@@ -7934,7 +8246,6 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
                 if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
                     if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
                         pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);

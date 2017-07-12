@@ -95,6 +95,10 @@ extern "C" {
     extern const char* kTestVectorT3;
     extern const char* kTestVectorTz;
     extern const char* kTestVectorTu;
+    extern const char* kTestVectorM1;
+    extern const char* kTestVectorM2;
+    extern const char* kTestVectorMz;
+    extern const char* kTestVectorMu;
 
     const char* kTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
@@ -122,6 +126,11 @@ extern "C" {
     const char* kTestVectorT3 = "0,1,1,0,1,NAN,0";
     const char* kTestVectorTz = "0,0,0,0,0,0,0";
     const char* kTestVectorTu = "1,1,1,1,1,1,1";
+    const char* kTestVectorM1 = "0,1,0,0,0,1,0,1,0,1,0,0";
+    const char* kTestVectorM2 = "0,1,1,1,1,0,1,0,1,0,1,1";
+    const char* kTestVectorM3 = "0,1,1,1,1,0,1,0,1,0,NAN,1";
+    const char* kTestVectorMz = "0,0,0,0,0,0,0,0,0";
+    const char* kTestVectorMu = "1,1,1,1,1,1,1,1,1";
 
     extern const score_t kPearsonRTestABCorrelationUnencoded;
     extern const score_t kPearsonRTestABCorrelationEncoded;
@@ -299,6 +308,38 @@ extern "C" {
     const score_t kRogersAndTanimotoSimilarityTestTuTuEncoded = 1.00f;
     const byte_t kRogersAndTanimotoSimilarityTestTuTuEncodedByte = 0xc9;
 
+    extern const score_t kNormalizedPointwiseMutualInformationTestM1M2Unencoded;
+    extern const score_t kNormalizedPointwiseMutualInformationTestM1M2Encoded;
+    extern const byte_t kNormalizedPointwiseMutualInformationTestM1M2EncodedByte;
+    extern const score_t kNormalizedPointwiseMutualInformationTestM1M3Unencoded;
+    extern const score_t kNormalizedPointwiseMutualInformationTestM1M3Encoded;
+    extern const byte_t kNormalizedPointwiseMutualInformationTestM1M3EncodedByte;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMzMzUnencoded;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMzMzEncoded;
+    extern const byte_t kNormalizedPointwiseMutualInformationTestMzMzEncodedByte;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMzMuUnencoded;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMzMuEncoded;
+    extern const byte_t kNormalizedPointwiseMutualInformationTestMzMuEncodedByte;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMuMuUnencoded;
+    extern const score_t kNormalizedPointwiseMutualInformationTestMuMuEncoded;
+    extern const byte_t kNormalizedPointwiseMutualInformationTestMuMuEncodedByte;
+
+    const score_t kNormalizedPointwiseMutualInformationTestM1M2Unencoded = 0.3947147f;
+    const score_t kNormalizedPointwiseMutualInformationTestM1M2Encoded = 0.39f;
+    const byte_t kNormalizedPointwiseMutualInformationTestM1M2EncodedByte = 0x8c;
+    const score_t kNormalizedPointwiseMutualInformationTestM1M3Unencoded = NAN;
+    const score_t kNormalizedPointwiseMutualInformationTestM1M3Encoded = NAN;
+    const byte_t kNormalizedPointwiseMutualInformationTestM1M3EncodedByte = 0xca;
+    const score_t kNormalizedPointwiseMutualInformationTestMzMzUnencoded = 1.0f;
+    const score_t kNormalizedPointwiseMutualInformationTestMzMzEncoded = 1.0f;
+    const byte_t kNormalizedPointwiseMutualInformationTestMzMzEncodedByte = 0xc9;
+    const score_t kNormalizedPointwiseMutualInformationTestMzMuUnencoded = -1.0f;
+    const score_t kNormalizedPointwiseMutualInformationTestMzMuEncoded = -1.0f;
+    const byte_t kNormalizedPointwiseMutualInformationTestMzMuEncodedByte = 0x00;
+    const score_t kNormalizedPointwiseMutualInformationTestMuMuUnencoded = 1.0f;
+    const score_t kNormalizedPointwiseMutualInformationTestMuMuEncoded = 1.0f;
+    const byte_t kNormalizedPointwiseMutualInformationTestMuMuEncodedByte = 0xc9;
+
     typedef int boolean_t;
     extern const boolean_t kTrue;
     extern const boolean_t kFalse;
@@ -308,7 +349,7 @@ extern "C" {
     /* encoding to two decimals of precision specifies needed accuracy */
     extern const score_t kEpsilon;
     extern const score_t kEpsilonLessStringent;
-    const score_t kEpsilon = 0.000001f;
+    const score_t kEpsilon = 0.0000001f;
     const score_t kEpsilonLessStringent = 0.001f;
 
     extern const score_t kSelfCorrelationScore;
@@ -333,7 +374,7 @@ extern "C" {
     const int kSignalDelim = (int) ',';
 
     extern const int kSignalByteAlignment;
-    const int kSignalByteAlignment = 32;
+    const int kSignalByteAlignment = 64;
 
     typedef struct signal {
         uint32_t n;
@@ -414,6 +455,10 @@ extern "C" {
         kStoreRogersAndTanimotoSimilaritySquareMatrixSplit,
         kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk,
         kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata,
+        kStoreNormalizedPointwiseMutualInformationSquareMatrix,
+        kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit,
+        kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunk,
+        kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadata,
         kStoreRandomSUT,
         kStoreRandomSquareMatrix,
         kStoreRandomBufferedSquareMatrix,
@@ -427,6 +472,7 @@ extern "C" {
         kScoreVarietyOchiaiSimilarity,
         kScoreVarietyPearsonPhiSimilarity,
         kScoreVarietyRogersAndTanimotoSimilarity,
+        kScoreVarietyNormalizedPointwiseMutualInformation,
         kScoreVarietyUndefined
     } score_variety_t;
 
@@ -459,6 +505,10 @@ extern "C" {
     extern const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitStr;
     extern const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkStr;
     extern const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadataStr;
+    extern const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixStr;
+    extern const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitStr;
+    extern const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkStr;
+    extern const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadataStr;
     extern const char* kStoreRandomSUTStr;
     extern const char* kStoreRandomSquareMatrixStr;
     extern const char* kStoreRandomBufferedSquareMatrixStr;
@@ -492,6 +542,10 @@ extern "C" {
     const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitStr = "rogers-and-tanimoto-similarity-sqr-split";
     const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkStr = "rogers-and-tanimoto-similarity-sqr-split-single-chunk";
     const char* kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadataStr = "rogers-and-tanimoto-similarity-sqr-split-single-chunk-metadata";
+    const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixStr = "normalized-pointwise-mutual-information-sqr";
+    const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitStr = "normalized-pointwise-mutual-information-sqr-split";
+    const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkStr = "normalized-pointwise-mutual-information-sqr-split-single-chunk";
+    const char* kStoreNormalizedPointwiseMutualInformationSquareMatrixSplitSingleChunkMetadataStr = "normalized-pointwise-mutual-information-sqr-split-single-chunk-metadata";
     const char* kStoreRandomSUTStr = "random-sut";
     const char* kStoreRandomSquareMatrixStr = "random-sqr";
     const char* kStoreRandomBufferedSquareMatrixStr = "random-buffered-sqr";
@@ -696,52 +750,54 @@ extern "C" {
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
-        { "store-type",                                 required_argument, NULL, 't' },
-        { "store-create",                               no_argument,       NULL, 'c' },
-        { "store-query",                                no_argument,       NULL, 'q' },
-        { "store-query-daemon",                         required_argument, NULL, 'Q' },
-        { "store-frequency",                            no_argument,       NULL, 'f' },
-        { "store-row-chunk-size",                       required_argument, NULL, 'r' },
-        { "store-row-chunk-offset",                     required_argument, NULL, 'k' },
-        { "score-filter-gteq",                          required_argument, NULL, '2' },
-        { "score-filter-gt",                            required_argument, NULL, '3' },
-        { "score-filter-eq",                            required_argument, NULL, '4' },
-        { "score-filter-lteq",                          required_argument, NULL, '5' },
-        { "score-filter-lt",                            required_argument, NULL, '6' },
-        { "score-filter-ranged-within-exclusive",       required_argument, NULL, '7' },
-        { "score-filter-ranged-within-inclusive",       required_argument, NULL, '8' },
-        { "score-filter-ranged-outside-exclusive",      required_argument, NULL, '9' },
-        { "score-filter-ranged-outside-inclusive",      required_argument, NULL, '0' },
-        { "index-query",                                required_argument, NULL, 'i' },
-        { "multiple-index-query",                       required_argument, NULL, 'w' },
-        { "multiple-index-query-from-file",             required_argument, NULL, 'z' },
-        { "range-query",                                required_argument, NULL, 'g' },
-        { "lookup",                                     required_argument, NULL, 'l' },
-        { "store",                                      required_argument, NULL, 's' },
-        { "encoding-strategy",                          required_argument, NULL, 'e' },
-        { "encoding-cutoff-zero-min",                   required_argument, NULL, 'n' },
-        { "encoding-cutoff-zero-max",                   required_argument, NULL, 'x' },
-        { "lookup-frequency",                           no_argument,       NULL, 'u' },
-        { "permutation-test",                           no_argument,       NULL, 'm' },
-        { "permutation-count",                          required_argument, NULL, 'o' },
-        { "permutation-precision",                      required_argument, NULL, 'p' },
-        { "permutation-alpha",                          required_argument, NULL, 'a' },
-        { "permutation-significance-level",             required_argument, NULL, 'v' },
-        { "rng-seed",                                   required_argument, NULL, 'd' },
-        { "enable-ssl",                                 no_argument,       NULL, 'E' },
-        { "ssl-key",                                    required_argument, NULL, 'K' },
-        { "ssl-cert",                                   required_argument, NULL, 'C' },
-        { "test-pearson-r",                             no_argument,       NULL, 'P' },
-        { "test-spearman-rho",                          no_argument,       NULL, 'S' },
-        { "test-jaccard-index",                         no_argument,       NULL, 'J' },
-        { "test-ochiai-similarity",                     no_argument,       NULL, 'O' },
-        { "test-pearson-phi-similarity",                no_argument,       NULL, 'H' },
-        { "test-rogers-and-tanimoto-similarity",        no_argument,       NULL, 'T' },
-        { "help",                                       no_argument,       NULL, 'h' },
-        { NULL,                                         no_argument,       NULL,  0  }
+        { "store-type",                                          required_argument, NULL, 't' },
+        { "store-create",                                        no_argument,       NULL, 'c' },
+        { "store-query",                                         no_argument,       NULL, 'q' },
+        { "store-query-daemon",                                  required_argument, NULL, 'Q' },
+        { "store-frequency",                                     no_argument,       NULL, 'f' },
+        { "store-row-chunk-size",                                required_argument, NULL, 'r' },
+        { "store-row-chunk-offset",                              required_argument, NULL, 'k' },
+        { "score-filter-gteq",                                   required_argument, NULL, '2' },
+        { "score-filter-gt",                                     required_argument, NULL, '3' },
+        { "score-filter-eq",                                     required_argument, NULL, '4' },
+        { "score-filter-lteq",                                   required_argument, NULL, '5' },
+        { "score-filter-lt",                                     required_argument, NULL, '6' },
+        { "score-filter-ranged-within-exclusive",                required_argument, NULL, '7' },
+        { "score-filter-ranged-within-inclusive",                required_argument, NULL, '8' },
+        { "score-filter-ranged-outside-exclusive",               required_argument, NULL, '9' },
+        { "score-filter-ranged-outside-inclusive",               required_argument, NULL, '0' },
+        { "index-query",                                         required_argument, NULL, 'i' },
+        { "multiple-index-query",                                required_argument, NULL, 'w' },
+        { "multiple-index-query-from-file",                      required_argument, NULL, 'z' },
+        { "range-query",                                         required_argument, NULL, 'g' },
+        { "lookup",                                              required_argument, NULL, 'l' },
+        { "store",                                               required_argument, NULL, 's' },
+        { "encoding-strategy",                                   required_argument, NULL, 'e' },
+        { "encoding-cutoff-zero-min",                            required_argument, NULL, 'n' },
+        { "encoding-cutoff-zero-max",                            required_argument, NULL, 'x' },
+        { "lookup-frequency",                                    no_argument,       NULL, 'u' },
+        { "permutation-test",                                    no_argument,       NULL, 'm' },
+        { "permutation-count",                                   required_argument, NULL, 'o' },
+        { "permutation-precision",                               required_argument, NULL, 'p' },
+        { "permutation-alpha",                                   required_argument, NULL, 'a' },
+        { "permutation-significance-level",                      required_argument, NULL, 'v' },
+        { "rng-seed",                                            required_argument, NULL, 'd' },
+        { "enable-ssl",                                          no_argument,       NULL, 'E' },
+        { "ssl-key",                                             required_argument, NULL, 'K' },
+        { "ssl-cert",                                            required_argument, NULL, 'C' },
+        { "test-pearson-r",                                      no_argument,       NULL, 'P' },
+        { "test-spearman-rho",                                   no_argument,       NULL, 'S' },
+        { "test-jaccard-index",                                  no_argument,       NULL, 'J' },
+        { "test-ochiai-similarity",                              no_argument,       NULL, 'O' },
+        { "test-pearson-phi-similarity",                         no_argument,       NULL, 'H' },
+        { "test-rogers-and-tanimoto-similarity",                 no_argument,       NULL, 'T' },
+        { "test-normalized-pointwise-mutual-information",        no_argument,       NULL, 'M' },
+        { "test-score-encoder",                                  no_argument,       NULL, 'N' },
+        { "help",                                                no_argument,       NULL, 'h' },
+        { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:EK:C:SPJOHTh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:EK:C:SPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
@@ -997,13 +1053,14 @@ extern "C" {
     static inline score_t        bs_mean_ranks(rank_t* d, uint32_t len);
     static inline score_t        bs_sample_sd_signal(score_t* d, uint32_t len, score_t m);
     static inline score_t        bs_sample_sd_ranks(rank_t* d, uint32_t len, score_t m);
-    static inline score_t        bs_pearson_r_signal(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_spearman_rho_signal_v1(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_spearman_rho_signal_v2(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_jaccard_index_signal(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_ochiai_similarity_signal(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_pearson_phi_similarity_signal(signal_t* a, signal_t* b, uint32_t len);
-    static inline score_t        bs_rogers_and_tanimoto_similarity_signal(signal_t* a, signal_t* b, uint32_t len);
+    static inline score_t        bs_pearson_r_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_spearman_rho_signal_v1(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_spearman_rho_signal_v2(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_jaccard_index_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_ochiai_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_pearson_phi_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_rogers_and_tanimoto_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_normalized_pointwise_mutual_information_signal(signal_t* x, signal_t* y, uint32_t len);
     void                         bs_delete_signal(signal_t** s);
     void                         bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ss, boolean_t ir, signal_t* sp, element_t** e);
     void                         bs_delete_element(element_t** e);
@@ -1014,6 +1071,7 @@ extern "C" {
     void                         bs_test_ochiai_similarity();
     void                         bs_test_pearson_phi_similarity();
     void                         bs_test_rogers_and_tanimoto_similarity();
+    void                         bs_test_normalized_pointwise_mutual_information();
     void                         bs_test_score_encoding();
     void                         bs_init_globals();
     void                         bs_delete_globals();
