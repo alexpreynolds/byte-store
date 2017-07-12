@@ -34,11 +34,11 @@ main(int argc, char** argv)
                                 kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
-             (!bs_globals.store_query_daemon_flag)) {
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
+              (!bs_globals.store_query_daemon_flag)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag,
                                 kTrue,
@@ -3676,8 +3676,14 @@ bs_increment_lookup_frequency(uint64_t* t, lookup_t* l, score_t (*sf)(signal_t*,
                 exit(EXIT_FAILURE);
             }
             score_t pairwise_score = NAN;
-            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+            /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
             }
             byte_t corr_uc =
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
@@ -6455,8 +6461,14 @@ bs_populate_sut_store(sut_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                 exit(EXIT_FAILURE);
             }
             score_t pairwise_score = NAN;
-            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+            /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
             }
             else if (!bs_globals.zero_sd_warning_issued) {
                 fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
@@ -7121,8 +7133,14 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
+                    else {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
                     fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
@@ -7323,24 +7341,23 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
+                    else {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
                     fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
-                //fprintf(stderr, "-----\n");
-                //bs_print_signal(row_signal, stderr);
-                //fprintf(stderr, "-----\n");
-                //bs_print_signal(col_signal, stderr);
-                //fprintf(stderr, "-----\n");
                 score = 
                     (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
                     (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
                     bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                //fprintf(stderr, "-----\n");
-                //exit(0);
             }
             else {
                 score = self_correlation_score;
@@ -7412,7 +7429,7 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 }
 
 /**
- * @brief      bs_populate_sqr_split_store_chunk_with(s, l, n, o, sf)
+ * @brief      bs_populate_sqr_split_store_chunk(s, l, n, o, sf)
  *
  * @details    Write one raw block of encoded correlation scores to a FILE* 
  *             handle associated with the specified square matrix store filename. 
@@ -7490,8 +7507,14 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
+                    else {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
                     fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
@@ -7686,8 +7709,14 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
+                    else {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
                     fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
@@ -7905,8 +7934,14 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
                     exit(EXIT_FAILURE);
                 }
                 score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                /* if the standard deviation is NAN, it will fail a comparison test against 0.0f, so we compare function pointer addresses */
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
+                    else {
+                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                    }
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
                     fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");

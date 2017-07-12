@@ -439,3 +439,9 @@ self-signed-certs:
 
 metadata-test-spearman-split-query-https-daemon:
 	$(PWD)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs -E -K test/server.key -C test/server.pem
+
+metadata-test-jaccard-split-create:
+	$(PWD)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.jaccard.bs -r 12
+
+metadata-test-jaccard-split-query:
+	$(PWD)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.jaccard.bs -i 0-0
