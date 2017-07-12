@@ -10,10 +10,17 @@ main(int argc, char** argv)
     sqr_store_t* sqr_store = NULL;
     lookup_t* lookup = NULL;
 
+    /* initialize lookup table */
+
     if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) ||
-        (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, 
-                                kFalse, 
+        (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata)) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                kFalse,
+                                kFalse,
                                 kFalse);
     }
     else if ((bs_globals.store_type == kStorePearsonRSquareMatrix) ||
@@ -21,8 +28,9 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, 
-                                !bs_globals.store_query_flag, 
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                !bs_globals.store_query_flag,
+                                kTrue,
                                 kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
@@ -31,20 +39,42 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
              (!bs_globals.store_query_daemon_flag)) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, 
-                                !bs_globals.store_query_flag, 
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                !bs_globals.store_query_flag,
+                                kTrue,
                                 kTrue);
     }
+    else if ((bs_globals.store_type == kStoreJaccardIndexSquareMatrix) ||
+             (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrix) ||
+             (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrix) ||
+             (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplit) ||
+             (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrix) ||
+             (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk)) {
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                !bs_globals.store_query_flag,
+                                kFalse,
+                                kFalse);
+    }
     else if (bs_globals.store_query_daemon_flag) {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, 
-                                kFalse, 
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                kFalse,
+                                kFalse,
                                 kFalse);
     }
     else {
-        lookup = bs_init_lookup(bs_globals.lookup_fn, 
-                                !bs_globals.store_query_flag, 
+        lookup = bs_init_lookup(bs_globals.lookup_fn,
+                                !bs_globals.store_query_flag,
+                                kFalse,
                                 kFalse);
     }
+
+    /* create or query byte-store container */
 
     switch (bs_globals.store_type) {
     case kStorePearsonRSUT:
@@ -74,6 +104,22 @@ main(int argc, char** argv)
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
             case kStoreSpearmanRhoSquareMatrixBzip2:
             case kStoreSpearmanRhoSquareMatrixBzip2Split:
+            case kStoreJaccardIndexSquareMatrix:
+            case kStoreJaccardIndexSquareMatrixSplit:
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+            case kStoreOchiaiSimilaritySquareMatrix:
+            case kStoreOchiaiSimilaritySquareMatrixSplit:
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStorePearsonPhiSimilaritySquareMatrix:
+            case kStorePearsonPhiSimilaritySquareMatrixSplit:
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (A)\n");
                 exit(EXIT_FAILURE);
@@ -127,6 +173,22 @@ main(int argc, char** argv)
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
     case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
+    case kStoreJaccardIndexSquareMatrix:
+    case kStoreJaccardIndexSquareMatrixSplit:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+    case kStoreOchiaiSimilaritySquareMatrix:
+    case kStoreOchiaiSimilaritySquareMatrixSplit:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonPhiSimilaritySquareMatrix:
+    case kStorePearsonPhiSimilaritySquareMatrixSplit:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreRandomSquareMatrix:
     case kStoreRandomBufferedSquareMatrix:
         sqr_store = bs_init_sqr_store(lookup->nelems);
@@ -216,6 +278,106 @@ main(int argc, char** argv)
                                                   &bs_spearman_rho_signal_v2, 
                                                   kScoreVarietySpearmanRho);
                 break;
+            case kStoreJaccardIndexSquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_jaccard_index_signal);
+                break;
+            case kStoreJaccardIndexSquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_jaccard_index_signal, 
+                                            kScoreVarietyJaccardIndex);
+                break;
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_jaccard_index_signal);
+                break;
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyJaccardIndex);
+                break;
+            case kStoreOchiaiSimilaritySquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_ochiai_similarity_signal);
+                break;
+            case kStoreOchiaiSimilaritySquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_ochiai_similarity_signal, 
+                                            kScoreVarietyOchiaiSimilarity);
+                break;
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_ochiai_similarity_signal);
+                break;
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyOchiaiSimilarity);
+                break;
+            case kStorePearsonPhiSimilaritySquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_pearson_phi_similarity_signal);
+                break;
+            case kStorePearsonPhiSimilaritySquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_pearson_phi_similarity_signal, 
+                                            kScoreVarietyPearsonPhiSimilarity);
+                break;
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_pearson_phi_similarity_signal);
+                break;
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyPearsonPhiSimilarity);
+                break;
+            case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_rogers_and_tanimoto_similarity_signal);
+                break;
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_rogers_and_tanimoto_similarity_signal, 
+                                            kScoreVarietyRogersAndTanimotoSimilarity);
+                break;
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_rogers_and_tanimoto_similarity_signal);
+                break;
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyRogersAndTanimotoSimilarity);
+                break;
             case kStorePearsonRSUT:
             case kStoreRandomSUT:
             case kStoreUndefined:
@@ -268,6 +430,10 @@ main(int argc, char** argv)
                 case kStoreRandomSquareMatrix:
                 case kStorePearsonRSquareMatrix:
                 case kStoreSpearmanRhoSquareMatrix:
+                case kStoreJaccardIndexSquareMatrix:
+                case kStoreOchiaiSimilaritySquareMatrix:
+                case kStorePearsonPhiSimilaritySquareMatrix:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrix:
                     if (bs_globals.store_filter == kScoreFilterNone)
                         bs_print_sqr_store_to_bed7(lookup, 
                                                    sqr_store, 
@@ -287,6 +453,10 @@ main(int argc, char** argv)
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
+                case kStoreJaccardIndexSquareMatrixSplit:
+                case kStoreOchiaiSimilaritySquareMatrixSplit:
+                case kStorePearsonPhiSimilaritySquareMatrixSplit:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone) {
                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
                                                                        sqr_store,
@@ -342,6 +512,14 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+                case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+                case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+                case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+                case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C1)\n");
                     exit(EXIT_FAILURE);
@@ -354,6 +532,10 @@ main(int argc, char** argv)
                 switch (bs_globals.store_type) {
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
+                case kStoreJaccardIndexSquareMatrixSplit:
+                case kStoreOchiaiSimilaritySquareMatrixSplit:
+                case kStorePearsonPhiSimilaritySquareMatrixSplit:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
@@ -408,6 +590,18 @@ main(int argc, char** argv)
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
                 case kStoreSpearmanRhoSquareMatrixBzip2:
                 case kStoreSpearmanRhoSquareMatrixBzip2Split:
+                case kStoreJaccardIndexSquareMatrix:
+                case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+                case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+                case kStoreOchiaiSimilaritySquareMatrix:
+                case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStorePearsonPhiSimilaritySquareMatrix:
+                case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+                case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
                 case kStoreRandomSUT:
                 case kStoreUndefined:
                     fprintf(stderr, "Error: You should never see this error! (C2)\n");
@@ -421,12 +615,20 @@ main(int argc, char** argv)
             case kStoreRandomSquareMatrix:
             case kStorePearsonRSquareMatrix:
             case kStoreSpearmanRhoSquareMatrix:
+            case kStoreJaccardIndexSquareMatrix:
+            case kStoreOchiaiSimilaritySquareMatrix:
+            case kStorePearsonPhiSimilaritySquareMatrix:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrix:
                 bs_print_sqr_store_frequency_to_txt(lookup, 
                                                     sqr_store, 
                                                     stdout);
                 break;
             case kStorePearsonRSquareMatrixSplit:
             case kStoreSpearmanRhoSquareMatrixSplit:
+            case kStoreJaccardIndexSquareMatrixSplit:
+            case kStoreOchiaiSimilaritySquareMatrixSplit:
+            case kStorePearsonPhiSimilaritySquareMatrixSplit:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
                 bs_print_sqr_split_store_frequency_to_txt(lookup, 
                                                           sqr_store, 
                                                           stdout);
@@ -449,6 +651,14 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+            case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+            case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
             case kStoreUndefined:
                 fprintf(stderr, "Error: You should never see this error! (D)\n");
                 exit(EXIT_FAILURE);
@@ -464,17 +674,6 @@ main(int argc, char** argv)
             bs_globals.sqr_store_ptr = sqr_store;
             struct MHD_Daemon *daemon = NULL;
             if (!bs_globals.enable_ssl) {
-                /*
-                daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, 
-                                          bs_globals.store_query_daemon_port, 
-                                          NULL, 
-                                          NULL,
-                                          &bs_qd_answer_to_connection,
-                                          NULL, 
-                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
-                                          NULL,
-                                          MHD_OPTION_END);
-                */
                 daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
                                           bs_globals.store_query_daemon_port,
                                           NULL,
@@ -486,19 +685,6 @@ main(int argc, char** argv)
                                           MHD_OPTION_END);
             }
             else {
-                /*
-                daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_SSL, 
-                                          bs_globals.store_query_daemon_port, 
-                                          NULL, 
-                                          NULL,
-                                          &bs_qd_answer_to_connection,
-                                          NULL, 
-                                          MHD_OPTION_HTTPS_MEM_KEY, bs_globals.ssl_key_pem,
-                                          MHD_OPTION_HTTPS_MEM_CERT, bs_globals.ssl_cert_pem,
-                                          MHD_OPTION_NOTIFY_COMPLETED, &bs_qd_request_completed, 
-                                          NULL,
-                                          MHD_OPTION_END);
-                */
                 daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SSL,
                                           bs_globals.store_query_daemon_port,
                                           NULL,
@@ -1232,6 +1418,10 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreJaccardIndexSquareMatrixSplit:
+    case kStoreOchiaiSimilaritySquareMatrixSplit:
+    case kStorePearsonPhiSimilaritySquareMatrixSplit:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
@@ -1276,17 +1466,29 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreRandomBufferedSquareMatrix:
     case kStoreRandomSquareMatrix:
     case kStorePearsonRSquareMatrix:
-    case kStoreSpearmanRhoSquareMatrix:
     case kStorePearsonRSquareMatrixBzip2:
-    case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
-    case kStoreSpearmanRhoSquareMatrixBzip2Split:
-    case kStorePearsonRSUT:
-    case kStoreRandomSUT:
     case kStorePearsonRSquareMatrixSplitSingleChunk:
     case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreJaccardIndexSquareMatrix:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+    case kStoreOchiaiSimilaritySquareMatrix:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonPhiSimilaritySquareMatrix:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
     case kStoreUndefined:
         /* no data found for specified store type */
         return bs_qd_request_not_found(cls, mime, connection, con_info, upload_data, upload_data_size);
@@ -1423,6 +1625,10 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreJaccardIndexSquareMatrixSplit:
+    case kStoreOchiaiSimilaritySquareMatrixSplit:
+    case kStorePearsonPhiSimilaritySquareMatrixSplit:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
@@ -1467,17 +1673,29 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreRandomBufferedSquareMatrix:
     case kStoreRandomSquareMatrix:
     case kStorePearsonRSquareMatrix:
-    case kStoreSpearmanRhoSquareMatrix:
     case kStorePearsonRSquareMatrixBzip2:
-    case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
-    case kStoreSpearmanRhoSquareMatrixBzip2Split:
-    case kStorePearsonRSUT:
-    case kStoreRandomSUT:
     case kStorePearsonRSquareMatrixSplitSingleChunk:
     case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreJaccardIndexSquareMatrix:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+    case kStoreOchiaiSimilaritySquareMatrix:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonPhiSimilaritySquareMatrix:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
     case kStoreUndefined:
         /* cleanup */
         fclose(write_fp), write_fp = NULL;
@@ -1679,6 +1897,10 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreJaccardIndexSquareMatrixSplit:
+    case kStoreOchiaiSimilaritySquareMatrixSplit:
+    case kStorePearsonPhiSimilaritySquareMatrixSplit:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 //bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, query_idx_start, query_idx_end);
@@ -1729,17 +1951,29 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreRandomBufferedSquareMatrix:
     case kStoreRandomSquareMatrix:
     case kStorePearsonRSquareMatrix:
-    case kStoreSpearmanRhoSquareMatrix:
     case kStorePearsonRSquareMatrixBzip2:
-    case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
-    case kStoreSpearmanRhoSquareMatrixBzip2Split:
-    case kStorePearsonRSUT:
-    case kStoreRandomSUT:
     case kStorePearsonRSquareMatrixSplitSingleChunk:
     case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreJaccardIndexSquareMatrix:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+    case kStoreOchiaiSimilaritySquareMatrix:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonPhiSimilaritySquareMatrix:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
     case kStoreUndefined:
         /* cleanup */
         fclose(write_fp), write_fp = NULL;
@@ -1938,6 +2172,10 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreJaccardIndexSquareMatrixSplit:
+    case kStoreOchiaiSimilaritySquareMatrixSplit:
+    case kStorePearsonPhiSimilaritySquareMatrixSplit:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
                 //bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, query_idx_start, query_idx_end);
@@ -1990,17 +2228,29 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreRandomBufferedSquareMatrix:
     case kStoreRandomSquareMatrix:
     case kStorePearsonRSquareMatrix:
-    case kStoreSpearmanRhoSquareMatrix:
     case kStorePearsonRSquareMatrixBzip2:
-    case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStorePearsonRSquareMatrixBzip2Split:
-    case kStoreSpearmanRhoSquareMatrixBzip2Split:
-    case kStorePearsonRSUT:
-    case kStoreRandomSUT:
     case kStorePearsonRSquareMatrixSplitSingleChunk:
     case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
+    case kStoreSpearmanRhoSquareMatrix:
+    case kStoreSpearmanRhoSquareMatrixBzip2:
+    case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreJaccardIndexSquareMatrix:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
+    case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
+    case kStoreOchiaiSimilaritySquareMatrix:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonPhiSimilaritySquareMatrix:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunk:
+    case kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrix:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreRogersAndTanimotoSimilaritySquareMatrixSplitSingleChunkMetadata:
+    case kStorePearsonRSUT:
+    case kStoreRandomSUT:
     case kStoreUndefined:
         /* no data found for specified store type */
         free(query_roi);
@@ -3094,20 +3344,21 @@ bs_delete_bed(bed_t** b)
 }
 
 /**
- * @brief      bs_init_lookup(fn, pi, ir)
+ * @brief      bs_init_lookup(fn, pi, ss, ir)
  *
  * @details    Read BED-formatted coordinates into a "lookup table" pointer.
  *             Function allocates memory to lookup table pointer, as needed.
  *
  * @param      fn     (char*) filename string
  *             pi     (boolean_t) flag to decide whether to parse ID string
+ *             ss     (boolean_t) flag to decide whether to calculate summary statistics
  *             ir     (boolean_t) flag to decide whether to store a rank
  *
  * @return     (lookup_t*) lookup table pointer referencing element data
  */
 
 lookup_t*
-bs_init_lookup(char* fn, boolean_t pi, boolean_t ir)
+bs_init_lookup(char* fn, boolean_t pi, boolean_t ss, boolean_t ir)
 {
     lookup_t* l = NULL;
     FILE* lf = NULL;
@@ -3144,8 +3395,8 @@ bs_init_lookup(char* fn, boolean_t pi, boolean_t ir)
         sscanf(stop_str, "%" SCNu64, &stop_val);
         element_t* e = NULL;
         signal_t* sp = NULL;
-        bs_init_element(chr_str, start_val, stop_val, id_str, pi, ir, sp, &e);
-        bs_push_elem_to_lookup(e, &l, pi, ir);
+        bs_init_element(chr_str, start_val, stop_val, id_str, pi, ss, ir, sp, &e);
+        bs_push_elem_to_lookup(e, &l, pi, ss, ir);
     }
 
     free(buf);
@@ -3424,14 +3675,14 @@ bs_increment_lookup_frequency(uint64_t* t, lookup_t* l, score_t (*sf)(signal_t*,
                 bs_print_signal(col_signal, stderr);
                 exit(EXIT_FAILURE);
             }
-            score_t corr = NAN;
-            if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                corr = (*sf)(row_signal, col_signal, row_signal->n);
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
             }
             byte_t corr_uc =
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             t[corr_uc] += 2; /* we add 2 to account for the mirrored element across the diagonal */
         }
     }
@@ -3456,17 +3707,18 @@ bs_delete_lookup(lookup_t** l)
 }
 
 /**
- * @brief      bs_copy_signal(src, dest, ir)
+ * @brief      bs_copy_signal(src, dest, ss, ir)
  *
  * @details    Copy a signal_t pointer.
  *
  * @param      src    (signal_t*)     pointer to signal_t (source)
  *             dest   (signal_t**)    pointer to signal_t pointer (destination)
+ *             ss     (boolean_t)     copy summary statistics (mean and SD)
  *             ir     (boolean_t)     copy ranks and related statistics from src
  */
 
 void
-bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ir)
+bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ss, boolean_t ir)
 {
     signal_t* s = NULL;
     s = malloc(sizeof(signal_t));
@@ -3484,8 +3736,15 @@ bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ir)
     for (uint32_t idx = 0; idx < s->n; idx++) {
         s->data[idx] = src->data[idx];
     }
-    s->mean = src->mean;
-    s->sd = src->sd;
+    s->data_contains_nan = src->data_contains_nan;
+    s->mean = NAN;
+    s->sd = NAN;
+
+    /* if we need to copy src->mean, src->sd */
+    if (ss) {
+        s->mean = src->mean;
+        s->sd = src->sd;
+    }
 
     s->ranks = NULL;
     s->mean_ranks = NAN;
@@ -3509,7 +3768,7 @@ bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ir)
 }
 
 /**
- * @brief      bs_init_signal(cds, dest, ir)
+ * @brief      bs_init_signal(cds, dest, ss, ir)
  *
  * @details    Initialize a signal_t pointer with a vector of score_t's,
  *             along with mean and sample standard deviation of the
@@ -3517,11 +3776,12 @@ bs_copy_signal(signal_t* src, signal_t** dest, boolean_t ir)
  *
  * @param      cds    (char*)      pointer to comma-delimited string of numerical values
  *             dest   (signal_t**) pointer to signal struct populated with signal data
- *             ir     (boolean_t)  parse ranks from cds
+ *             ss     (boolean_t)  calculate summary statistics (mean and SD) from cds
+ *             ir     (boolean_t)  calculate ranks and related statistics from cds
  */
 
 void
-bs_init_signal(char* cds, signal_t** dest, boolean_t ir)
+bs_init_signal(char* cds, signal_t** dest, boolean_t ss, boolean_t ir)
 {
     rank_t rank_idx = 0;
     rank_t* ranks_temp = NULL;
@@ -3533,6 +3793,7 @@ bs_init_signal(char* cds, signal_t** dest, boolean_t ir)
     }
     s->n = 1;
     s->data = NULL;
+    s->data_contains_nan = kTrue;
     s->ranks = NULL;
     s->mean = NAN;
     s->sd = NAN;
@@ -3595,8 +3856,12 @@ bs_init_signal(char* cds, signal_t** dest, boolean_t ir)
         }
         start = end + 1;
     } while (!finished_parsing);
-
+    
     if (!data_contains_nan) {
+        s->data_contains_nan = kFalse;
+    }
+
+    if (ss && !data_contains_nan) {
         s->mean = bs_mean_signal(s->data, s->n);
         if (s->n >= 2) {
             s->sd = bs_sample_sd_signal(s->data, s->n, s->mean);
@@ -3606,7 +3871,7 @@ bs_init_signal(char* cds, signal_t** dest, boolean_t ir)
         }
     }
 
-    if (ir && !data_contains_nan) {
+    if (ss && ir && !data_contains_nan) {
         /* sort temporary ranks by special comparator that allows reordering of true ranks */
         qsort(ranks_temp, s->n, sizeof(rank_t), bs_rank_comparator);
         /* reorder true ranks from temporary ranks, and add 1 for later Spearman's rho calculation */
@@ -3849,79 +4114,266 @@ bs_sample_sd_ranks(rank_t* d, uint32_t len, score_t m)
 }
 
 /**
- * @brief      bs_pearson_r_signal(a, b)
+ * @brief      bs_pearson_r_signal(x, y, len)
  *
  * @details    Calculates the Pearson's r correlation of two
  *             signal vectors
  *
- * @param      a      (signal_t*) pointer to first signal struct
- *             b      (signal_t*) pointer to second signal struct
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
  *             len    (uint32_t) length of signal vectors
  *
- * @return     (score_t) Pearson's r correlation score result
+ * @return     (score_t) Pearson's r between [-1,1]
  */
 
 static inline score_t
-bs_pearson_r_signal(signal_t* a, signal_t* b, uint32_t len)
+bs_pearson_r_signal(signal_t* x, signal_t* y, uint32_t len)
 {
     score_t s = 0.0f;
     for (uint32_t idx = 0; idx < len; idx++)
-        s += (a->data[idx] - a->mean) * (b->data[idx] - b->mean);
-    return s / ((len - 1.0f) * a->sd * b->sd);
+        s += (x->data[idx] - x->mean) * (y->data[idx] - y->mean);
+    return s / ((len - 1.0f) * x->sd * y->sd);
 }
 
 /**
- * @brief      bs_spearman_rho_signal_v1(a, b)
+ * @brief      bs_spearman_rho_signal_v1(x, y, len)
  *
  * @details    Calculates the Spearman's rho correlation of two
  *             signal vectors using approximation function that 
  *             will be inaccurate if there are duplicate data
  *             points.
  *
- * @param      a      (signal_t*) pointer to first signal struct
- *             b      (signal_t*) pointer to second signal struct
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
  *             len    (uint32_t) length of signal vectors
  *
- * @return     (score_t) Spearman's rho correlation score result
+ * @return     (score_t) Spearman's rho between [-1,1]
  */
 
 static inline score_t
-bs_spearman_rho_signal_v1(signal_t* a, signal_t* b, uint32_t len)
+bs_spearman_rho_signal_v1(signal_t* x, signal_t* y, uint32_t len)
 {
     int64_t sum_of_squared_differences = 0;
     uint32_t idx = 0;
     for (idx = 0; idx < len; ++idx) {
-        if (isnan(a->data[idx]) || isnan(b->data[idx])) {
-            return NAN;
-        }
-        sum_of_squared_differences += ((a->ranks[idx] - b->ranks[idx]) * (a->ranks[idx] - b->ranks[idx]));
+        sum_of_squared_differences += ((x->ranks[idx] - y->ranks[idx]) * (x->ranks[idx] - y->ranks[idx]));
     }
     /* possible overflow in denominator? */
     return 1.0f - (( 6.0f * (score_t) sum_of_squared_differences ) / ((len * len * len) - len));
 }
 
 /**
- * @brief      bs_spearman_rho_signal_v2(a, b)
+ * @brief      bs_spearman_rho_signal_v2(x, y, len)
  *
  * @details    Calculates the Spearman's rho correlation of two
  *             signal vectors using exact function.
  *
- * @param      a      (signal_t*) pointer to first signal struct
- *             b      (signal_t*) pointer to second signal struct
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
  *             len    (uint32_t) length of signal vectors
  *
- * @return     (score_t) Spearman's rho correlation score result
+ * @return     (score_t) Spearman's rho between [-1,1]
  */
 
 static inline score_t
-bs_spearman_rho_signal_v2(signal_t* a, signal_t* b, uint32_t len)
+bs_spearman_rho_signal_v2(signal_t* x, signal_t* y, uint32_t len)
 {
     uint32_t idx = 0;
     score_t covariance_ranks = 0.0f;
     for (idx = 0; idx < len; ++idx) {
-        covariance_ranks += ((a->ranks[idx] - a->mean_ranks) * (b->ranks[idx] - b->mean_ranks));
+        covariance_ranks += ((x->ranks[idx] - x->mean_ranks) * (y->ranks[idx] - y->mean_ranks));
     }
-    return covariance_ranks / ((len - 1.0f) * a->sd_ranks * b->sd_ranks);
+    return covariance_ranks / ((len - 1.0f) * x->sd_ranks * y->sd_ranks);
+}
+
+/**
+ * @brief      bs_jaccard_index_signal(x, y, len)
+ *
+ * @details    Calculates the Jaccard index of two signal
+ *             vectors; mostly meant for binary matrices
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) Jaccard index between [0,1]
+ */
+
+static inline score_t
+bs_jaccard_index_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    /* 
+        We use a-b-c-d 2x2 contingency notation:
+        
+                 y
+               1   0
+              -------
+          1  | a | b |
+        x     -------
+          0  | c | d |
+              -------
+    */
+    score_t a = 0.0f;
+    score_t abc = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        abc += (x->data[idx] || y->data[idx]);
+        a   += (x->data[idx] && y->data[idx]);
+    }
+    /*
+        The formula for the Jaccard index is undefined when one 
+        or both of the vectors being compared are all zeros. If 
+        both are all zeros, we define the measure as one, and 
+        if only one of the two vectors is all zeros, the measure 
+        is defined to be zero.
+    */
+    return (abc > 0) ? a / abc : 1.0f;
+}
+
+/**
+ * @brief      bs_ochiai_similarity_signal(x, y, len)
+ *
+ * @details    Calculates the Ochiai similarity measure of 
+ *             two signal vectors; mostly meant for binary 
+ *             matrices
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) Ochiai similarity measure between [0,1]
+ */
+
+static inline score_t
+bs_ochiai_similarity_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    /* 
+        We use a-b-c-d 2x2 contingency notation:
+        
+                 y
+               1   0
+              -------
+          1  | a | b |
+        x     -------
+          0  | c | d |
+              -------
+    */
+    score_t a = 0.0f;
+    score_t b = 0.0f;
+    score_t c = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        a += ( x->data[idx] &&  y->data[idx]);
+        b += ( x->data[idx] && !y->data[idx]);
+        c += (!x->data[idx] &&  y->data[idx]);
+    }
+    /*
+        The formula for the Ochiai measure is undefined when one 
+        or both of the vectors being compared are all zeros. If 
+        both are all zeros, we define the measure as one, and 
+        if only one of the two vectors is all zeros, the measure 
+        is defined to be zero.
+    */
+    score_t s = a + b + c;
+    return (s > 0) ? (((a > 0) || ((b > 0) && (c > 0))) ? a * sqrt(1.0/((a + b)*(a + c))) : 0.0f) : 1.0f;
+}
+
+/**
+ * @brief      bs_pearson_phi_similarity_signal(x, y, len)
+ *
+ * @details    Calculates the Pearson product-moment correlation 
+ *             coefficient (Pearson phi) of two signal vectors; mostly 
+ *             meant for binary matrices
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) Pearson phi similarity measure between [-1,1]
+ */
+
+static inline score_t
+bs_pearson_phi_similarity_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    /* 
+        We use a-b-c-d 2x2 contingency notation:
+        
+                 y
+               1   0
+              -------
+          1  | a | b |
+        x     -------
+          0  | c | d |
+              -------
+    */
+    score_t a = 0.0f;
+    score_t b = 0.0f;
+    score_t c = 0.0f;
+    score_t d = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        a += ( x->data[idx] &&  y->data[idx]);
+        b += ( x->data[idx] && !y->data[idx]);
+        c += (!x->data[idx] &&  y->data[idx]);
+        d += (!x->data[idx] && !y->data[idx]);
+    }
+    score_t apb = a + b;
+    score_t apc = a + c;
+    score_t bpd = b + d;
+    score_t cpd = c + d;
+    score_t amd = a * d;
+    score_t bmc = b * c;
+    /*
+        If both of the vectors being compared are all zeros or all
+        ones, we define the similarity measure as one, and if one of 
+        the two vectors is all zeros and the other all ones, the 
+        measure is defined to be zero.
+    */
+    return ((d == len) || (a == len)) ? 1.0f : (((apb > 0) && (apc > 0) && (bpd > 0) && (cpd > 0)) ? (amd - bmc) / sqrt(apb*apc*bpd*cpd) : -1.0f);
+}
+
+/**
+ * @brief      bs_rogers_and_tanimoto_similarity_signal(x, y, len)
+ *
+ * @details    Calculates the Rogers and Tanimoto similarity measure
+ *             of two signal vectors; mostly meant for binary matrices
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) Rogers and Tanimoto similarity measure between [0,1]
+ */
+
+static inline score_t
+bs_rogers_and_tanimoto_similarity_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    /* 
+        We use a-b-c-d 2x2 contingency notation:
+        
+                 y
+               1   0
+              -------
+          1  | a | b |
+        x     -------
+          0  | c | d |
+              -------
+    */
+    score_t a = 0.0f;
+    score_t b = 0.0f;
+    score_t c = 0.0f;
+    score_t d = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        a += ( x->data[idx] &&  y->data[idx]);
+        b += ( x->data[idx] && !y->data[idx]);
+        c += (!x->data[idx] &&  y->data[idx]);
+        d += (!x->data[idx] && !y->data[idx]);
+    }
+    score_t numerator = a + d;
+    score_t denominator = numerator + 2 * (b + c);
+    /*
+        It is not necessary to deal with special cases here as
+        the result for the denominator will always be non-zero,
+        so long as the value of len is positive and non-zero.
+    */
+    return numerator / denominator;
 }
 
 /**
@@ -3941,7 +4393,7 @@ bs_delete_signal(signal_t** s)
 }
 
 /**
- * @brief      bs_init_element(chr, start, stop, id, pi, ir, sp, e)
+ * @brief      bs_init_element(chr, start, stop, id, ss, pi, ir, sp, e)
  *
  * @details    Allocates space for element_t* and copies chr, start, stop
  *             and id values to element.
@@ -3950,15 +4402,15 @@ bs_delete_signal(signal_t** s)
  *             start  (uint64_t) start coordinate position
  *             stop   (uint64_t) stop coordinate position
  *             id     (char*) id string 
- *             pi     (boolean_t) parse ID string
- *             ir     (boolean_t) parse ID string with ranks
+ *             pi     (boolean_t) parse ID string to data pointer
+ *             ss     (boolean_t) parse data pointer into or copy summary statistics
+ *             ir     (boolean_t) parse data pointer into or copy ranks and related statistics
  *             sp     (signal_t*) signal_t pointer
  *             e      (element_t**) pointer to element_t pointer
- *
  */
 
 void
-bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ir, signal_t* sp, element_t** e)
+bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi, boolean_t ss, boolean_t ir, signal_t* sp, element_t** e)
 {
     element_t *elem = NULL;
 
@@ -3990,10 +4442,10 @@ bs_init_element(char* chr, uint64_t start, uint64_t stop, char* id, boolean_t pi
     elem->signal = NULL;
     if (pi) {
         if (!sp) {
-            bs_init_signal(elem->id, &(elem->signal), ir);
+            bs_init_signal(elem->id, &(elem->signal), ss, ir);
         }
         else {
-            bs_copy_signal(sp, &(elem->signal), ir);
+            bs_copy_signal(sp, &(elem->signal), ss, ir);
         }
     }
     
@@ -4021,18 +4473,19 @@ bs_delete_element(element_t** e)
 }
 
 /**
- * @brief      bs_push_elem_to_lookup(e, l, pi, ir)
+ * @brief      bs_push_elem_to_lookup(e, l, pi, ss, ir)
  *
  * @details    Pushes element_t pointer to lookup table.
  *
  * @param      e      (element_t*) element pointer
  *             l      (lookup_t**) pointer to lookup table pointer
  *             pi     (boolean_t) parse ID string
+ *             ss     (boolean_t) parse summary statistics from IDs
  *             ir     (boolean_t) parse ranks from IDs
  */
 
 void
-bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ir)
+bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ss, boolean_t ir)
 {
     if ((*l)->capacity == 0) {
         (*l)->capacity++;
@@ -4047,6 +4500,7 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ir)
                             (*l)->elems[idx]->stop,
                             (*l)->elems[idx]->id,
                             pi,
+                            ss,
                             ir,
                             (*l)->elems[idx]->signal,
                             &(new_elems[idx]));
@@ -4060,6 +4514,775 @@ bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ir)
 }
 
 /**
+ * @brief      bs_test_rogers_and_tanimoto_similarity()
+ *
+ * @details    Tests calculation and encoding of Rogers and
+ *             Tanimoto similarity measure from test vectors
+ */
+ 
+void
+bs_test_rogers_and_tanimoto_similarity()
+{
+    signal_t* t1 = NULL;
+    bs_init_signal((char*) kTestVectorT1, &t1, kFalse, kFalse);
+    if (!t1) {
+        fprintf(stderr, "Error: Could not allocate space for test (T1) Rogers and Tanimoto similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* t2 = NULL;
+    bs_init_signal((char*) kTestVectorT2, &t2, kFalse, kFalse);
+    if (!t2) {
+        fprintf(stderr, "Error: Could not allocate space for test (T2) Rogers and Tanimoto similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* t3 = NULL;
+    bs_init_signal((char*) kTestVectorT3, &t3, kFalse, kFalse);
+    if (!t3) {
+        fprintf(stderr, "Error: Could not allocate space for test (T3) Rogers and Tanimoto similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* tz = NULL;
+    bs_init_signal((char*) kTestVectorTz, &tz, kFalse, kFalse);
+    if (!tz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Tz) Rogers and Tanimoto similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* tu = NULL;
+    bs_init_signal((char*) kTestVectorTu, &tu, kFalse, kFalse);
+    if (!tu) {
+        fprintf(stderr, "Error: Could not allocate space for test (Tu) Rogers and Tanimoto similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing T1 vs T2\n---\nT1 -> %s\nT2 -> %s\n---\n", kTestVectorT1, kTestVectorT2);
+    if (t1->n != t2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(t1, stderr);
+        bs_print_signal(t2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_t1t2_score = NAN;
+    if ((t1->data_contains_nan == kFalse) && (t2->data_contains_nan == kFalse)) {
+        unencoded_observed_t1t2_score = bs_rogers_and_tanimoto_similarity_signal(t1, t2, t1->n);
+    }
+    fprintf(stderr, "Expected - unencoded T1-vs-T2 Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestT1T2Unencoded);
+    fprintf(stderr, "Observed - unencoded T1-vs-T2 Rogers and Tanimoto index: %3.6f\n", unencoded_observed_t1t2_score);
+    score_t absolute_diff_unencoded_t1t2_scores = fabs(kRogersAndTanimotoSimilarityTestT1T2Unencoded - unencoded_observed_t1t2_score);
+    assert(absolute_diff_unencoded_t1t2_scores + kEpsilon > 0 && absolute_diff_unencoded_t1t2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed T1-vs-T2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_t1t2_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestT1T2Unencoded);
+    byte_t encoded_observed_t1t2_score_byte = bs_encode_score_to_byte(unencoded_observed_t1t2_score);
+    fprintf(stderr, "Expected - encoded, precomputed T1-vs-T2 Rogers and Tanimoto index: 0x%02x\n", kRogersAndTanimotoSimilarityTestT1T2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed T1-vs-T2 Rogers and Tanimoto index: 0x%02x\n", encoded_expected_t1t2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed T1-vs-T2 Rogers and Tanimoto index: 0x%02x\n", encoded_observed_t1t2_score_byte);
+    assert(kRogersAndTanimotoSimilarityTestT1T2EncodedByte == encoded_expected_t1t2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed T1-vs-T2 Rogers and Tanimoto indices do not differ\n");
+    assert(kRogersAndTanimotoSimilarityTestT1T2EncodedByte == encoded_observed_t1t2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed T1-vs-T2 Rogers and Tanimoto indices do not differ\n");
+    assert(encoded_expected_t1t2_score_byte == encoded_observed_t1t2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed T1-vs-T2 Rogers and Tanimoto indices do not differ\n");
+
+    fprintf(stderr, "Comparing T1 vs T3\n---\nT1 -> %s\nT3 -> %s\n---\n", kTestVectorT1, kTestVectorT3);
+    if (t1->n != t3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(t1, stderr);
+        bs_print_signal(t3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_t1t3_score = NAN;
+    if ((t1->data_contains_nan == kFalse) && (t3->data_contains_nan == kFalse)) {
+        unencoded_observed_t1t3_score = bs_rogers_and_tanimoto_similarity_signal(t1, t3, t1->n);
+    }
+    fprintf(stderr, "Expected - unencoded T1-vs-T3 Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestT1T3Unencoded);
+    fprintf(stderr, "Observed - unencoded T1-vs-T3 Rogers and Tanimoto index: %3.6f\n", unencoded_observed_t1t3_score);
+    score_t absolute_diff_unencoded_t1t3_scores = fabs(kRogersAndTanimotoSimilarityTestT1T3Unencoded - unencoded_observed_t1t3_score);
+    assert(absolute_diff_unencoded_t1t3_scores + kEpsilon > 0 && absolute_diff_unencoded_t1t3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed T1-vs-T3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_t1t3_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestT1T3Unencoded);
+    byte_t encoded_observed_t1t3_score_byte = bs_encode_score_to_byte(unencoded_observed_t1t3_score);
+    fprintf(stderr, "Expected - encoded, precomputed T1-vs-T3 Rogers and Tanimoto index: 0x%02x\n", kRogersAndTanimotoSimilarityTestT1T3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed T1-vs-T3 Rogers and Tanimoto index: 0x%02x\n", encoded_expected_t1t3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed T1-vs-T3 Rogers and Tanimoto index: 0x%02x\n", encoded_observed_t1t3_score_byte);
+    assert(kRogersAndTanimotoSimilarityTestT1T3EncodedByte == encoded_expected_t1t3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed T1-vs-T3 Rogers and Tanimoto indices do not differ\n");
+    assert(kRogersAndTanimotoSimilarityTestT1T3EncodedByte == encoded_observed_t1t3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed T1-vs-T3 Rogers and Tanimoto indices do not differ\n");
+    assert(encoded_expected_t1t3_score_byte == encoded_observed_t1t3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed T1-vs-T3 Rogers and Tanimoto indices do not differ\n");
+
+    fprintf(stderr, "Comparing Tz vs Tz\n---\nTz -> %s\nTz -> %s\n---\n", kTestVectorTz, kTestVectorTz);
+    if (tz->n != tz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(tz, stderr);
+        bs_print_signal(tz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_tztz_score = NAN;
+    if ((tz->data_contains_nan == kFalse) && (tz->data_contains_nan == kFalse)) {
+        unencoded_observed_tztz_score = bs_rogers_and_tanimoto_similarity_signal(tz, tz, tz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Tz-vs-Tz Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestTzTzUnencoded);
+    fprintf(stderr, "Observed - unencoded Tz-vs-Tz Rogers and Tanimoto index: %3.6f\n", unencoded_observed_tztz_score);
+    score_t absolute_diff_unencoded_tztz_scores = fabs(kRogersAndTanimotoSimilarityTestTzTzUnencoded - unencoded_observed_tztz_score);
+    assert(absolute_diff_unencoded_tztz_scores + kEpsilon > 0 && absolute_diff_unencoded_tztz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Tz-vs-Tz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_tztz_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestTzTzUnencoded);
+    byte_t encoded_observed_tztz_score_byte = bs_encode_score_to_byte(unencoded_observed_tztz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Tz-vs-Tz Rogers and Tanimoto index: 0x%02x\n", kRogersAndTanimotoSimilarityTestTzTzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Tz-vs-Tz Rogers and Tanimoto index: 0x%02x\n", encoded_expected_tztz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Tz-vs-Tz Rogers and Tanimoto index: 0x%02x\n", encoded_observed_tztz_score_byte);
+    assert(kRogersAndTanimotoSimilarityTestTzTzEncodedByte == encoded_expected_tztz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Tz-vs-Tz Rogers and Tanimoto indices do not differ\n");
+    assert(kRogersAndTanimotoSimilarityTestTzTzEncodedByte == encoded_observed_tztz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Tz-vs-Tz Rogers and Tanimoto indices do not differ\n");
+    assert(encoded_expected_tztz_score_byte == encoded_observed_tztz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Tz-vs-Tz Rogers and Tanimoto indices do not differ\n");
+
+    fprintf(stderr, "Comparing Tz vs Tu\n---\nTz -> %s\nTu -> %s\n---\n", kTestVectorTz, kTestVectorTu);
+    if (tz->n != tu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(tz, stderr);
+        bs_print_signal(tu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_tztu_score = NAN;
+    if ((tz->data_contains_nan == kFalse) && (tu->data_contains_nan == kFalse)) {
+        unencoded_observed_tztu_score = bs_rogers_and_tanimoto_similarity_signal(tz, tu, tz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Tz-vs-Tu Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestTzTuUnencoded);
+    fprintf(stderr, "Observed - unencoded Tz-vs-Tu Rogers and Tanimoto index: %3.6f\n", unencoded_observed_tztu_score);
+    score_t absolute_diff_unencoded_tztu_scores = fabs(kRogersAndTanimotoSimilarityTestTzTuUnencoded - unencoded_observed_tztu_score);
+    assert(absolute_diff_unencoded_tztu_scores + kEpsilon > 0 && absolute_diff_unencoded_tztu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Tz-vs-Tu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_tztu_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestTzTuEncoded);
+    byte_t encoded_observed_tztu_score_byte = bs_encode_score_to_byte(unencoded_observed_tztu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Tz-vs-Tu Rogers and Tanimoto index: 0x%02x\n", kRogersAndTanimotoSimilarityTestTzTuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Tz-vs-Tu Rogers and Tanimoto index: 0x%02x\n", encoded_expected_tztu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Tz-vs-Tu Rogers and Tanimoto index: 0x%02x\n", encoded_observed_tztu_score_byte);
+    assert(kRogersAndTanimotoSimilarityTestTzTuEncodedByte == encoded_expected_tztu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Tz-vs-Tu Rogers and Tanimoto indices do not differ\n");
+    assert(kRogersAndTanimotoSimilarityTestTzTuEncodedByte == encoded_observed_tztu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Tz-vs-Tu Rogers and Tanimoto indices do not differ\n");
+    assert(encoded_expected_tztu_score_byte == encoded_observed_tztu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Tz-vs-Tu Rogers and Tanimoto indices do not differ\n");
+
+    fprintf(stderr, "Comparing Tu vs Tu\n---\nTu -> %s\nTu -> %s\n---\n", kTestVectorTu, kTestVectorTu);
+    if (tu->n != tu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(tu, stderr);
+        bs_print_signal(tu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_tutu_score = NAN;
+    if ((tu->data_contains_nan == kFalse) && (tu->data_contains_nan == kFalse)) {
+        unencoded_observed_tutu_score = bs_rogers_and_tanimoto_similarity_signal(tu, tu, tu->n);
+    }
+    fprintf(stderr, "Expected - unencoded Tu-vs-Tu Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestTuTuUnencoded);
+    fprintf(stderr, "Observed - unencoded Tu-vs-Tu Rogers and Tanimoto index: %3.6f\n", unencoded_observed_tutu_score);
+    score_t absolute_diff_unencoded_tutu_scores = fabs(kRogersAndTanimotoSimilarityTestTuTuUnencoded - unencoded_observed_tutu_score);
+    assert(absolute_diff_unencoded_tutu_scores + kEpsilon > 0 && absolute_diff_unencoded_tutu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Tu-vs-Tu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_tutu_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestTuTuEncoded);
+    byte_t encoded_observed_tutu_score_byte = bs_encode_score_to_byte(unencoded_observed_tutu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Tu-vs-Tu Rogers and Tanimoto index: 0x%02x\n", kRogersAndTanimotoSimilarityTestTuTuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Tu-vs-Tu Rogers and Tanimoto index: 0x%02x\n", encoded_expected_tutu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Tu-vs-Tu Rogers and Tanimoto index: 0x%02x\n", encoded_observed_tutu_score_byte);
+    assert(kRogersAndTanimotoSimilarityTestTuTuEncodedByte == encoded_expected_tutu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Tu-vs-Tu Rogers and Tanimoto indices do not differ\n");
+    assert(kRogersAndTanimotoSimilarityTestTuTuEncodedByte == encoded_observed_tutu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Tu-vs-Tu Rogers and Tanimoto indices do not differ\n");
+    assert(encoded_expected_tutu_score_byte == encoded_observed_tutu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Tu-vs-Tu Rogers and Tanimoto indices do not differ\n");
+
+    bs_delete_signal(&t1);
+    bs_delete_signal(&t2);
+    bs_delete_signal(&t3);
+    bs_delete_signal(&tz);
+    bs_delete_signal(&tu);
+}
+
+/**
+ * @brief      bs_test_pearson_phi_similarity()
+ *
+ * @details    Tests calculation and encoding of Pearson
+ *             phi (product-moment correlation) similarity 
+ *             from test vectors
+ */
+ 
+void
+bs_test_pearson_phi_similarity()
+{
+    signal_t* h1 = NULL;
+    bs_init_signal((char*) kTestVectorH1, &h1, kFalse, kFalse);
+    if (!h1) {
+        fprintf(stderr, "Error: Could not allocate space for test (H1) Pearson phi similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* h2 = NULL;
+    bs_init_signal((char*) kTestVectorH2, &h2, kFalse, kFalse);
+    if (!h2) {
+        fprintf(stderr, "Error: Could not allocate space for test (H2) Pearson phi similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* h3 = NULL;
+    bs_init_signal((char*) kTestVectorH3, &h3, kFalse, kFalse);
+    if (!h3) {
+        fprintf(stderr, "Error: Could not allocate space for test (H3) Pearson phi similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* hz = NULL;
+    bs_init_signal((char*) kTestVectorHz, &hz, kFalse, kFalse);
+    if (!hz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Hz) Pearson phi similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* hu = NULL;
+    bs_init_signal((char*) kTestVectorHu, &hu, kFalse, kFalse);
+    if (!hu) {
+        fprintf(stderr, "Error: Could not allocate space for test (Hu) Pearson phi similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing H1 vs H2\n---\nH1 -> %s\nH2 -> %s\n---\n", kTestVectorH1, kTestVectorH2);
+    if (h1->n != h2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(h1, stderr);
+        bs_print_signal(h2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_h1h2_score = NAN;
+    if ((h1->data_contains_nan == kFalse) && (h2->data_contains_nan == kFalse)) {
+        unencoded_observed_h1h2_score = bs_pearson_phi_similarity_signal(h1, h2, h1->n);
+    }
+    fprintf(stderr, "Expected - unencoded H1-vs-H2 Pearson phi index: %3.6f\n", kPearsonPhiSimilarityTestH1H2Unencoded);
+    fprintf(stderr, "Observed - unencoded H1-vs-H2 Pearson phi index: %3.6f\n", unencoded_observed_h1h2_score);
+    score_t absolute_diff_unencoded_h1h2_scores = fabs(kPearsonPhiSimilarityTestH1H2Unencoded - unencoded_observed_h1h2_score);
+    assert(absolute_diff_unencoded_h1h2_scores + kEpsilon > 0 && absolute_diff_unencoded_h1h2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed H1-vs-H2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_h1h2_score_byte = bs_encode_score_to_byte(kPearsonPhiSimilarityTestH1H2Unencoded);
+    byte_t encoded_observed_h1h2_score_byte = bs_encode_score_to_byte(unencoded_observed_h1h2_score);
+    fprintf(stderr, "Expected - encoded, precomputed H1-vs-H2 Pearson phi index: 0x%02x\n", kPearsonPhiSimilarityTestH1H2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed H1-vs-H2 Pearson phi index: 0x%02x\n", encoded_expected_h1h2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed H1-vs-H2 Pearson phi index: 0x%02x\n", encoded_observed_h1h2_score_byte);
+    assert(kPearsonPhiSimilarityTestH1H2EncodedByte == encoded_expected_h1h2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed H1-vs-H2 Pearson phi indices do not differ\n");
+    assert(kPearsonPhiSimilarityTestH1H2EncodedByte == encoded_observed_h1h2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed H1-vs-H2 Pearson phi indices do not differ\n");
+    assert(encoded_expected_h1h2_score_byte == encoded_observed_h1h2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed H1-vs-H2 Pearson phi indices do not differ\n");
+
+    fprintf(stderr, "Comparing H1 vs H3\n---\nH1 -> %s\nH3 -> %s\n---\n", kTestVectorH1, kTestVectorH3);
+    if (h1->n != h3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(h1, stderr);
+        bs_print_signal(h3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_h1h3_score = NAN;
+    if ((h1->data_contains_nan == kFalse) && (h3->data_contains_nan == kFalse)) {
+        unencoded_observed_h1h3_score = bs_pearson_phi_similarity_signal(h1, h3, h1->n);
+    }
+    fprintf(stderr, "Expected - unencoded H1-vs-H3 Pearson phi index: %3.6f\n", kPearsonPhiSimilarityTestH1H3Unencoded);
+    fprintf(stderr, "Observed - unencoded H1-vs-H3 Pearson phi index: %3.6f\n", unencoded_observed_h1h3_score);
+    score_t absolute_diff_unencoded_h1h3_scores = fabs(kPearsonPhiSimilarityTestH1H3Unencoded - unencoded_observed_h1h3_score);
+    assert(absolute_diff_unencoded_h1h3_scores + kEpsilon > 0 && absolute_diff_unencoded_h1h3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed H1-vs-H3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_h1h3_score_byte = bs_encode_score_to_byte(kPearsonPhiSimilarityTestH1H3Unencoded);
+    byte_t encoded_observed_h1h3_score_byte = bs_encode_score_to_byte(unencoded_observed_h1h3_score);
+    fprintf(stderr, "Expected - encoded, precomputed H1-vs-H3 Pearson phi index: 0x%02x\n", kPearsonPhiSimilarityTestH1H3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed H1-vs-H3 Pearson phi index: 0x%02x\n", encoded_expected_h1h3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed H1-vs-H3 Pearson phi index: 0x%02x\n", encoded_observed_h1h3_score_byte);
+    assert(kPearsonPhiSimilarityTestH1H3EncodedByte == encoded_expected_h1h3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed H1-vs-H3 Pearson phi indices do not differ\n");
+    assert(kPearsonPhiSimilarityTestH1H3EncodedByte == encoded_observed_h1h3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed H1-vs-H3 Pearson phi indices do not differ\n");
+    assert(encoded_expected_h1h3_score_byte == encoded_observed_h1h3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed H1-vs-H3 Pearson phi indices do not differ\n");
+
+    fprintf(stderr, "Comparing Hz vs Hz\n---\nHz -> %s\nHz -> %s\n---\n", kTestVectorHz, kTestVectorHz);
+    if (hz->n != hz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(hz, stderr);
+        bs_print_signal(hz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_hzhz_score = NAN;
+    if ((hz->data_contains_nan == kFalse) && (hz->data_contains_nan == kFalse)) {
+        unencoded_observed_hzhz_score = bs_pearson_phi_similarity_signal(hz, hz, hz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Hz-vs-Hz Pearson phi index: %3.6f\n", kPearsonPhiSimilarityTestHzHzUnencoded);
+    fprintf(stderr, "Observed - unencoded Hz-vs-Hz Pearson phi index: %3.6f\n", unencoded_observed_hzhz_score);
+    score_t absolute_diff_unencoded_hzhz_scores = fabs(kPearsonPhiSimilarityTestHzHzUnencoded - unencoded_observed_hzhz_score);
+    assert(absolute_diff_unencoded_hzhz_scores + kEpsilon > 0 && absolute_diff_unencoded_hzhz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Hz-vs-Hz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_hzhz_score_byte = bs_encode_score_to_byte(kPearsonPhiSimilarityTestHzHzUnencoded);
+    byte_t encoded_observed_hzhz_score_byte = bs_encode_score_to_byte(unencoded_observed_hzhz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Hz-vs-Hz Pearson phi index: 0x%02x\n", kPearsonPhiSimilarityTestHzHzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Hz-vs-Hz Pearson phi index: 0x%02x\n", encoded_expected_hzhz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Hz-vs-Hz Pearson phi index: 0x%02x\n", encoded_observed_hzhz_score_byte);
+    assert(kPearsonPhiSimilarityTestHzHzEncodedByte == encoded_expected_hzhz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Hz-vs-Hz Pearson phi indices do not differ\n");
+    assert(kPearsonPhiSimilarityTestHzHzEncodedByte == encoded_observed_hzhz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Hz-vs-Hz Pearson phi indices do not differ\n");
+    assert(encoded_expected_hzhz_score_byte == encoded_observed_hzhz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Hz-vs-Hz Pearson phi indices do not differ\n");
+
+    fprintf(stderr, "Comparing Hz vs Hu\n---\nHz -> %s\nHu -> %s\n---\n", kTestVectorHz, kTestVectorHu);
+    if (hz->n != hu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(hz, stderr);
+        bs_print_signal(hu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_hzhu_score = NAN;
+    if ((hz->data_contains_nan == kFalse) && (hu->data_contains_nan == kFalse)) {
+        unencoded_observed_hzhu_score = bs_pearson_phi_similarity_signal(hz, hu, hz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Hz-vs-Hu Pearson phi index: %3.6f\n", kPearsonPhiSimilarityTestHzHuUnencoded);
+    fprintf(stderr, "Observed - unencoded Hz-vs-Hu Pearson phi index: %3.6f\n", unencoded_observed_hzhu_score);
+    score_t absolute_diff_unencoded_hzhu_scores = fabs(kPearsonPhiSimilarityTestHzHuUnencoded - unencoded_observed_hzhu_score);
+    assert(absolute_diff_unencoded_hzhu_scores + kEpsilon > 0 && absolute_diff_unencoded_hzhu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Hz-vs-Hu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_hzhu_score_byte = bs_encode_score_to_byte(kPearsonPhiSimilarityTestHzHuEncoded);
+    byte_t encoded_observed_hzhu_score_byte = bs_encode_score_to_byte(unencoded_observed_hzhu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Hz-vs-Hu Pearson phi index: 0x%02x\n", kPearsonPhiSimilarityTestHzHuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Hz-vs-Hu Pearson phi index: 0x%02x\n", encoded_expected_hzhu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Hz-vs-Hu Pearson phi index: 0x%02x\n", encoded_observed_hzhu_score_byte);
+    assert(kPearsonPhiSimilarityTestHzHuEncodedByte == encoded_expected_hzhu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Hz-vs-Hu Pearson phi indices do not differ\n");
+    assert(kPearsonPhiSimilarityTestHzHuEncodedByte == encoded_observed_hzhu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Hz-vs-Hu Pearson phi indices do not differ\n");
+    assert(encoded_expected_hzhu_score_byte == encoded_observed_hzhu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Hz-vs-Hu Pearson phi indices do not differ\n");
+
+    fprintf(stderr, "Comparing Hu vs Hu\n---\nHu -> %s\nHu -> %s\n---\n", kTestVectorHu, kTestVectorHu);
+    if (hu->n != hu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(hu, stderr);
+        bs_print_signal(hu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_huhu_score = NAN;
+    if ((hu->data_contains_nan == kFalse) && (hu->data_contains_nan == kFalse)) {
+        unencoded_observed_huhu_score = bs_pearson_phi_similarity_signal(hu, hu, hu->n);
+    }
+    fprintf(stderr, "Expected - unencoded Hu-vs-Hu Pearson phi index: %3.6f\n", kPearsonPhiSimilarityTestHuHuUnencoded);
+    fprintf(stderr, "Observed - unencoded Hu-vs-Hu Pearson phi index: %3.6f\n", unencoded_observed_huhu_score);
+    score_t absolute_diff_unencoded_huhu_scores = fabs(kPearsonPhiSimilarityTestHuHuUnencoded - unencoded_observed_huhu_score);
+    assert(absolute_diff_unencoded_huhu_scores + kEpsilon > 0 && absolute_diff_unencoded_huhu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Hu-vs-Hu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_huhu_score_byte = bs_encode_score_to_byte(kPearsonPhiSimilarityTestHuHuEncoded);
+    byte_t encoded_observed_huhu_score_byte = bs_encode_score_to_byte(unencoded_observed_huhu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Hu-vs-Hu Pearson phi index: 0x%02x\n", kPearsonPhiSimilarityTestHuHuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Hu-vs-Hu Pearson phi index: 0x%02x\n", encoded_expected_huhu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Hu-vs-Hu Pearson phi index: 0x%02x\n", encoded_observed_huhu_score_byte);
+    assert(kPearsonPhiSimilarityTestHuHuEncodedByte == encoded_expected_huhu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Hu-vs-Hu Pearson phi indices do not differ\n");
+    assert(kPearsonPhiSimilarityTestHuHuEncodedByte == encoded_observed_huhu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Hu-vs-Hu Pearson phi indices do not differ\n");
+    assert(encoded_expected_huhu_score_byte == encoded_observed_huhu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Hu-vs-Hu Pearson phi indices do not differ\n");
+
+    bs_delete_signal(&h1);
+    bs_delete_signal(&h2);
+    bs_delete_signal(&h3);
+    bs_delete_signal(&hz);
+    bs_delete_signal(&hu);
+}
+
+/**
+ * @brief      bs_test_ochiai_similarity()
+ *
+ * @details    Tests calculation and encoding of Ochiai
+ *             similarity from test vectors
+ */
+ 
+void
+bs_test_ochiai_similarity()
+{
+    signal_t* o1 = NULL;
+    bs_init_signal((char*) kTestVectorO1, &o1, kFalse, kFalse);
+    if (!o1) {
+        fprintf(stderr, "Error: Could not allocate space for test (O1) Ochiai similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* o2 = NULL;
+    bs_init_signal((char*) kTestVectorO2, &o2, kFalse, kFalse);
+    if (!o2) {
+        fprintf(stderr, "Error: Could not allocate space for test (O2) Ochiai similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* o3 = NULL;
+    bs_init_signal((char*) kTestVectorO3, &o3, kFalse, kFalse);
+    if (!o3) {
+        fprintf(stderr, "Error: Could not allocate space for test (O3) Ochiai similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* oz = NULL;
+    bs_init_signal((char*) kTestVectorOz, &oz, kFalse, kFalse);
+    if (!oz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Oz) Ochiai similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* ou = NULL;
+    bs_init_signal((char*) kTestVectorOu, &ou, kFalse, kFalse);
+    if (!ou) {
+        fprintf(stderr, "Error: Could not allocate space for test (Ou) Ochiai similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing O1 vs O2\n---\nO1 -> %s\nO2 -> %s\n---\n", kTestVectorO1, kTestVectorO2);
+    if (o1->n != o2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(o1, stderr);
+        bs_print_signal(o2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_o1o2_score = NAN;
+    if ((o1->data_contains_nan == kFalse) && (o2->data_contains_nan == kFalse)) {
+        unencoded_observed_o1o2_score = bs_ochiai_similarity_signal(o1, o2, o1->n);
+    }
+    fprintf(stderr, "Expected - unencoded O1-vs-O2 Ochiai index: %3.6f\n", kOchiaiSimilarityTestO1O2Unencoded);
+    fprintf(stderr, "Observed - unencoded O1-vs-O2 Ochiai index: %3.6f\n", unencoded_observed_o1o2_score);
+    score_t absolute_diff_unencoded_o1o2_scores = fabs(kOchiaiSimilarityTestO1O2Unencoded - unencoded_observed_o1o2_score);
+    assert(absolute_diff_unencoded_o1o2_scores + kEpsilon > 0 && absolute_diff_unencoded_o1o2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed O1-vs-O2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_o1o2_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestO1O2Unencoded);
+    byte_t encoded_observed_o1o2_score_byte = bs_encode_score_to_byte(unencoded_observed_o1o2_score);
+    fprintf(stderr, "Expected - encoded, precomputed O1-vs-O2 Ochiai index: 0x%02x\n", kOchiaiSimilarityTestO1O2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed O1-vs-O2 Ochiai index: 0x%02x\n", encoded_expected_o1o2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed O1-vs-O2 Ochiai index: 0x%02x\n", encoded_observed_o1o2_score_byte);
+    assert(kOchiaiSimilarityTestO1O2EncodedByte == encoded_expected_o1o2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed O1-vs-O2 Ochiai indices do not differ\n");
+    assert(kOchiaiSimilarityTestO1O2EncodedByte == encoded_observed_o1o2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed O1-vs-O2 Ochiai indices do not differ\n");
+    assert(encoded_expected_o1o2_score_byte == encoded_observed_o1o2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed O1-vs-O2 Ochiai indices do not differ\n");
+
+    fprintf(stderr, "Comparing O1 vs O3\n---\nO1 -> %s\nO3 -> %s\n---\n", kTestVectorO1, kTestVectorO3);
+    if (o1->n != o3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(o1, stderr);
+        bs_print_signal(o3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_o1o3_score = NAN;
+    if ((o1->data_contains_nan == kFalse) && (o3->data_contains_nan == kFalse)) {
+        unencoded_observed_o1o3_score = bs_ochiai_similarity_signal(o1, o3, o1->n);
+    }
+    fprintf(stderr, "Expected - unencoded O1-vs-O3 Ochiai index: %3.6f\n", kOchiaiSimilarityTestO1O3Unencoded);
+    fprintf(stderr, "Observed - unencoded O1-vs-O3 Ochiai index: %3.6f\n", unencoded_observed_o1o3_score);
+    score_t absolute_diff_unencoded_o1o3_scores = fabs(kOchiaiSimilarityTestO1O3Unencoded - unencoded_observed_o1o3_score);
+    assert(absolute_diff_unencoded_o1o3_scores + kEpsilon > 0 && absolute_diff_unencoded_o1o3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed O1-vs-O3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_o1o3_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestO1O3Unencoded);
+    byte_t encoded_observed_o1o3_score_byte = bs_encode_score_to_byte(unencoded_observed_o1o3_score);
+    fprintf(stderr, "Expected - encoded, precomputed O1-vs-O3 Ochiai index: 0x%02x\n", kOchiaiSimilarityTestO1O3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed O1-vs-O3 Ochiai index: 0x%02x\n", encoded_expected_o1o3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed O1-vs-O3 Ochiai index: 0x%02x\n", encoded_observed_o1o3_score_byte);
+    assert(kOchiaiSimilarityTestO1O3EncodedByte == encoded_expected_o1o3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed O1-vs-O3 Ochiai indices do not differ\n");
+    assert(kOchiaiSimilarityTestO1O3EncodedByte == encoded_observed_o1o3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed O1-vs-O3 Ochiai indices do not differ\n");
+    assert(encoded_expected_o1o3_score_byte == encoded_observed_o1o3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed O1-vs-O3 Ochiai indices do not differ\n");
+
+    fprintf(stderr, "Comparing Oz vs Oz\n---\nOz -> %s\nOz -> %s\n---\n", kTestVectorOz, kTestVectorOz);
+    if (oz->n != oz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(oz, stderr);
+        bs_print_signal(oz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ozoz_score = NAN;
+    if ((oz->data_contains_nan == kFalse) && (oz->data_contains_nan == kFalse)) {
+        unencoded_observed_ozoz_score = bs_ochiai_similarity_signal(oz, oz, oz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Oz-vs-Oz Ochiai index: %3.6f\n", kOchiaiSimilarityTestOzOzUnencoded);
+    fprintf(stderr, "Observed - unencoded Oz-vs-Oz Ochiai index: %3.6f\n", unencoded_observed_ozoz_score);
+    score_t absolute_diff_unencoded_ozoz_scores = fabs(kOchiaiSimilarityTestOzOzUnencoded - unencoded_observed_ozoz_score);
+    assert(absolute_diff_unencoded_ozoz_scores + kEpsilon > 0 && absolute_diff_unencoded_ozoz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Oz-vs-Oz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ozoz_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestOzOzUnencoded);
+    byte_t encoded_observed_ozoz_score_byte = bs_encode_score_to_byte(unencoded_observed_ozoz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Oz-vs-Oz Ochiai index: 0x%02x\n", kOchiaiSimilarityTestOzOzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Oz-vs-Oz Ochiai index: 0x%02x\n", encoded_expected_ozoz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Oz-vs-Oz Ochiai index: 0x%02x\n", encoded_observed_ozoz_score_byte);
+    assert(kOchiaiSimilarityTestOzOzEncodedByte == encoded_expected_ozoz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Oz-vs-Oz Ochiai indices do not differ\n");
+    assert(kOchiaiSimilarityTestOzOzEncodedByte == encoded_observed_ozoz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Oz-vs-Oz Ochiai indices do not differ\n");
+    assert(encoded_expected_ozoz_score_byte == encoded_observed_ozoz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Oz-vs-Oz Ochiai indices do not differ\n");
+
+    fprintf(stderr, "Comparing Oz vs Ou\n---\nOz -> %s\nOu -> %s\n---\n", kTestVectorOz, kTestVectorOu);
+    if (oz->n != ou->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(oz, stderr);
+        bs_print_signal(ou, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ozou_score = NAN;
+    if ((oz->data_contains_nan == kFalse) && (ou->data_contains_nan == kFalse)) {
+        unencoded_observed_ozou_score = bs_ochiai_similarity_signal(oz, ou, oz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Oz-vs-Ou Ochiai index: %3.6f\n", kOchiaiSimilarityTestOzOuUnencoded);
+    fprintf(stderr, "Observed - unencoded Oz-vs-Ou Ochiai index: %3.6f\n", unencoded_observed_ozou_score);
+    score_t absolute_diff_unencoded_ozou_scores = fabs(kOchiaiSimilarityTestOzOuUnencoded - unencoded_observed_ozou_score);
+    assert(absolute_diff_unencoded_ozou_scores + kEpsilon > 0 && absolute_diff_unencoded_ozou_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Oz-vs-Ou scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ozou_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestOzOuUnencoded);
+    byte_t encoded_observed_ozou_score_byte = bs_encode_score_to_byte(unencoded_observed_ozou_score);
+    fprintf(stderr, "Expected - encoded, precomputed Oz-vs-Ou Ochiai index: 0x%02x\n", kOchiaiSimilarityTestOzOuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Oz-vs-Ou Ochiai index: 0x%02x\n", encoded_expected_ozou_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Oz-vs-Ou Ochiai index: 0x%02x\n", encoded_observed_ozou_score_byte);
+    assert(kOchiaiSimilarityTestOzOuEncodedByte == encoded_expected_ozou_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Oz-vs-Ou Ochiai indices do not differ\n");
+    assert(kOchiaiSimilarityTestOzOuEncodedByte == encoded_observed_ozou_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Oz-vs-Ou Ochiai indices do not differ\n");
+    assert(encoded_expected_ozou_score_byte == encoded_observed_ozou_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Oz-vs-Ou Ochiai indices do not differ\n");
+
+    fprintf(stderr, "Comparing Ou vs Ou\n---\nOu -> %s\nOu -> %s\n---\n", kTestVectorOu, kTestVectorOu);
+    if (ou->n != ou->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(ou, stderr);
+        bs_print_signal(ou, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_ouou_score = NAN;
+    if ((ou->data_contains_nan == kFalse) && (ou->data_contains_nan == kFalse)) {
+        unencoded_observed_ouou_score = bs_ochiai_similarity_signal(ou, ou, ou->n);
+    }
+    fprintf(stderr, "Expected - unencoded Ou-vs-Ou Ochiai index: %3.6f\n", kOchiaiSimilarityTestOuOuUnencoded);
+    fprintf(stderr, "Observed - unencoded Ou-vs-Ou Ochiai index: %3.6f\n", unencoded_observed_ouou_score);
+    score_t absolute_diff_unencoded_ouou_scores = fabs(kOchiaiSimilarityTestOuOuUnencoded - unencoded_observed_ouou_score);
+    assert(absolute_diff_unencoded_ouou_scores + kEpsilon > 0 && absolute_diff_unencoded_ouou_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Ou-vs-Ou scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_ouou_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestOuOuUnencoded);
+    byte_t encoded_observed_ouou_score_byte = bs_encode_score_to_byte(unencoded_observed_ouou_score);
+    fprintf(stderr, "Expected - encoded, precomputed Ou-vs-Ou Ochiai index: 0x%02x\n", kOchiaiSimilarityTestOuOuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Ou-vs-Ou Ochiai index: 0x%02x\n", encoded_expected_ouou_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Ou-vs-Ou Ochiai index: 0x%02x\n", encoded_observed_ouou_score_byte);
+    assert(kOchiaiSimilarityTestOuOuEncodedByte == encoded_expected_ouou_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Ou-vs-Ou Ochiai indices do not differ\n");
+    assert(kOchiaiSimilarityTestOuOuEncodedByte == encoded_observed_ouou_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Ou-vs-Ou Ochiai indices do not differ\n");
+    assert(encoded_expected_ouou_score_byte == encoded_observed_ouou_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Ou-vs-Ou Ochiai indices do not differ\n");
+
+    bs_delete_signal(&o1);
+    bs_delete_signal(&o2);
+    bs_delete_signal(&o3);
+    bs_delete_signal(&oz);
+    bs_delete_signal(&ou);
+}
+
+/**
+ * @brief      bs_test_jaccard_index()
+ *
+ * @details    Tests calculation and encoding of Jaccard 
+ *             index from test vectors
+ */
+
+void
+bs_test_jaccard_index()
+{
+    signal_t* j1 = NULL;
+    bs_init_signal((char*) kTestVectorJ1, &j1, kFalse, kFalse);
+    if (!j1) {
+        fprintf(stderr, "Error: Could not allocate space for test (J1) Jaccard index vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* j2 = NULL;
+    bs_init_signal((char*) kTestVectorJ2, &j2, kFalse, kFalse);
+    if (!j2) {
+        fprintf(stderr, "Error: Could not allocate space for test (J2) Jaccard index vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* j3 = NULL;
+    bs_init_signal((char*) kTestVectorJ3, &j3, kFalse, kFalse);
+    if (!j3) {
+        fprintf(stderr, "Error: Could not allocate space for test (J3) Jaccard index vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* jz = NULL;
+    bs_init_signal((char*) kTestVectorJz, &jz, kFalse, kFalse);
+    if (!jz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Jz) Jaccard index vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* ju = NULL;
+    bs_init_signal((char*) kTestVectorJu, &ju, kFalse, kFalse);
+    if (!ju) {
+        fprintf(stderr, "Error: Could not allocate space for test (Ju) Jaccard index vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing J1 vs J2\n---\nJ1 -> %s\nJ2 -> %s\n---\n", kTestVectorJ1, kTestVectorJ2);
+    if (j1->n != j2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(j1, stderr);
+        bs_print_signal(j2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_j1j2_score = NAN;
+    if ((j1->data_contains_nan == kFalse) && (j2->data_contains_nan == kFalse)) {
+        unencoded_observed_j1j2_score = bs_jaccard_index_signal(j1, j2, j1->n);
+    }
+    fprintf(stderr, "Expected - unencoded J1-vs-J2 Jaccard index: %3.6f\n", kJaccardIndexTestJ1J2Unencoded);
+    fprintf(stderr, "Observed - unencoded J1-vs-J2 Jaccard index: %3.6f\n", unencoded_observed_j1j2_score);
+    score_t absolute_diff_unencoded_j1j2_scores = fabs(kJaccardIndexTestJ1J2Unencoded - unencoded_observed_j1j2_score);
+    assert(absolute_diff_unencoded_j1j2_scores + kEpsilon > 0 && absolute_diff_unencoded_j1j2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed J1-vs-J2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_j1j2_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJ1J2Unencoded);
+    byte_t encoded_observed_j1j2_score_byte = bs_encode_score_to_byte(unencoded_observed_j1j2_score);
+    fprintf(stderr, "Expected - encoded, precomputed J1-vs-J2 Jaccard index: 0x%02x\n", kJaccardIndexTestJ1J2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed J1-vs-J2 Jaccard index: 0x%02x\n", encoded_expected_j1j2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed J1-vs-J2 Jaccard index: 0x%02x\n", encoded_observed_j1j2_score_byte);
+    assert(kJaccardIndexTestJ1J2EncodedByte == encoded_expected_j1j2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed J1-vs-J2 Jaccard indices do not differ\n");
+    assert(kJaccardIndexTestJ1J2EncodedByte == encoded_observed_j1j2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed J1-vs-J2 Jaccard indices do not differ\n");
+    assert(encoded_expected_j1j2_score_byte == encoded_observed_j1j2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed J1-vs-J2 Jaccard indices do not differ\n");
+
+    fprintf(stderr, "Comparing J1 vs J3\n---\nJ1 -> %s\nJ3 -> %s\n---\n", kTestVectorJ1, kTestVectorJ3);
+    if (j1->n != j3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(j1, stderr);
+        bs_print_signal(j3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_j1j3_score = NAN;
+    if ((j1->data_contains_nan == kFalse) && (j3->data_contains_nan == kFalse)) {
+        unencoded_observed_j1j3_score = bs_jaccard_index_signal(j1, j3, j1->n);
+    }
+    fprintf(stderr, "Expected - unencoded J1-vs-J3 Jaccard index: %3.6f\n", kJaccardIndexTestJ1J3Unencoded);
+    fprintf(stderr, "Observed - unencoded J1-vs-J3 Jaccard index: %3.6f\n", unencoded_observed_j1j3_score);
+    score_t absolute_diff_unencoded_j1j3_scores = fabs(kJaccardIndexTestJ1J3Unencoded - unencoded_observed_j1j3_score);
+    assert(absolute_diff_unencoded_j1j3_scores + kEpsilon > 0 && absolute_diff_unencoded_j1j3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed J1-vs-J3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_j1j3_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJ1J3Unencoded);
+    byte_t encoded_observed_j1j3_score_byte = bs_encode_score_to_byte(unencoded_observed_j1j3_score);
+    fprintf(stderr, "Expected - encoded, precomputed J1-vs-J3 Jaccard index: 0x%02x\n", kJaccardIndexTestJ1J3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed J1-vs-J3 Jaccard index: 0x%02x\n", encoded_expected_j1j3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed J1-vs-J3 Jaccard index: 0x%02x\n", encoded_observed_j1j3_score_byte);
+    assert(kJaccardIndexTestJ1J3EncodedByte == encoded_expected_j1j3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed J1-vs-J3 Jaccard indices do not differ\n");
+    assert(kJaccardIndexTestJ1J3EncodedByte == encoded_observed_j1j3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed J1-vs-J3 Jaccard indices do not differ\n");
+    assert(encoded_expected_j1j3_score_byte == encoded_observed_j1j3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed J1-vs-J3 Jaccard indices do not differ\n");
+
+    fprintf(stderr, "Comparing Jz vs Jz\n---\nJz -> %s\nJz -> %s\n---\n", kTestVectorJz, kTestVectorJz);
+    if (jz->n != jz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(jz, stderr);
+        bs_print_signal(jz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_jzjz_score = NAN;
+    if ((jz->data_contains_nan == kFalse) && (jz->data_contains_nan == kFalse)) {
+        unencoded_observed_jzjz_score = bs_jaccard_index_signal(jz, jz, jz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Jz-vs-Jz Jaccard index: %3.6f\n", kJaccardIndexTestJzJzUnencoded);
+    fprintf(stderr, "Observed - unencoded Jz-vs-Jz Jaccard index: %3.6f\n", unencoded_observed_jzjz_score);
+    score_t absolute_diff_unencoded_jzjz_scores = fabs(kJaccardIndexTestJzJzUnencoded - unencoded_observed_jzjz_score);
+    assert(absolute_diff_unencoded_jzjz_scores + kEpsilon > 0 && absolute_diff_unencoded_jzjz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Jz-vs-Jz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_jzjz_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJzJzUnencoded);
+    byte_t encoded_observed_jzjz_score_byte = bs_encode_score_to_byte(unencoded_observed_jzjz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Jz-vs-Jz Jaccard index: 0x%02x\n", kJaccardIndexTestJzJzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Jz-vs-Jz Jaccard index: 0x%02x\n", encoded_expected_jzjz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Jz-vs-Jz Jaccard index: 0x%02x\n", encoded_observed_jzjz_score_byte);
+    assert(kJaccardIndexTestJzJzEncodedByte == encoded_expected_jzjz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Jz-vs-Jz Jaccard indices do not differ\n");
+    assert(kJaccardIndexTestJzJzEncodedByte == encoded_observed_jzjz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Jz-vs-Jz Jaccard indices do not differ\n");
+    assert(encoded_expected_jzjz_score_byte == encoded_observed_jzjz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Jz-vs-Jz Jaccard indices do not differ\n");
+
+    fprintf(stderr, "Comparing Jz vs Ju\n---\nJz -> %s\nJu -> %s\n---\n", kTestVectorJz, kTestVectorJu);
+    if (jz->n != ju->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(jz, stderr);
+        bs_print_signal(ju, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_jzju_score = NAN;
+    if ((jz->data_contains_nan == kFalse) && (ju->data_contains_nan == kFalse)) {
+        unencoded_observed_jzju_score = bs_jaccard_index_signal(jz, ju, jz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Jz-vs-Ju Jaccard index: %3.6f\n", kJaccardIndexTestJzJuUnencoded);
+    fprintf(stderr, "Observed - unencoded Jz-vs-Ju Jaccard index: %3.6f\n", unencoded_observed_jzju_score);
+    score_t absolute_diff_unencoded_jzju_scores = fabs(kJaccardIndexTestJzJuUnencoded - unencoded_observed_jzju_score);
+    assert(absolute_diff_unencoded_jzju_scores + kEpsilon > 0 && absolute_diff_unencoded_jzju_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Jz-vs-Ju scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_jzju_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJzJuUnencoded);
+    byte_t encoded_observed_jzju_score_byte = bs_encode_score_to_byte(unencoded_observed_jzju_score);
+    fprintf(stderr, "Expected - encoded, precomputed Jz-vs-Ju Jaccard index: 0x%02x\n", kJaccardIndexTestJzJuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Jz-vs-Ju Jaccard index: 0x%02x\n", encoded_expected_jzju_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Jz-vs-Ju Jaccard index: 0x%02x\n", encoded_observed_jzju_score_byte);
+    assert(kJaccardIndexTestJzJuEncodedByte == encoded_expected_jzju_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Jz-vs-Ju Jaccard indices do not differ\n");
+    assert(kJaccardIndexTestJzJuEncodedByte == encoded_observed_jzju_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Jz-vs-Ju Jaccard indices do not differ\n");
+    assert(encoded_expected_jzju_score_byte == encoded_observed_jzju_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Jz-vs-Ju Jaccard indices do not differ\n");
+
+    fprintf(stderr, "Comparing Ju vs Ju\n---\nJu -> %s\nJu -> %s\n---\n", kTestVectorJu, kTestVectorJu);
+    if (ju->n != ju->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(ju, stderr);
+        bs_print_signal(ju, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_juju_score = NAN;
+    if ((ju->data_contains_nan == kFalse) && (ju->data_contains_nan == kFalse)) {
+        unencoded_observed_juju_score = bs_jaccard_index_signal(ju, ju, ju->n);
+    }
+    fprintf(stderr, "Expected - unencoded Ju-vs-Ju Jaccard index: %3.6f\n", kJaccardIndexTestJuJuUnencoded);
+    fprintf(stderr, "Observed - unencoded Ju-vs-Ju Jaccard index: %3.6f\n", unencoded_observed_juju_score);
+    score_t absolute_diff_unencoded_juju_scores = fabs(kJaccardIndexTestJuJuUnencoded - unencoded_observed_juju_score);
+    assert(absolute_diff_unencoded_juju_scores + kEpsilon > 0 && absolute_diff_unencoded_juju_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Ju-vs-Ju scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_juju_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJuJuUnencoded);
+    byte_t encoded_observed_juju_score_byte = bs_encode_score_to_byte(unencoded_observed_juju_score);
+    fprintf(stderr, "Expected - encoded, precomputed Ju-vs-Ju Jaccard index: 0x%02x\n", kJaccardIndexTestJuJuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Ju-vs-Ju Jaccard index: 0x%02x\n", encoded_expected_juju_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Ju-vs-Ju Jaccard index: 0x%02x\n", encoded_observed_juju_score_byte);
+    assert(kJaccardIndexTestJuJuEncodedByte == encoded_expected_juju_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Ju-vs-Ju Jaccard indices do not differ\n");
+    assert(kJaccardIndexTestJuJuEncodedByte == encoded_observed_juju_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Ju-vs-Ju Jaccard indices do not differ\n");
+    assert(encoded_expected_juju_score_byte == encoded_observed_juju_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Ju-vs-Ju Jaccard indices do not differ\n");
+
+    bs_delete_signal(&j1);
+    bs_delete_signal(&j2);
+    bs_delete_signal(&j3);
+    bs_delete_signal(&jz);
+    bs_delete_signal(&ju);
+}
+
+/**
  * @brief      bs_test_spearman_rho()
  *
  * @details    Tests calculation and encoding of Spearman's 
@@ -4070,18 +5293,19 @@ void
 bs_test_spearman_rho()
 {
     signal_t* x = NULL;
-    bs_init_signal((char*) kTestVectorX, &x, kTrue);
+    bs_init_signal((char*) kTestVectorX, &x, kTrue, kTrue);
     if (!x) {
         fprintf(stderr, "Error: Could not allocate space for test (X) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* y = NULL;
-    bs_init_signal((char*) kTestVectorY, &y, kTrue);
+    bs_init_signal((char*) kTestVectorY, &y, kTrue, kTrue);
     if (!y) {
         fprintf(stderr, "Error: Could not allocate space for test (Y) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
     bs_print_signal(x, stdout);
+    bs_print_signal(y, stdout);
 
     fprintf(stderr, "Comparing XY\n---\nX -> %s\nY -> %s\n---\n", kTestVectorX, kTestVectorY);
     if (x->n != y->n) {
@@ -4112,7 +5336,7 @@ bs_test_spearman_rho()
     fprintf(stderr, "\t-> Expected computed and observed computed XY scores do not differ\n");
 
     signal_t* z = NULL;
-    bs_init_signal((char*) kTestVectorZ, &z, kTrue);
+    bs_init_signal((char*) kTestVectorZ, &z, kTrue, kTrue);
     if (!z) {
         fprintf(stderr, "Error: Could not allocate space for test (Z) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
@@ -4148,13 +5372,13 @@ bs_test_spearman_rho()
     bs_delete_signal(&z);
 
     signal_t* a = NULL;
-    bs_init_signal((char*) kTestVectorA, &a, kTrue);
+    bs_init_signal((char*) kTestVectorA, &a, kTrue, kTrue);
     if (!a) {
         fprintf(stderr, "Error: Could not allocate space for test (A) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* b = NULL;
-    bs_init_signal((char*) kTestVectorB, &b, kTrue);
+    bs_init_signal((char*) kTestVectorB, &b, kTrue, kTrue);
     if (!b) {
         fprintf(stderr, "Error: Could not allocate space for test (B) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
@@ -4211,7 +5435,7 @@ bs_test_spearman_rho()
     fprintf(stderr, "\t-> Expected computed and observed computed AB scores do not differ\n");
 
     signal_t* c = NULL;
-    bs_init_signal((char*) kTestVectorC, &c, kTrue);
+    bs_init_signal((char*) kTestVectorC, &c, kTrue, kTrue);
     if (!c) {
         fprintf(stderr, "Error: Could not allocate space for test (C) Spearman's rho vector!\n");
         exit(EXIT_FAILURE);
@@ -4249,29 +5473,29 @@ bs_test_spearman_rho()
 }
 
 /**
- * @brief      bs_test_pearsons_r()
+ * @brief      bs_test_pearson_r()
  *
  * @details    Tests calculation and encoding of Pearson's 
  *             r score from test vectors
  */
 
 void
-bs_test_pearsons_r()
+bs_test_pearson_r()
 {
     signal_t* a = NULL;
-    bs_init_signal((char*) kTestVectorA, &a, kFalse);
+    bs_init_signal((char*) kTestVectorA, &a, kTrue, kFalse);
     if (!a) {
         fprintf(stderr, "Error: Could not allocate space for test (A) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* b = NULL;
-    bs_init_signal((char*) kTestVectorB, &b, kFalse);
+    bs_init_signal((char*) kTestVectorB, &b, kTrue, kFalse);
     if (!b) {
         fprintf(stderr, "Error: Could not allocate space for test (B) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
     }
     signal_t* c = NULL;
-    bs_init_signal((char*) kTestVectorC, &c, kFalse);
+    bs_init_signal((char*) kTestVectorC, &c, kTrue, kFalse);
     if (!c) {
         fprintf(stderr, "Error: Could not allocate space for test (C) Pearson's r vector!\n");
         exit(EXIT_FAILURE);
@@ -4818,10 +6042,22 @@ bs_init_command_line_options(int argc, char** argv)
             }
             break;
         case 'P':
-            bs_test_pearsons_r();
+            bs_test_pearson_r();
             exit(EXIT_SUCCESS);
         case 'S':
             bs_test_spearman_rho();
+            exit(EXIT_SUCCESS);
+        case 'J':
+            bs_test_jaccard_index();
+            exit(EXIT_SUCCESS);
+        case 'O':
+            bs_test_ochiai_similarity();
+            exit(EXIT_SUCCESS);
+        case 'H':
+            bs_test_pearson_phi_similarity();
+            exit(EXIT_SUCCESS);
+        case 'T':
+            bs_test_rogers_and_tanimoto_similarity();
             exit(EXIT_SUCCESS);
         case 'h':
         case '?':
@@ -5202,18 +6438,18 @@ bs_populate_sut_store(sut_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                 bs_print_signal(col_signal, stderr);
                 exit(EXIT_FAILURE);
             }
-            score_t corr = NAN;
-            if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                corr = (*sf)(row_signal, col_signal, row_signal->n);
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
             }
             else if (!bs_globals.zero_sd_warning_issued) {
-                fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                 bs_globals.zero_sd_warning_issued = kTrue;
             }
             buf[s_buf++] = 
-                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
                     fprintf(stderr, "Error: Could not write score buffer to output SUT store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
@@ -5868,18 +7104,18 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                     bs_print_signal(col_signal, stderr);
                     exit(EXIT_FAILURE);
                 }
-                score_t corr = NAN;
-                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                score_t pairwise_score = NAN;
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
                 buf[s_buf++] = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 buf[s_buf++] = self_correlation_score;
@@ -6070,12 +7306,12 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     bs_print_signal(col_signal, stderr);
                     exit(EXIT_FAILURE);
                 }
-                score_t corr = NAN;
-                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                score_t pairwise_score = NAN;
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
                 //fprintf(stderr, "-----\n");
@@ -6084,9 +7320,9 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                 //bs_print_signal(col_signal, stderr);
                 //fprintf(stderr, "-----\n");
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
                 //fprintf(stderr, "-----\n");
                 //exit(0);
             }
@@ -6237,18 +7473,18 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
                     bs_print_signal(col_signal, stderr);
                     exit(EXIT_FAILURE);
                 }
-                score_t corr = NAN;
-                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                score_t pairwise_score = NAN;
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else {
                 score = self_correlation_score;
@@ -6433,18 +7669,18 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                     bs_print_signal(col_signal, stderr);
                     exit(EXIT_FAILURE);
                 }
-                score_t corr = NAN;
-                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                score_t pairwise_score = NAN;
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
@@ -6652,18 +7888,18 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
                     bs_print_signal(col_signal, stderr);
                     exit(EXIT_FAILURE);
                 }
-                score_t corr = NAN;
-                if ((row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                    corr = (*sf)(row_signal, col_signal, row_signal->n);
+                score_t pairwise_score = NAN;
+                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
                 }
                 else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors have zero standard deviation!\n");
+                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                     bs_globals.zero_sd_warning_issued = kTrue;
                 }
                 score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(corr) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(corr) : 
-                    bs_encode_score_to_byte_custom(corr, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             }
             else if (row_idx == col_idx) {
                 score = self_correlation_score;
