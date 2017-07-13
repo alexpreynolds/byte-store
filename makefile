@@ -33,7 +33,7 @@ HTTPD_LIB_DIR    = $(HTTPD_DIR)/lib
 #
 #  - CentOS 7 does not seem to offer static 
 #    builds of gnutls and gcrypt. Bummer!
-# --------------------------------------
+# -----------------------------------------
 
 ifeq ($(PLATFORM),Darwin)
 	CC = clang
@@ -47,6 +47,24 @@ ifeq ($(PLATFORM), Linux)
 	INCLUDES += -I/usr/include/gnutls -I/usr/include/nettle
 	LIB64 = -L"/usr/lib64"
 endif
+
+# ------------------------------------------
+# To compile and run byte-store on an HPC 
+# host, first add the following modules:
+#
+#   $ module add gcc
+#   $ module add glibc
+#   $ module add gnutls
+#   $ module add libgcrypt
+#
+# Then run make:
+#
+#   $ make all
+#
+# These modules include the necessary headers 
+# and libraries required for compilation and
+# execution of the byte-store binary.
+# ------------------------------------------
 
 all: byte-store
 
