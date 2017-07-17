@@ -4290,13 +4290,13 @@ bs_jaccard_index_signal(signal_t* x, signal_t* y, uint32_t len)
         a   += (x->data[idx] && y->data[idx]);
     }
     /*
-        The formula for the Jaccard index is undefined when one 
-        or both of the vectors being compared are all zeros. If 
-        both are all zeros, we define the measure as one, and 
-        if only one of the two vectors is all zeros, the measure 
+        The formula for the Jaccard index is undefined when 
+        both of the vectors being compared are all zeros. If 
+        both are all zeros, we define the measure as NaN. If 
+        only one of the two vectors is all zeros, the measure 
         is defined to be zero.
     */
-    return (abc > 0) ? a / abc : 1.0f;
+    return (abc > 0) ? a / abc : NAN;
 }
 
 /**

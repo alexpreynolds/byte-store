@@ -202,9 +202,9 @@ extern "C" {
     const score_t kJaccardIndexTestJ1J3Unencoded = NAN;
     const score_t kJaccardIndexTestJ1J3Encoded = NAN;
     const byte_t kJaccardIndexTestJ1J3EncodedByte = 0xca;
-    const score_t kJaccardIndexTestJzJzUnencoded = 1.0f;
-    const score_t kJaccardIndexTestJzJzEncoded = 1.00f;
-    const byte_t kJaccardIndexTestJzJzEncodedByte = 0xc9;
+    const score_t kJaccardIndexTestJzJzUnencoded = NAN;
+    const score_t kJaccardIndexTestJzJzEncoded = NAN;
+    const byte_t kJaccardIndexTestJzJzEncodedByte = 0xca;
     const score_t kJaccardIndexTestJzJuUnencoded = 0.00f;
     const score_t kJaccardIndexTestJzJuEncoded = +0.00f;
     const byte_t kJaccardIndexTestJzJuEncodedByte = 0x65;
