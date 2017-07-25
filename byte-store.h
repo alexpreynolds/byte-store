@@ -715,6 +715,7 @@ extern "C" {
         score_t score_filter_cutoff_lower_bound;
         score_t score_filter_cutoff_upper_bound; /* for threshold ranges */
         boolean_t score_filter_range_set;
+        boolean_t store_filter_mutual_set;
         boolean_t rng_seed_flag;
         uint32_t rng_seed_value;
         char lookup_fn[FN_MAX_LEN];
@@ -766,6 +767,7 @@ extern "C" {
         { "score-filter-ranged-within-inclusive",                required_argument, NULL, '8' },
         { "score-filter-ranged-outside-exclusive",               required_argument, NULL, '9' },
         { "score-filter-ranged-outside-inclusive",               required_argument, NULL, '0' },
+        { "score-filter-mutual",                                 no_argument,       NULL, 'm' },
         { "index-query",                                         required_argument, NULL, 'i' },
         { "multiple-index-query",                                required_argument, NULL, 'w' },
         { "multiple-index-query-from-file",                      required_argument, NULL, 'z' },
@@ -797,7 +799,7 @@ extern "C" {
         { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:mi:w:z:g:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
@@ -1113,7 +1115,7 @@ extern "C" {
     void                         bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn);
-    void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
+    void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, FILE* os);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, char** b);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);

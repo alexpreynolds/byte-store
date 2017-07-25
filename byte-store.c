@@ -584,6 +584,7 @@ main(int argc, char** argv)
                             bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup,
                                                                                 sqr_store,
                                                                                 bs_globals.store_query_str,
+                                                                                bs_globals.store_filter_mutual_set,
                                                                                 stdout);
                         }
                         else {
@@ -1688,6 +1689,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
                 bs_print_sqr_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
                                                                     bs_globals.sqr_store_ptr,
                                                                     con_info->query_index_filename,
+                                                                    kFalse,
                                                                     write_fp);
                 break;
             case kScoreFilterGtEq:
@@ -5957,6 +5959,7 @@ bs_init_globals()
     bs_globals.store_single_chunk_flag = kFalse;
     bs_globals.store_compression_flag = kFalse;
     bs_globals.store_filter = kScoreDefaultFilter;
+    bs_globals.store_filter_mutual_set = kFalse;
     bs_globals.score_filter_cutoff = 0;
     bs_globals.score_filter_cutoff_lower_bound = 0;
     bs_globals.score_filter_cutoff_upper_bound = 0;
@@ -6217,6 +6220,9 @@ bs_init_command_line_options(int argc, char** argv)
             sscanf(optarg, "%f:%f", &bs_globals.score_filter_cutoff_lower_bound, &bs_globals.score_filter_cutoff_upper_bound);
             bs_globals.score_filter_range_set = kTrue;
             bs_score_filter_counter++;
+            break;
+        case 'm':
+            bs_globals.store_filter_mutual_set = kTrue;
             break;
         case 'f':
             bs_globals.store_frequency_flag = kTrue;
@@ -9670,11 +9676,12 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             qf     (char*) query file name to parse
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
  */
 
 void
-bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os)
+bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, FILE* os)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -9798,18 +9805,41 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
 
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+            
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
 
-            /* read a row from current block and print its signal to the output stream os */
+            
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            if (!m) {
+                /* read a row from current block and print its signal to the output stream os */
+                size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read mutual bytes from current block and print its signal to the output stream os */
+                col_idx = first;
+                size_t mutual_byte_diff = last - first;
+                size_t items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (uint32_t) last : (uint32_t) l->nelems;
             do {
                 if (row_idx != col_idx) {
                     bs_print_pair(os, 
@@ -9825,7 +9855,14 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
                                   );
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
         
             /* set current block index */
             current_block_idx = new_block_idx;
