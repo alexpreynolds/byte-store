@@ -6308,7 +6308,7 @@ bs_init_command_line_options(int argc, char** argv)
             }
             sscanf(optarg, "%f", &bs_globals.encoding_cutoff_zero_max);
             break;
-        case 'm':
+        case 'y':
             bs_globals.permutation_test_flag = kTrue;
             break;
         case 'o':

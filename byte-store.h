@@ -776,7 +776,7 @@ extern "C" {
         { "encoding-cutoff-zero-min",                            required_argument, NULL, 'n' },
         { "encoding-cutoff-zero-max",                            required_argument, NULL, 'x' },
         { "lookup-frequency",                                    no_argument,       NULL, 'u' },
-        { "permutation-test",                                    no_argument,       NULL, 'm' },
+        { "permutation-test",                                    no_argument,       NULL, 'y' },
         { "permutation-count",                                   required_argument, NULL, 'o' },
         { "permutation-precision",                               required_argument, NULL, 'p' },
         { "permutation-alpha",                                   required_argument, NULL, 'a' },
@@ -797,7 +797,7 @@ extern "C" {
         { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:umo:p:a:v:d:EK:C:SPJOHTMNh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:i:w:z:g:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
