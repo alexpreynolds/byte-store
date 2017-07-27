@@ -473,20 +473,22 @@ main(int argc, char** argv)
                 case kStoreRogersAndTanimotoSimilaritySquareMatrix:
                 case kStoreNormalizedPointwiseMutualInformationSquareMatrix:
                     if (bs_globals.store_filter == kScoreFilterNone)
-                        bs_print_sqr_store_to_bed7(lookup, 
-                                                   sqr_store, 
-                                                   stdout, 
-                                                   bs_globals.store_query_idx_start, 
+                        bs_print_sqr_store_to_bed7(lookup,
+                                                   sqr_store,
+                                                   bs_globals.store_filter_mutual_set,
+                                                   stdout,
+                                                   bs_globals.store_query_idx_start,
                                                    bs_globals.store_query_idx_end);
                     else
-                        bs_print_sqr_filtered_store_to_bed7(lookup, 
-                                                            sqr_store, 
-                                                            stdout, 
-                                                            bs_globals.score_filter_cutoff, 
-                                                            bs_globals.score_filter_cutoff_lower_bound, 
-                                                            bs_globals.score_filter_cutoff_upper_bound, 
-                                                            bs_globals.store_filter, 
-                                                            bs_globals.store_query_idx_start, 
+                        bs_print_sqr_filtered_store_to_bed7(lookup,
+                                                            sqr_store,
+                                                            bs_globals.store_filter_mutual_set,
+                                                            stdout,
+                                                            bs_globals.score_filter_cutoff,
+                                                            bs_globals.score_filter_cutoff_lower_bound,
+                                                            bs_globals.score_filter_cutoff_upper_bound,
+                                                            bs_globals.store_filter,
+                                                            bs_globals.store_query_idx_start,
                                                             bs_globals.store_query_idx_end);
                     break;
                 case kStorePearsonRSquareMatrixSplit:
@@ -499,7 +501,9 @@ main(int argc, char** argv)
                     if (bs_globals.store_filter == kScoreFilterNone) {
                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
                                                                        sqr_store,
+                                                                       bs_globals.store_filter_mutual_set,
                                                                        stdout,
+                                                                       query_roi,
                                                                        query_roi,
                                                                        query_roi_num);
                     }
@@ -507,6 +511,7 @@ main(int argc, char** argv)
                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
                                                                                 sqr_store,
                                                                                 stdout,
+                                                                                query_roi,
                                                                                 query_roi,
                                                                                 query_roi_num,
                                                                                 bs_globals.score_filter_cutoff,
@@ -591,6 +596,7 @@ main(int argc, char** argv)
                             bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup,
                                                                                          sqr_store,
                                                                                          bs_globals.store_query_str,
+                                                                                         bs_globals.store_filter_mutual_set,
                                                                                          stdout,
                                                                                          bs_globals.score_filter_cutoff,
                                                                                          bs_globals.score_filter_cutoff_lower_bound,
@@ -602,15 +608,18 @@ main(int argc, char** argv)
                         if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
                                                                            sqr_store,
+                                                                           bs_globals.store_filter_mutual_set,
                                                                            stdout,
-                                                                           bs_globals.store_query_indices,
+                                                                           bs_globals.store_query_indices_starts,
+                                                                           bs_globals.store_query_indices_ends,
                                                                            bs_globals.store_query_indices_num);
                         }
                         else {
                             bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
                                                                                     sqr_store,
                                                                                     stdout,
-                                                                                    bs_globals.store_query_indices,
+                                                                                    bs_globals.store_query_indices_starts,
+                                                                                    bs_globals.store_query_indices_ends,
                                                                                     bs_globals.store_query_indices_num,
                                                                                     bs_globals.score_filter_cutoff,
                                                                                     bs_globals.score_filter_cutoff_lower_bound,
@@ -1478,6 +1487,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
                 bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
                                                                                bs_globals.sqr_store_ptr,
                                                                                con_info->query_index_filename,
+                                                                               kFalse,
                                                                                &temporary_buf);
                 break;
             case kScoreFilterGtEq:
@@ -1488,6 +1498,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
                                                                                         bs_globals.sqr_store_ptr,
                                                                                         con_info->query_index_filename,
+                                                                                        kFalse,
                                                                                         &temporary_buf,
                                                                                         filter_parameters->lone_bound,
                                                                                         0,
@@ -1501,6 +1512,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(bs_globals.lookup_ptr,
                                                                                         bs_globals.sqr_store_ptr,
                                                                                         con_info->query_index_filename,
+                                                                                        kFalse,
                                                                                         &temporary_buf,
                                                                                         0,
                                                                                         filter_parameters->lower_bound,
@@ -1700,6 +1712,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
                                                                              bs_globals.sqr_store_ptr,
                                                                              con_info->query_index_filename,
+                                                                             kFalse,
                                                                              write_fp,
                                                                              filter_parameters->lone_bound,
                                                                              0,
@@ -1713,6 +1726,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(bs_globals.lookup_ptr,
                                                                              bs_globals.sqr_store_ptr,
                                                                              con_info->query_index_filename,
+                                                                             kFalse,
                                                                              write_fp,
                                                                              0,
                                                                              filter_parameters->lower_bound,
@@ -1963,10 +1977,11 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                //bs_print_sqr_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, query_idx_start, query_idx_end);
                 bs_print_sqr_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                bs_globals.sqr_store_ptr,
+                                                               kFalse,
                                                                write_fp,
+                                                               query_roi,
                                                                query_roi,
                                                                query_roi_num);
                 break;
@@ -1975,10 +1990,10 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
             case kScoreFilterEq:
             case kScoreFilterLtEq:
             case kScoreFilterLt:
-                //bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, filter_parameters->lone_bound, 0, 0, filter_parameters->type, query_idx_start, query_idx_end);
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                         bs_globals.sqr_store_ptr,
                                                                         write_fp,
+                                                                        query_roi,
                                                                         query_roi,
                                                                         query_roi_num,
                                                                         filter_parameters->lone_bound,
@@ -1990,10 +2005,10 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
             case kScoreFilterRangedWithinInclusive:
             case kScoreFilterRangedOutsideExclusive:
             case kScoreFilterRangedOutsideInclusive:
-                //bs_print_sqr_filtered_split_store_to_bed7(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, write_fp, 0, filter_parameters->lower_bound, filter_parameters->upper_bound, filter_parameters->type, query_idx_start, query_idx_end);
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                         bs_globals.sqr_store_ptr,
                                                                         write_fp,
+                                                                        query_roi,
                                                                         query_roi,
                                                                         query_roi_num,
                                                                         0,
@@ -2242,9 +2257,9 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
         switch (filter_parameters->type) {
             case kScoreFilterNone:
-                //bs_print_sqr_split_store_to_bed7_via_buffer(bs_globals.lookup_ptr, bs_globals.sqr_store_ptr, &temporary_buf, query_idx_start, query_idx_end);
                 bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
                                                                           bs_globals.sqr_store_ptr,
+                                                                          kFalse,
                                                                           &temporary_buf,
                                                                           query_roi,
                                                                           query_roi_num);
@@ -3234,6 +3249,7 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
         bs_globals.store_query_indices[current_idx] = entries[current_idx];
     } while (++current_idx < entry_idx);
     bs_globals.store_query_indices_num = entry_idx;
+    bs_globals.store_query_indices_capacity = entry_idx;
 
     /* clean up entries */
     free(entries), entries = NULL;
@@ -3243,6 +3259,25 @@ bs_parse_query_multiple_index_str(lookup_t* l, char* qs)
           bs_globals.store_query_indices_num, 
           sizeof(*bs_globals.store_query_indices), 
           bs_parse_query_multiple_index_str_comparator);
+
+    /* copy sorted entries to _starts and _ends arrays */
+    bs_globals.store_query_indices_starts = NULL;
+    bs_globals.store_query_indices_starts = malloc(sizeof(*bs_globals.store_query_indices_starts) * entry_idx);
+    if (!bs_globals.store_query_indices_starts) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices (starts)!\n");
+        exit(EXIT_FAILURE);
+    }
+    bs_globals.store_query_indices_ends = NULL;
+    bs_globals.store_query_indices_ends = malloc(sizeof(*bs_globals.store_query_indices_ends) * entry_idx);
+    if (!bs_globals.store_query_indices_ends) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices (ends)!\n");
+        exit(EXIT_FAILURE);
+    }
+    current_idx = 0;
+    do {
+        bs_globals.store_query_indices_starts[current_idx] = bs_globals.store_query_indices[current_idx];
+        bs_globals.store_query_indices_ends[current_idx] = bs_globals.store_query_indices[current_idx];
+    } while (++current_idx < entry_idx);
 
     return indices_found_flag;
 }
@@ -3265,15 +3300,21 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
     if (!fptr)
         return kFalse;
 
-    bs_globals.store_query_indices = NULL;
-    bs_globals.store_query_indices = calloc(MULT_IDX_MAX_NUM, sizeof(*bs_globals.store_query_indices));
-    if (!bs_globals.store_query_indices) {
-        fprintf(stderr, "Error: Could not allocate space for multiple indices!\n");
+    bs_globals.store_query_indices_starts = NULL;
+    bs_globals.store_query_indices_starts = calloc(MULT_IDX_MAX_NUM, sizeof(*bs_globals.store_query_indices_starts));
+    if (!bs_globals.store_query_indices_starts) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices starts!\n");
+        exit(EXIT_FAILURE);
+    }
+    bs_globals.store_query_indices_ends = NULL;
+    bs_globals.store_query_indices_ends = calloc(MULT_IDX_MAX_NUM, sizeof(*bs_globals.store_query_indices_ends));
+    if (!bs_globals.store_query_indices_ends) {
+        fprintf(stderr, "Error: Could not allocate space for multiple indices ends!\n");
         exit(EXIT_FAILURE);
     }
     bs_globals.store_query_indices_capacity = MULT_IDX_MAX_NUM;
 
-    int32_t first = 0;
+    int32_t first = 1;
     int32_t last = 0;
     int count = 0;
     uint32_t current_idx = 0;
@@ -3281,36 +3322,50 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
     while (!feof(fptr)) {
         /* resize array of indices, if necessary */
         if ((current_idx - 2) == bs_globals.store_query_indices_capacity) {
-            int32_t *resized_indices_arr = NULL;
             uint32_t resized_indices_arr_capacity = bs_globals.store_query_indices_capacity * 2;
-            resized_indices_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices));
-            if (!resized_indices_arr) {
-                fprintf(stderr, "Error: Could not allocate space for resized multiple indices!\n");
+            int32_t *resized_indices_starts_arr = NULL;
+            resized_indices_starts_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices_starts));
+            if (!resized_indices_starts_arr) {
+                fprintf(stderr, "Error: Could not allocate space for resized multiple indices starts!\n");
                 exit(EXIT_FAILURE);
             }
             for (uint32_t idx = 0; idx < current_idx; idx++) {
-                resized_indices_arr[idx] = bs_globals.store_query_indices[idx];
+                resized_indices_starts_arr[idx] = bs_globals.store_query_indices_starts[idx];
             }
-            free(bs_globals.store_query_indices);
-            bs_globals.store_query_indices = resized_indices_arr;
+            free(bs_globals.store_query_indices_starts);
+            bs_globals.store_query_indices_starts = resized_indices_starts_arr;
+            int32_t *resized_indices_ends_arr = NULL;
+            resized_indices_ends_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices_ends));
+            if (!resized_indices_ends_arr) {
+                fprintf(stderr, "Error: Could not allocate space for resized multiple indices ends!\n");
+                exit(EXIT_FAILURE);
+            }
+            for (uint32_t idx = 0; idx < current_idx; idx++) {
+                resized_indices_ends_arr[idx] = bs_globals.store_query_indices_ends[idx];
+            }
+            free(bs_globals.store_query_indices_ends);
+            bs_globals.store_query_indices_ends = resized_indices_ends_arr;
             bs_globals.store_query_indices_capacity = resized_indices_arr_capacity;
         }
         count = fscanf(fptr, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
         if (count != 2) {
             fprintf(stderr, "found something not a range of A-B in the input index file!\n");
-            exit(EXIT_FAILURE);
+            bs_globals.store_query_indices_num = 0;
+            return kFalse;
         } else if ( first > last ) {
             fprintf(stderr, "end-range ID less than start-range ID in the input index file!\n");
-            exit(EXIT_FAILURE);
+            bs_globals.store_query_indices_num = 0;
+            return kFalse;
         } else if ( last >= (int32_t) l->nelems ) {
             fprintf(stderr, "Error: Entry in multiple indices is greater than the number of elements in the input index file!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
+            bs_globals.store_query_indices_num = 0;
+            return kFalse;
         }
-        /* mark start and end (inclusive) in group of 2 */
-        bs_globals.store_query_indices[current_idx++] = first;
-        bs_globals.store_query_indices[current_idx++] = last;
+        /* mark start and end (inclusive) */
+        bs_globals.store_query_indices_starts[current_idx] = first;
+        bs_globals.store_query_indices_ends[current_idx] = last;
         bs_globals.store_query_indices_num++;
+        current_idx++;
     }
     return kTrue;
 }
@@ -5951,6 +6006,8 @@ bs_init_globals()
     bs_globals.store_query_indices = NULL;
     bs_globals.store_query_indices_num = 0;
     bs_globals.store_query_indices_capacity = 0;
+    bs_globals.store_query_indices_starts = NULL;
+    bs_globals.store_query_indices_ends = NULL;
     bs_globals.store_query_range_start = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_query_range_end = bs_init_bed(kQueryRangeDefaultChromosome, kQueryRangeDefaultStart, kQueryRangeDefaultEnd);
     bs_globals.store_row_chunk_size = kRowChunkDefaultSize;
@@ -6006,6 +6063,8 @@ bs_delete_globals()
     free(bs_globals.bedmap_path), bs_globals.bedmap_path = NULL;
     free(bs_globals.sortbed_path), bs_globals.sortbed_path = NULL;
     free(bs_globals.store_query_indices), bs_globals.store_query_indices = NULL;
+    free(bs_globals.store_query_indices_starts), bs_globals.store_query_indices_starts = NULL;
+    free(bs_globals.store_query_indices_ends), bs_globals.store_query_indices_ends = NULL;
     free(bs_globals.store_query_daemon_hostname), bs_globals.store_query_daemon_hostname = NULL;
     bs_delete_bed(&bs_globals.store_query_range_start);
     bs_delete_bed(&bs_globals.store_query_range_end);
@@ -8467,7 +8526,7 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
 }
 
 /**
- * @brief      bs_print_sqr_store_to_bed7(l, s, os, rs, re)
+ * @brief      bs_print_sqr_store_to_bed7(l, s, m, os, rs, re)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -8477,13 +8536,14 @@ bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j)
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
  *             rs     (uint32_t) row start index
  *             re     (uint32_t) row end index
  */
 
 void
-bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re)
+bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, uint32_t rs, uint32_t re)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -8506,17 +8566,34 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, u
         exit(EXIT_FAILURE);
     }
 
+    uint32_t row_idx = rs;
+    uint32_t col_idx = (m) ? rs : 0;
+
     /* fseek(is) to the starting offset */
-    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, 0);
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, col_idx);
     fseek(is, start_offset, SEEK_SET);
 
-    uint32_t row_idx = rs;
-    uint32_t col_idx = 0;
+    /* the maximum column index depends on whether or not we are looking at mutual bytes */
+    uint32_t col_idx_max = (m) ? (re + 1) : (uint32_t) l->nelems;
 
     do {
-        if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
-            fprintf(stderr, "Error: Could not read a row of data from sqr input stream!\n");
-            exit(EXIT_FAILURE);
+        size_t items_read = 0;
+        if (!m) {
+            /* read a row from current block */
+            items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
+        }
+        else {
+            /* read only mutual bytes from current block */
+            size_t mutual_byte_diff = re - rs + 1;
+            items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+            if (items_read != mutual_byte_diff) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                exit(EXIT_FAILURE);
+            }
         }
         do {
             if (row_idx != col_idx) {
@@ -8533,9 +8610,15 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, u
                               );
             }
             col_idx++;
-        } while (col_idx < l->nelems);
+        } while (col_idx < col_idx_max);
         row_idx++;
-        col_idx = 0;
+        col_idx = (m) ? rs : 0;
+
+        /* if we are reading mutual-region bytes, we need to seek another line of bytes */
+        /* so that the file pointer is correctly positioned for the next iteration */
+        if (m) {
+            fseek(is, l->nelems - 1, SEEK_CUR);
+        }
     } while (row_idx <= re);
 
     free(byte_buf);
@@ -8544,7 +8627,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, u
 }
 
 /**
- * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, os, fc, flb, fub, fo, rs, re)
+ * @brief      bs_print_sqr_filtered_store_to_bed7(l, s, m, os, fc, flb, fub, fo, rs, re)
  *
  * @details    Queries square matrix store for provided index range 
  *             globals and prints BED7 (BED3 + BED3 + floating point) 
@@ -8555,6 +8638,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, u
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
@@ -8565,7 +8649,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, u
  */
 
 void
-bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
+bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
 {
     byte_t* byte_buf = NULL;
     byte_buf = malloc(l->nelems);
@@ -8588,18 +8672,36 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
         exit(EXIT_FAILURE);
     }
 
+    uint32_t row_idx = rs;
+    uint32_t col_idx = (m) ? rs : 0;
+
     /* fseek(is) to the starting offset */
-    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, 0);
+    off_t start_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, rs, col_idx);
     fseek(is, start_offset, SEEK_SET);
 
-    uint32_t row_idx = rs;
-    uint32_t col_idx = 0;
+    /* the maximum column index depends on whether or not we are looking at mutual bytes */
+    uint32_t col_idx_max = (m) ? (re + 1) : (uint32_t) l->nelems;
 
     do {
-        if (fread(byte_buf, sizeof(*byte_buf), l->nelems, is) != l->nelems) {
-            fprintf(stderr, "Error: Could not read a row of data from sqr input stream!\n");
-            exit(EXIT_FAILURE);
+        size_t items_read = 0;
+        if (!m) {
+            /* read a row from current block */
+            items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
         }
+        else {
+            /* read only mutual bytes from current block */
+            size_t mutual_byte_diff = re - rs + 1;
+            items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+            if (items_read != mutual_byte_diff) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                exit(EXIT_FAILURE);
+            }
+        }
+
         do {
             if (row_idx != col_idx) {
                 score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -8625,9 +8727,15 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
                 }
             }
             col_idx++;
-        } while (col_idx < l->nelems);
+        } while (col_idx < col_idx_max);
         row_idx++;
-        col_idx = 0;
+        col_idx = (m) ? rs : 0;
+
+        /* if we are reading mutual-region bytes, we need to seek another line of bytes */
+        /* so that the file pointer is correctly positioned for the next iteration */
+        if (m) {
+            fseek(is, l->nelems - 1, SEEK_CUR);
+        }
     } while (row_idx <= re);
 
     free(byte_buf);
@@ -8636,336 +8744,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score
 }
 
 /**
- * @brief      bs_print_sqr_split_store_to_bed7(l, s, os, rs, re)
- *
- * @details    Queries raw square matrix store folder for
- *             provided index range globals and prints BED7 (BED3 
- *             + BED3 + floating point) to specified output stream. 
- *
- * @param      l      (lookup_t*) pointer to lookup table
- *             s      (sqr_store_t*) pointer to square matrix store
- *             os     (FILE*) pointer to output stream
- *             rs     (uint32_t) row start index
- *             re     (uint32_t) row end index
- */
-
-void
-bs_print_sqr_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t rs, uint32_t re)
-{
-    /* init parent folder name for split blocks */
-    char* block_src_dir = NULL;
-    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
-    if (!bs_path_exists(block_src_dir)) {
-        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    
-    /* get metadata string and attributes */
-    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
-    if (!bs_path_exists(md_src_fn)) {
-        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    ssize_t md_fn_size = bs_file_size(md_src_fn);
-    FILE *is = NULL;
-    is = fopen(md_src_fn, "rb");
-    if (ferror(is)) {
-        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
-    char md_length[MD_OFFSET_MAX_LEN] = {0};
-    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
-        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
-        exit(EXIT_FAILURE);
-    }
-    uint32_t md_string_length = 0;
-    sscanf(md_length, "%u", &md_string_length);
-    char *md_string = NULL;
-    md_string = malloc(md_string_length);
-    if (!md_string) {
-        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
-    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
-        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
-        exit(EXIT_FAILURE);
-    }
-    fclose(is);
-    metadata_t* md = NULL;
-    md = bs_parse_metadata_str(md_string);
-    if (!md) {
-        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
-        exit(EXIT_FAILURE);
-    }    
-    
-    /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) rs;
-    int32_t query_end = (int32_t) re;
-
-    uint32_t query_start_block = 0;
-    while (query_start >= (int32_t) md->block_row_size) {
-        query_start_block++;
-        query_start -= md->block_row_size;
-    } 
-    uint32_t query_end_block = 0;
-    while (query_end >= (int32_t) md->block_row_size) {
-        query_end_block++;
-        query_end -= md->block_row_size;
-    }
-    
-    /* allocate byte buffer -- we read in one row of bytes at a time */
-    byte_t* byte_buf = NULL;
-    ssize_t n_byte_buf = l->nelems;
-    byte_buf = malloc(n_byte_buf);
-    if (!byte_buf) {
-        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    /* iterate through query_start -> query_end blocks */
-    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
-        /* at start of block, open input stream */
-        is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, block_idx), "rb");
-        if (ferror(is)) {
-            fprintf(stderr, "Error: Could not open handle to input store!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
-        }
-    
-       /* set up bounds */
-        uint32_t row_idx = block_idx * md->block_row_size;
-        uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
-
-        /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < rs) {
-            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
-            row_idx = rs;
-        }
-
-        do {
-            /* read a row of bytes */
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
-            }
-            do {
-                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
-                    bs_print_pair(os, 
-                                  l->elems[row_idx]->chr,
-                                  l->elems[row_idx]->start,
-                                  l->elems[row_idx]->stop,
-                                  l->elems[col_idx]->chr,
-                                  l->elems[col_idx]->start,
-                                  l->elems[col_idx]->stop,
-                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                  );
-                }
-                col_idx++;
-            } while (col_idx < l->nelems);
-            col_idx = 0;
-            row_idx++;
-        } while (row_idx <= end_of_block_row_idx);
-        
-        /* at end of block, close input streams */
-        fclose(is);
-    }
-    
-    /* clean up */
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
-}
-
-/**
- * @brief      bs_print_sqr_split_store_to_bed7_via_buffer(l, s, b, rs, re)
- *
- * @details    Queries raw square matrix store folder for
- *             provided index range globals and prints BED7 (BED3 
- *             + BED3 + floating point) to specified output buffer. 
- *
- * @param      l      (lookup_t*) pointer to lookup table
- *             s      (sqr_store_t*) pointer to square matrix store
- *             b      (char**) pointer to output buffer
- *             rs     (uint32_t) row start index
- *             re     (uint32_t) row end index
- */
-
-void
-bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, uint32_t rs, uint32_t re)
-{
-    /* init parent folder name for split blocks */
-    char* block_src_dir = NULL;
-    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
-    if (!bs_path_exists(block_src_dir)) {
-        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    
-    /* get metadata string and attributes */
-    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
-    if (!bs_path_exists(md_src_fn)) {
-        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    ssize_t md_fn_size = bs_file_size(md_src_fn);
-    FILE *is = NULL;
-    is = fopen(md_src_fn, "rb");
-    if (ferror(is)) {
-        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
-    char md_length[MD_OFFSET_MAX_LEN] = {0};
-    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
-        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
-        exit(EXIT_FAILURE);
-    }
-    uint32_t md_string_length = 0;
-    sscanf(md_length, "%u", &md_string_length);
-    char *md_string = NULL;
-    md_string = malloc(md_string_length);
-    if (!md_string) {
-        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
-    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
-        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
-        exit(EXIT_FAILURE);
-    }
-    fclose(is);
-    metadata_t* md = NULL;
-    md = bs_parse_metadata_str(md_string);
-    if (!md) {
-        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
-        exit(EXIT_FAILURE);
-    }    
-    
-    /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) rs;
-    int32_t query_end = (int32_t) re;
-
-    uint32_t query_start_block = 0;
-    while (query_start >= (int32_t) md->block_row_size) {
-        query_start_block++;
-        query_start -= md->block_row_size;
-    } 
-    uint32_t query_end_block = 0;
-    while (query_end >= (int32_t) md->block_row_size) {
-        query_end_block++;
-        query_end -= md->block_row_size;
-    }
-    
-    /* allocate byte buffer -- we read in one row of bytes at a time */
-    byte_t* byte_buf = NULL;
-    ssize_t n_byte_buf = l->nelems;
-    byte_buf = malloc(n_byte_buf);
-    if (!byte_buf) {
-        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* allocate result buffer -- it is up to the caller to release this memory! */
-    char* result_buf = NULL;
-    ssize_t n_result_buf = OUTPUT_LINE_MAX_LEN;
-    ssize_t l_result_buf = 0;
-    result_buf = malloc(n_result_buf);
-    if (!result_buf) {
-        fprintf(stderr, "Error: Could not allocate memory to sqr result buffer!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    /* iterate through query_start -> query_end blocks */
-    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
-        /* at start of block, open input stream */
-        is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, block_idx), "rb");
-        if (ferror(is)) {
-            fprintf(stderr, "Error: Could not open handle to input store!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
-        }
-    
-       /* set up bounds */
-        uint32_t row_idx = block_idx * md->block_row_size;
-        uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
-
-        /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < rs) {
-            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
-            row_idx = rs;
-        }
-
-        do {
-            /* read a row of bytes */
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
-            }
-            do {
-                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
-                    bs_print_pair_to_buffer(result_buf + l_result_buf,
-                                            &l_result_buf, 
-                                            l->elems[row_idx]->chr,
-                                            l->elems[row_idx]->start,
-                                            l->elems[row_idx]->stop,
-                                            l->elems[col_idx]->chr,
-                                            l->elems[col_idx]->start,
-                                            l->elems[col_idx]->stop,
-                                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                            );
-                    /* resize the result buffer, if necessary */
-                    if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
-                        char* temp_result_buf = NULL;
-                        temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
-                        if (!temp_result_buf) {
-                            fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
-                            exit(EXIT_FAILURE);
-                        }
-                        n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
-                        result_buf = temp_result_buf;
-                    }
-                }
-                col_idx++;
-            } while (col_idx < l->nelems);
-            col_idx = 0;
-            row_idx++;
-        } while (row_idx <= end_of_block_row_idx);
-        
-        /* at end of block, close input streams */
-        fclose(is);
-    }
-
-    /* set result buffer pointer */
-    *b = result_buf;
-    
-    /* clean up */
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
-}
-
-/**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7(l, s, os, fc, flb, fub, fo, rs, re)
+ * @brief      bs_print_sqr_filtered_split_store_to_bed7_via_buffer(l, s, m, b, fc, flb, fub, fo, rs, re)
  *
  * @details    Queries raw split square matrix store for 
  *             provided index range globals and prints BED7 (BED3 
@@ -8973,172 +8752,7 @@ bs_print_sqr_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** 
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
- *             os     (FILE*) pointer to output stream
- *             fc     (score_t) score filter cutoff
- *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
- *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
- *             fo     (score_filter_t) score filter operation
- *             rs     (uint32_t) row start index
- *             re     (uint32_t) row end index
- */
-
-void
-bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
-{
-    /* init parent folder name for split blocks */
-    char* block_src_dir = NULL;
-    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
-    if (!bs_path_exists(block_src_dir)) {
-        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    
-    /* get metadata string and attributes */
-    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
-    if (!bs_path_exists(md_src_fn)) {
-        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    ssize_t md_fn_size = bs_file_size(md_src_fn);
-    FILE *is = NULL;
-    is = fopen(md_src_fn, "rb");
-    if (ferror(is)) {
-        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
-    char md_length[MD_OFFSET_MAX_LEN] = {0};
-    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
-        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
-        exit(EXIT_FAILURE);
-    }
-    uint32_t md_string_length = 0;
-    sscanf(md_length, "%u", &md_string_length);
-    char *md_string = NULL;
-    md_string = malloc(md_string_length);
-    if (!md_string) {
-        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
-        exit(EXIT_FAILURE);
-    }
-    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
-    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
-        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
-        exit(EXIT_FAILURE);
-    }
-    fclose(is);
-    metadata_t* md = NULL;
-    md = bs_parse_metadata_str(md_string);
-    if (!md) {
-        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
-        exit(EXIT_FAILURE);
-    }    
-    
-    /* build query_start and query_end parameters */
-    int32_t query_start = (int32_t) rs;
-    int32_t query_end = (int32_t) re;
-
-    uint32_t query_start_block = 0;
-    while (query_start >= (int32_t) md->block_row_size) {
-        query_start_block++;
-        query_start -= md->block_row_size;
-    } 
-    uint32_t query_end_block = 0;
-    while (query_end >= (int32_t) md->block_row_size) {
-        query_end_block++;
-        query_end -= md->block_row_size;
-    }
-    
-    /* allocate byte buffer -- we read in one row at a time */
-    byte_t* byte_buf = NULL;
-    ssize_t n_byte_buf = l->nelems;
-    byte_buf = malloc(n_byte_buf);
-    if (!byte_buf) {
-        fprintf(stderr, "Error: Could not allocate memory to sqr byte buffer!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    /* iterate through query_start -> query_end blocks */
-    for (uint32_t block_idx = query_start_block; block_idx <= query_end_block; block_idx++) {
-        /* at start of block, open input stream */
-        is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, block_idx), "rb");
-        if (ferror(is)) {
-            fprintf(stderr, "Error: Could not open handle to input store!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
-        }
-    
-        /* set up bounds */
-        uint32_t row_idx = block_idx * md->block_row_size;
-        uint32_t col_idx = 0;
-        ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
-
-        /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
-        if (row_idx < rs) {
-            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
-            row_idx = rs;
-        }
-
-        do {
-            /* read a row of bytes */
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
-            }
-            do {
-                if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
-                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                         ((fo == kScoreFilterGt) && (d > fc)) ||
-                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ||
-                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                        bs_print_pair(os, 
-                                      l->elems[row_idx]->chr,
-                                      l->elems[row_idx]->start,
-                                      l->elems[row_idx]->stop,
-                                      l->elems[col_idx]->chr,
-                                      l->elems[col_idx]->start,
-                                      l->elems[col_idx]->stop,
-                                      d);
-                    }
-                }
-                col_idx++;
-            } while (col_idx < l->nelems);
-            col_idx = 0;
-            row_idx++;
-        } while (row_idx <= end_of_block_row_idx);
-        
-        /* at end of block, close input streams */
-        fclose(is);
-    }
-    
-    /* clean up */
-    free(block_src_dir), block_src_dir = NULL;
-    free(md_src_fn), md_src_fn = NULL;
-    free(md_string), md_string = NULL;
-    free(md), md = NULL;
-    free(byte_buf), byte_buf = NULL;
-}
-
-/**
- * @brief      bs_print_sqr_filtered_split_store_to_bed7_via_buffer(l, s, b, fc, flb, fub, fo, rs, re)
- *
- * @details    Queries raw split square matrix store for 
- *             provided index range globals and prints BED7 (BED3 
- *             + BED3 + floating point) to specified output stream. 
- *
- * @param      l      (lookup_t*) pointer to lookup table
- *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             b      (char**) pointer to output buffer
  *             fc     (score_t) score filter cutoff
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
@@ -9149,7 +8763,7 @@ bs_print_sqr_filtered_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os,
  */
 
 void
-bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
+bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, boolean_t m, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo, uint32_t rs, uint32_t re)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -9248,22 +8862,38 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
     
         /* set up bounds */
         uint32_t row_idx = block_idx * md->block_row_size;
-        uint32_t col_idx = 0;
+        uint32_t col_idx = (m) ? rs : 0;
         ssize_t end_of_block_row_idx = ((block_idx + 1) * md->block_row_size - 1 < re) ? (block_idx + 1) * md->block_row_size - 1 : re;
 
         /* first offset the number of bytes required to get to the starting point within the split block, if necessary */
         if (row_idx < rs) {
-            fseek(is, (rs - row_idx) * l->nelems, SEEK_SET);
+            fseek(is, (rs - row_idx) * l->nelems + col_idx, SEEK_SET);
             row_idx = rs;
         }
 
         do {
-            /* read a row of bytes */
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            size_t items_read = 0;
+            if (!m) {
+                /* read a row from current block */
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read only mutual bytes from current block */
+                size_t mutual_byte_diff = re - rs + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (re + 1) : (uint32_t) l->nelems;
+
             do {
                 if ((row_idx != col_idx) && (row_idx >= rs) && (row_idx <= re)) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -9301,9 +8931,15 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
-            col_idx = 0;
+            } while (col_idx < col_idx_max);
+            col_idx = (m) ? rs : 0;
             row_idx++;
+
+            /* if we are reading mutual-region bytes, we need to seek another line of bytes */
+            /* so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                fseek(is, l->nelems - 1, SEEK_CUR);
+            }
         } while (row_idx <= end_of_block_row_idx);
         
         /* at end of block, close input streams */
@@ -9322,7 +8958,7 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
 }
 
 /**
- * @brief      bs_print_sqr_split_store_separate_rows_to_bed7(l, s, os, r, rn)
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7(l, s, m, os, rs, re, rn)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -9330,19 +8966,20 @@ bs_print_sqr_filtered_split_store_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
- *             r      (int32_t*) pointer to list of query rows of interest 
+ *             rs     (int32_t*) pointer to list of query rows of interest (starts)
+ *             re     (int32_t*) pointer to list of query rows of interest (ends)
  *             rn     (uint32) number of rows of query interest
  */
 
 void
-bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn)
+bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, int32_t* rs, int32_t* re, uint32_t rn)
 {
     /* validate query row list size */
     if (rn == 0) {
         fprintf(stderr, "Error: Query row list is empty!\n");
-        bs_print_usage(stderr);
-        exit(EXIT_FAILURE);
+        return;
     }
     
     /* init parent folder name for split blocks */
@@ -9411,65 +9048,102 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
     int32_t new_block_idx = -1;
     uint32_t row_idx = 0;
     uint32_t col_idx = 0;
+
     for (uint32_t r_idx = 0; r_idx < rn; r_idx++) {
-        int32_t query_row = r[r_idx];
-        new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
-        
-        /* test if we are in a new block */
-        if (new_block_idx > current_block_idx) {
-            /* close current block file, if one is already open, and then open a new block */
-            if (is) {
-                fclose(is), is = NULL;
-            }
-            is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
-            if (ferror(is)) {
-                fprintf(stderr, "Error: Could not open handle to input store!\n");
-                bs_print_usage(stderr);
-                exit(EXIT_FAILURE);
-            }
-            /* adjust row_idx so that byte offset calculation is relative to current block */
-            row_idx = block_row_size * new_block_idx;
-        }
+        int32_t query_row = rs[r_idx];
+        uint32_t first = rs[r_idx];
+        uint32_t last = re[r_idx];
 
-        /* we offset some number of bytes from current position of input stream, as necessary */
-        /* note that we subtract a row unit, if we are in the same block and so have already */ 
-        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
-        /* otherwise we will almost certainly overflow and run into byte offset problems that */
-        /* cause garbage output */
-
-        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
-        int64_t bytes_to_go = row_diff * l->nelems;
-        if (bytes_to_go > 0) {
-            fseek(is, bytes_to_go, SEEK_CUR);
-        }
-
-        /* read a row from current block and print its signal to the output stream os */
-        row_idx = (uint32_t) query_row;
-        col_idx = 0;
-        size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-        if (items_read != l->nelems) {
-            fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-            exit(EXIT_FAILURE);
-        }
         do {
-            if (row_idx != col_idx) {
-                bs_print_pair(os, 
-                              l->elems[row_idx]->chr,
-                              l->elems[row_idx]->start,
-                              l->elems[row_idx]->stop,
-                              l->elems[col_idx]->chr,
-                              l->elems[col_idx]->start,
-                              l->elems[col_idx]->stop,
-                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                              bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                              );
+            new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+            
+            /* test if we are in a new block */
+            if (new_block_idx != current_block_idx) {
+                /* close current block file, if one is already open, and then open a new block */
+                if (is) {
+                    fclose(is), is = NULL;
+                }
+                is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+                if (ferror(is)) {
+                    fprintf(stderr, "Error: Could not open handle to input store!\n");
+                    bs_print_usage(stderr);
+                    exit(EXIT_FAILURE);
+                }
+                /* adjust row_idx so that byte offset calculation is relative to current block */
+                row_idx = block_row_size * new_block_idx;
             }
-            col_idx++;
-        } while (col_idx < l->nelems);
+
+            /* we offset some number of bytes from current position of input stream, as necessary */
+            /* note that we subtract a row unit, if we are in the same block and so have already */ 
+            /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+            /* otherwise we will almost certainly overflow and run into byte offset problems that */
+            /* cause garbage output */
         
-        /* set current block index */
-        current_block_idx = new_block_idx;
+            int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+            int64_t bytes_to_go = row_diff * l->nelems;
+
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
+            if (bytes_to_go > 0) {
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
+        
+            size_t items_read = 0;
+            if (!m) {
+                /* read a row from current block */
+                col_idx = 0;
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else {
+                /* read only mutual bytes from current block */
+                col_idx = first;
+                size_t mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
+
+            do {
+                if (row_idx != col_idx) {
+                    bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  );
+                }
+                col_idx++;
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
+            
+            /* set current block index */
+            current_block_idx = new_block_idx;
+            query_row++;
+        } while (query_row <= (int32_t) last);
     }
     
     /* clean up */
@@ -9482,7 +9156,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
 }
 
 /**
- * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_buffer(l, s, b, r, rn)
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_buffer(l, s, m, b, r, rn)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -9490,13 +9164,14 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             b      (char**) pointer to output buffer
  *             r      (int32_t*) pointer to list of query rows of interest 
  *             rn     (uint32_t) number of rows of query interest
  */
 
 void
-bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, int32_t* r, uint32_t rn)
+bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, boolean_t m, char** b, int32_t* r, uint32_t rn)
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -9581,6 +9256,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
     int32_t new_block_idx = -1;
     uint32_t row_idx = 0;
     uint32_t col_idx = 0;
+    uint32_t first = r[0];
+    uint32_t last = r[rn - 1];
+
     for (uint32_t r_idx = 0; r_idx < rn; r_idx++) {
         int32_t query_row = r[r_idx];
         new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
@@ -9609,18 +9287,42 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
 
         int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
         int64_t bytes_to_go = row_diff * l->nelems;
+
+        /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+        if (m) {
+            bytes_to_go += first;
+        }
+        
+        /* seek to the correct location */
         if (bytes_to_go > 0) {
             fseek(is, bytes_to_go, SEEK_CUR);
         }
 
-        /* read a row from current block and print its signal to the output stream os */
+        size_t items_read = 0;
         row_idx = (uint32_t) query_row;
         col_idx = 0;
-        size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-        if (items_read != l->nelems) {
-            fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-            exit(EXIT_FAILURE);
+        if (!m) {
+            /* read a row from current block */
+            items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                exit(EXIT_FAILURE);
+            }
         }
+        else {
+            /* read only mutual bytes from current block */
+            col_idx = first;
+            size_t mutual_byte_diff = last - first + 1;
+            items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+            if (items_read != mutual_byte_diff) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        /* the maximum column index depends on whether or not we are looking at mutual bytes */
+        uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
+
         do {
             if (row_idx != col_idx) {
                 bs_print_pair_to_buffer(result_buf + l_result_buf,
@@ -9648,7 +9350,14 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
                 }
             }
             col_idx++;
-        } while (col_idx < l->nelems);
+        } while (col_idx < col_idx_max);
+
+        /* if we are reading mutual-region bytes, we need to seek to the end of the */
+        /* row so that the file pointer is correctly positioned for the next iteration */
+        if (m) {
+            bytes_to_go = l->nelems - last;
+            fseek(is, bytes_to_go, SEEK_CUR);
+        }
         
         /* set current block index */
         current_block_idx = new_block_idx;
@@ -9667,7 +9376,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
 }
 
 /**
- * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file(l, s, qf, os)
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file(l, s, qf, m, os)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -9761,11 +9470,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
         if (count != 2) {
             fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
             break;
-            //exit(EXIT_FAILURE);
         } else if (first > last) {
             fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
             break;
-            //exit(EXIT_FAILURE);
         } else if (last >= (int32_t) l->nelems) {
             fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
             bs_print_usage(stderr);
@@ -9815,23 +9522,23 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
-
             
+            size_t items_read = 0;
             row_idx = (uint32_t) query_row;
             col_idx = 0;
             if (!m) {
-                /* read a row from current block and print its signal to the output stream os */
-                size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                /* read a row from current block */
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
                 if (items_read != l->nelems) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
                     exit(EXIT_FAILURE);
                 }
             }
             else {
-                /* read mutual bytes from current block and print its signal to the output stream os */
+                /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first;
-                size_t items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                size_t mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -9839,7 +9546,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
             }
             
             /* the maximum column index depends on whether or not we are looking at mutual bytes */
-            uint32_t col_idx_max = (m) ? (uint32_t) last : (uint32_t) l->nelems;
+            uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
+
             do {
                 if (row_idx != col_idx) {
                     bs_print_pair(os, 
@@ -9860,7 +9568,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
             /* if we are reading mutual-region bytes, we need to seek to the end of the */
             /* row so that the file pointer is correctly positioned for the next iteration */
             if (m) {
-                bytes_to_go = l->nelems - last;
+                bytes_to_go = l->nelems - last - 1;
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
         
@@ -9887,7 +9595,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
 }
 
 /**
- * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(l, s, qf, b)
+ * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(l, s, qf, m, b)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -9896,11 +9604,12 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             qf     (char*) query file name to parse
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             b      (char**) pointer to output buffer
  */
 
 void
-bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, char** b)
+bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, char** b)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -10034,20 +9743,42 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
 
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
 
-            /* read a row from current block and print its signal to the output stream os */
+            size_t items_read = 0;
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            if (!m) {
+                /* read a row from current block */
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else {
+                /* read mutual bytes from current block */
+                col_idx = first;
+                size_t mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
             }
 
-            fprintf(stderr, "offset rows -> row_idx [%u] col_idx [%u]\n", row_idx, col_idx);
+            //fprintf(stderr, "offset rows -> row_idx [%u] col_idx [%u]\n", row_idx, col_idx);
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
 
             do {
                 if (row_idx != col_idx) {
@@ -10076,7 +9807,14 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
         
             /* set current block index */
             current_block_idx = new_block_idx;
@@ -10104,7 +9842,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, os, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, m, os, fc, flb, fub, fo)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -10113,6 +9851,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             qf     (char*) query file name to parse
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
  *             fc     (score_t) score filter cutoff
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
@@ -10121,7 +9860,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -10202,11 +9941,9 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
         if (count != 2) {
             fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
             break;
-            //exit(EXIT_FAILURE);
         } else if (first > last) {
             fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
             break;
-            //exit(EXIT_FAILURE);
         } else if (last >= (int32_t) l->nelems) {
             fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
             bs_print_usage(stderr);
@@ -10219,7 +9956,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
         uint32_t row_idx = 0;
         uint32_t col_idx = 0;
 
-        for ( int32_t query_row = first; query_row <= last; ++query_row ) {
+        for (int32_t query_row = first; query_row <= last; ++query_row) {
             new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
 
             /* test if we are in a new block */
@@ -10246,19 +9983,42 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
 
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
 
-            /* read a row from current block and print its signal to the output stream os */
+            size_t items_read = 0;
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            if (!m) {
+                /* read a row from current block */
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read only mutual bytes from current block */
+                col_idx = first;
+                size_t mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
+
             do {
                 if (row_idx != col_idx) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -10287,7 +10047,14 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
 
             /* set current block index */
             current_block_idx = new_block_idx;
@@ -10312,7 +10079,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(l, s, qf, b, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(l, s, qf, m, b, fc, flb, fub, fo)
  *
  * @details    Queries raw square matrix store folder for
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -10321,6 +10088,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             qf     (char*) query file name to parse
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             b      (char**) pointer to output buffer
  *             fc     (score_t) score filter cutoff
  *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
@@ -10329,7 +10097,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo)
 {
     /* init parent folder name for split blocks */
     char* block_src_dir = NULL;
@@ -10463,18 +10231,42 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
 
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
 
-            /* read a row from current block and print its signal to the output stream os */
+            size_t items_read = 0;
             row_idx = (uint32_t) query_row;
             col_idx = 0;
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            if (!m) {
+                /* read a row from current block */
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read only mutual bytes from current block */
+                col_idx = first;
+                size_t mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            uint32_t col_idx_max = (m) ? (uint32_t) (last + 1) : (uint32_t) l->nelems;
+
             do {
                 if (row_idx != col_idx) {
                     score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
@@ -10515,7 +10307,14 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
 
             /* set current block index */
             current_block_idx = new_block_idx;
@@ -10543,7 +10342,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, r, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, rs, re, rn, fc, flb, fub, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -10552,7 +10351,8 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
  *             os     (FILE*) pointer to output stream
- *             r      (int32_t*) pointer to list of query rows of interest  
+ *             rs     (int32_t*) pointer to list of query rows of interest (starts)
+ *             re     (int32_t*) pointer to list of query rows of interest (ends)
  *             rn     (uint32_t) number of query rows of interest
  *             fc     (score_t) score filter cutoff
  *             flb    (score_t) score filter cutoff lower bound when ranged thresholds
@@ -10561,7 +10361,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* r, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, int32_t* rs, int32_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -10636,69 +10436,78 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
     int32_t new_block_idx = -1;
     uint32_t row_idx = 0;
     uint32_t col_idx = 0;
+
     for (uint32_t r_idx = 0; r_idx < rn; r_idx++) {
-        int32_t query_row = r[r_idx];
-        new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+        int32_t query_row = rs[r_idx];
+        uint32_t first = rs[r_idx];
+        uint32_t last = re[r_idx];
+
+        do {
+            new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
         
-        /* test if we are in a new block */
-        if (new_block_idx > current_block_idx) {
-            /* close current block file, if one is already open, and then open a new block */
-            if (is) {
-                fclose(is), is = NULL;
+            /* test if we are in a new block */
+            if (new_block_idx != current_block_idx) {
+                /* close current block file, if one is already open, and then open a new block */
+                if (is) {
+                    fclose(is), is = NULL;
+                }
+                is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+                if (ferror(is)) {
+                    fprintf(stderr, "Error: Could not open handle to input store!\n");
+                    bs_print_usage(stderr);
+                    exit(EXIT_FAILURE);
+                }
+                /* adjust row_idx so that byte offset calculation is relative to current block */
+                row_idx = block_row_size * new_block_idx;
             }
-            is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
-            if (ferror(is)) {
-                fprintf(stderr, "Error: Could not open handle to input store!\n");
-                bs_print_usage(stderr);
+            /* offset some number of bytes from current position of is, if necessary */
+            /* note that we subtract a row unit, if we have already read through the input stream by one row */
+            int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+            int64_t bytes_to_go = row_diff * l->nelems;
+            if (bytes_to_go > 0) {
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
+            /* read a row from current block and print its signal to the output stream os */
+            row_idx = (uint32_t) query_row;
+            col_idx = 0;
+            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+            if (items_read != l->nelems) {
+                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
                 exit(EXIT_FAILURE);
             }
-            /* adjust row_idx so that byte offset calculation is relative to current block */
-            row_idx = block_row_size * new_block_idx;
-        }
-        /* offset some number of bytes from current position of is, if necessary */
-        /* note that we subtract a row unit, if we have already read through the input stream by one row */
-        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
-        int64_t bytes_to_go = row_diff * l->nelems;
-        if (bytes_to_go > 0) {
-            fseek(is, bytes_to_go, SEEK_CUR);
-        }
-        /* read a row from current block and print its signal to the output stream os */
-        row_idx = (uint32_t) query_row;
-        col_idx = 0;
-        size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-        if (items_read != l->nelems) {
-            fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-            exit(EXIT_FAILURE);
-        }
-        do {
-            if (row_idx != col_idx) {
-                score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                     ((fo == kScoreFilterGt) && (d > fc)) ||
-                     ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                     ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ||
-                     ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                     ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                     ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                     ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                    bs_print_pair(os, 
-                                  l->elems[row_idx]->chr,
-                                  l->elems[row_idx]->start,
-                                  l->elems[row_idx]->stop,
-                                  l->elems[col_idx]->chr,
-                                  l->elems[col_idx]->start,
-                                  l->elems[col_idx]->stop,
-                                  d);
+            do {
+                if (row_idx != col_idx) {
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      d);
+                    }
                 }
-            }
-            col_idx++;
-        } while (col_idx < l->nelems);
-        
-        /* set current block index */
-        current_block_idx = new_block_idx;
+                col_idx++;
+            } while (col_idx < l->nelems);
+            
+            /* set current block index */
+            current_block_idx = new_block_idx;
+
+            /* increment query row */
+            query_row++;
+        } while (query_row <= (int32_t) last);
     }
     
     /* clean up */
