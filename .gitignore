@@ -41,8 +41,12 @@
 *.pdf
 
 # Intermediate files
-sample_bs_input.bed
-sample_bs_input.starch
+test/mutual_jaccard_split.bs
+test/mutual_jaccard_split.bs/*
+third-party/libmicrohttpd
 
 # OS X garbage
 .DS_Store
+
+# NFS
+.nfs*
