@@ -450,25 +450,13 @@ main(int argc, char** argv)
             }
 
             if (contiguous_rows_found) {
-                fprintf(stderr, "contiguous_rows_found... [%d -> %d]\n", (int) bs_globals.store_query_idx_start, (int) bs_globals.store_query_idx_end);
-                /* set up ROI */
-                //size_t* query_roi = NULL;
                 if (bs_globals.store_query_idx_end < bs_globals.store_query_idx_start) {
                     fprintf(stderr, "Error: Query index bounds not ordered\n");
                     exit(EXIT_FAILURE);
                 }
-                //size_t query_roi_num = bs_globals.store_query_idx_end - bs_globals.store_query_idx_start + 1;
                 size_t query_roi_num = 1;
-                //query_roi = malloc(query_roi_num * sizeof(*query_roi));
                 size_t* query_roi_start = malloc(sizeof(*query_roi_start));
                 size_t* query_roi_end = malloc(sizeof(*query_roi_end));
-                //if (!query_roi) {
-                //    fprintf(stderr, "Error: Could not allocate space for query ROI array (client)\n");
-                //    exit(EXIT_FAILURE);
-                //}
-                //for (size_t idx = 0; idx < query_roi_num; idx++) {
-                //    query_roi[idx] = bs_globals.store_query_idx_start + idx;
-                //}
                 query_roi_start[0] = bs_globals.store_query_idx_start;
                 query_roi_end[0] = bs_globals.store_query_idx_end;
                 /* extract from raw or uncompressed square matrix */
@@ -509,7 +497,6 @@ main(int argc, char** argv)
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
                 case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                     if (bs_globals.store_filter == kScoreFilterNone) {
-                        fprintf(stderr, "bs_print_sqr_split_store_separate_rows_to_bed7()\n");
                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup,
                                                                        sqr_store,
                                                                        bs_globals.store_filter_mutual_set,
@@ -521,6 +508,7 @@ main(int argc, char** argv)
                     else {
                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
                                                                                 sqr_store,
+                                                                                bs_globals.store_filter_mutual_set,
                                                                                 stdout,
                                                                                 query_roi_start,
                                                                                 query_roi_end,
@@ -582,8 +570,6 @@ main(int argc, char** argv)
                     exit(EXIT_FAILURE);
                 }
                 /* clean-up */
-                //free(query_roi);
-                //query_roi = NULL;
                 free(query_roi_start);
                 free(query_roi_end);
                 query_roi_start = NULL;
@@ -632,6 +618,7 @@ main(int argc, char** argv)
                         else {
                             bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup,
                                                                                     sqr_store,
+                                                                                    bs_globals.store_filter_mutual_set,
                                                                                     stdout,
                                                                                     bs_globals.store_query_indices_starts,
                                                                                     bs_globals.store_query_indices_ends,
@@ -2007,6 +1994,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
             case kScoreFilterLt:
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                         bs_globals.sqr_store_ptr,
+                                                                        kFalse,
                                                                         write_fp,
                                                                         query_roi,
                                                                         query_roi,
@@ -2022,6 +2010,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
             case kScoreFilterRangedOutsideInclusive:
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7(bs_globals.lookup_ptr,
                                                                         bs_globals.sqr_store_ptr,
+                                                                        kFalse,
                                                                         write_fp,
                                                                         query_roi,
                                                                         query_roi,
@@ -2287,6 +2276,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
             case kScoreFilterLt:
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
                                                                                    bs_globals.sqr_store_ptr,
+                                                                                   kFalse,
                                                                                    &temporary_buf,
                                                                                    query_roi,
                                                                                    query_roi,
@@ -2302,6 +2292,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
             case kScoreFilterRangedOutsideInclusive:
                 bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(bs_globals.lookup_ptr,
                                                                                    bs_globals.sqr_store_ptr,
+                                                                                   kFalse,
                                                                                    &temporary_buf,
                                                                                    query_roi,
                                                                                    query_roi,
@@ -3363,20 +3354,19 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
             bs_globals.store_query_indices_ends = resized_indices_ends_arr;
             bs_globals.store_query_indices_capacity = resized_indices_arr_capacity;
         }
-        count = fscanf(fptr, "%lu-%lu\n", &first, &last);
+
+        count = fscanf(fptr, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
-            fprintf(stderr, "found something not a range of A-B in the input index file!\n");
-            bs_globals.store_query_indices_num = 0;
-            return kFalse;
-        } else if ( first > last ) {
-            fprintf(stderr, "end-range ID less than start-range ID in the input index file!\n");
-            bs_globals.store_query_indices_num = 0;
-            return kFalse;
-        } else if ( last >= l->nelems ) {
-            fprintf(stderr, "Error: Entry in multiple indices is greater than the number of elements in the input index file!\n");
-            bs_globals.store_query_indices_num = 0;
-            return kFalse;
+            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (first > last) {
+            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (last >= l->nelems) {
+            fprintf(stderr, "Warning: Entry in multiple indices is greater than the number of elements in the input index file! Skipping over this entry.\n");
+            continue;
         }
+        
         /* mark start and end (inclusive) */
         bs_globals.store_query_indices_starts[current_idx] = first;
         bs_globals.store_query_indices_ends[current_idx] = last;
@@ -4679,8 +4669,9 @@ void
 bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ss, boolean_t ir)
 {
     if ((*l)->capacity == 0) {
-        (*l)->capacity++;
-        (*l)->elems = malloc(sizeof(element_t *));
+        (*l)->capacity = 1;
+        element_t** new_elems = malloc(sizeof(element_t *) * (*l)->capacity);
+        (*l)->elems = new_elems;
     }
     else if ((*l)->nelems >= (*l)->capacity) {
         (*l)->capacity *= 2;
@@ -7692,13 +7683,13 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
     
     /* init offset array */
     off_t* offsets = NULL;
-    uint32_t num_offsets = floor(l->nelems / n) + 1;
+    uint32_t num_offsets = floor(l->nelems / n) + 2;
     offsets = malloc(num_offsets * sizeof(*offsets));
     if (!offsets) {
         fprintf(stderr, "Error: Cannot allocate memory for offset array!\n");
         exit(EXIT_FAILURE);
     }
-    uint32_t offset_idx = 0;
+    int32_t offset_idx = 0;
     
     /* iterate through l->nelems, one block of rows at a time; write a raw stream buffer for each block */
     uint64_t bytes_written = 0;
@@ -7724,7 +7715,8 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
             }
             buf_idx = 0;
             free(block_dest_fn), block_dest_fn = NULL;
-            offsets[offset_idx++] = cumulative_bytes_written;
+            offsets[offset_idx] = cumulative_bytes_written;
+            offset_idx++;
         }
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
@@ -7757,7 +7749,8 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
             else {
                 score = self_correlation_score;
             }            
-            buf[buf_idx++] = score;
+            buf[buf_idx] = score;
+            buf_idx++;
         }
             
         /* if buf is full, write its contents to output stream */
@@ -7784,7 +7777,8 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
             }
             free(block_dest_fn), block_dest_fn = NULL;
             buf_idx = 0;
-            offsets[offset_idx++] = cumulative_bytes_written;
+            offsets[offset_idx] = cumulative_bytes_written;
+            offset_idx++;
         }
     
         /* if row index is last index in matrix, write final buf to output stream, and close output stream */    
@@ -7797,7 +7791,8 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
             }
             cumulative_bytes_written += bytes_written;
             fclose(os), os = NULL;
-            offsets[offset_idx++] = cumulative_bytes_written;
+            offsets[offset_idx] = cumulative_bytes_written;
+            offset_idx++;
         }
     }
 
@@ -7820,7 +7815,9 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
     
     free(block_dest_dir), block_dest_dir = NULL;
     free(offsets), offsets = NULL;
-    free(md_str), md_str = NULL;    
+    free(md_str), md_str = NULL;
+    free(md_dest_fn), md_dest_fn = NULL;
+    free(buf), buf = NULL;   
 }
 
 /**
@@ -8008,6 +8005,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     free(block_dest_dir), block_dest_dir = NULL;
     free(offsets), offsets = NULL;
     free(md_str), md_str = NULL;    
+    free(md_dest_fn), md_dest_fn = NULL;
 }
 
 /**
@@ -8590,6 +8588,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
     fseek(is, start_offset, SEEK_SET);
 
     /* the maximum column index depends on whether or not we are looking at mutual bytes */
+    size_t mutual_byte_diff = 0;
     size_t col_idx_max = (m) ? (re + 1) : l->nelems;
 
     do {
@@ -8604,8 +8603,8 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
         }
         else {
             /* read only mutual bytes from current block */
-            size_t mutual_byte_diff = re - rs + 1;
-            items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+            mutual_byte_diff = re - rs + 1;
+            items_read = fread(byte_buf + rs, sizeof(*byte_buf), mutual_byte_diff, is);
             if (items_read != mutual_byte_diff) {
                 fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                 exit(EXIT_FAILURE);
@@ -8613,7 +8612,8 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
         }
         do {
             if (row_idx != col_idx) {
-                bs_print_pair(os, 
+                if (!m) {
+                    bs_print_pair(os, 
                               l->elems[row_idx]->chr,
                               l->elems[row_idx]->start,
                               l->elems[row_idx]->stop,
@@ -8624,6 +8624,20 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
                               (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
                               bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                               );
+                }
+                else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    bs_print_pair(os, 
+                              l->elems[row_idx]->chr,
+                              l->elems[row_idx]->start,
+                              l->elems[row_idx]->stop,
+                              l->elems[col_idx]->chr,
+                              l->elems[col_idx]->start,
+                              l->elems[col_idx]->stop,
+                              (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                              (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                              bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                              );
+                }
             }
             col_idx++;
         } while (col_idx < col_idx_max);
@@ -8633,11 +8647,13 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
         /* if we are reading mutual-region bytes, we need to seek another line of bytes */
         /* so that the file pointer is correctly positioned for the next iteration */
         if (m) {
-            fseek(is, l->nelems - 1, SEEK_CUR);
+            //fseek(is, l->nelems - 1, SEEK_CUR);
+            fseek(is, l->nelems - mutual_byte_diff, SEEK_CUR);
         }
     } while (row_idx <= re);
 
     free(byte_buf);
+    byte_buf = NULL;
 
     fclose(is);
 }
@@ -8696,6 +8712,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FI
     fseek(is, start_offset, SEEK_SET);
 
     /* the maximum column index depends on whether or not we are looking at mutual bytes */
+    size_t mutual_byte_diff = 0;
     size_t col_idx_max = (m) ? (re + 1) : l->nelems;
 
     do {
@@ -8711,7 +8728,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FI
         else {
             /* read only mutual bytes from current block */
             size_t mutual_byte_diff = re - rs + 1;
-            items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+            items_read = fread(byte_buf + rs, sizeof(*byte_buf), mutual_byte_diff, is);
             if (items_read != mutual_byte_diff) {
                 fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                 exit(EXIT_FAILURE);
@@ -8720,26 +8737,51 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FI
 
         do {
             if (row_idx != col_idx) {
-                score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                     ((fo == kScoreFilterGt) && (d > fc)) ||
-                     ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                     ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                     ((fo == kScoreFilterLt) && (d < fc)) ||
-                     ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                     ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                     ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                     ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                    bs_print_pair(os, 
-                                  l->elems[row_idx]->chr,
-                                  l->elems[row_idx]->start,
-                                  l->elems[row_idx]->stop,
-                                  l->elems[col_idx]->chr,
-                                  l->elems[col_idx]->start,
-                                  l->elems[col_idx]->stop,
-                                  d);
+                if (!m) {
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      d);
+                    }
+                }
+                else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                         ((fo == kScoreFilterGt) && (d > fc)) ||
+                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                         ((fo == kScoreFilterLt) && (d < fc)) ||
+                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                        bs_print_pair(os, 
+                                      l->elems[row_idx]->chr,
+                                      l->elems[row_idx]->start,
+                                      l->elems[row_idx]->stop,
+                                      l->elems[col_idx]->chr,
+                                      l->elems[col_idx]->start,
+                                      l->elems[col_idx]->stop,
+                                      d);
+                    }
                 }
             }
             col_idx++;
@@ -8750,7 +8792,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FI
         /* if we are reading mutual-region bytes, we need to seek another line of bytes */
         /* so that the file pointer is correctly positioned for the next iteration */
         if (m) {
-            fseek(is, l->nelems - 1, SEEK_CUR);
+            fseek(is, l->nelems - mutual_byte_diff, SEEK_CUR);
         }
     } while (row_idx <= re);
 
@@ -8850,6 +8892,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, bool
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
     size_t col_idx = 0;
+    size_t mutual_byte_diff = 0;
 
     for (size_t r_idx = 0; r_idx < rn; r_idx++) {
         size_t first = rs[r_idx];
@@ -8905,9 +8948,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, bool
             else {
                 /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                fprintf(stderr, "freading [%d] bytes\n", (int) mutual_byte_diff);
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -8940,9 +8982,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, bool
                                   l->elems[col_idx]->chr,
                                   l->elems[col_idx]->start,
                                   l->elems[col_idx]->stop,
-                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx - first]) :
-                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx - first]) :
-                                  bs_decode_byte_to_score_custom(byte_buf[col_idx - first], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                                   );
                     }
                 }
@@ -9072,6 +9114,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
     size_t col_idx = 0;
+    size_t mutual_byte_diff = 0;
 
     for (size_t r_idx = 0; r_idx < rn; r_idx++) {
         size_t first = rs[r_idx];
@@ -9128,8 +9171,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
             else {
                 /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -9141,18 +9184,34 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
 
             do {
                 if (row_idx != col_idx) {
-                    bs_print_pair_to_buffer(result_buf + l_result_buf,
-                                            &l_result_buf,
-                                            l->elems[row_idx]->chr,
-                                            l->elems[row_idx]->start,
-                                            l->elems[row_idx]->stop,
-                                            l->elems[col_idx]->chr,
-                                            l->elems[col_idx]->start,
-                                            l->elems[col_idx]->stop,
-                                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                            );
+                    if (!m) {
+                        bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                &l_result_buf,
+                                                l->elems[row_idx]->chr,
+                                                l->elems[row_idx]->start,
+                                                l->elems[row_idx]->stop,
+                                                l->elems[col_idx]->chr,
+                                                l->elems[col_idx]->start,
+                                                l->elems[col_idx]->stop,
+                                                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                );
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                &l_result_buf,
+                                                l->elems[row_idx]->chr,
+                                                l->elems[row_idx]->start,
+                                                l->elems[row_idx]->stop,
+                                                l->elems[col_idx]->chr,
+                                                l->elems[col_idx]->start,
+                                                l->elems[col_idx]->stop,
+                                                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                );
+                    }
                     /* resize the result buffer, if necessary */
                     if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
                         char* temp_result_buf = NULL;
@@ -9171,7 +9230,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
             /* if we are reading mutual-region bytes, we need to seek to the end of the */
             /* row so that the file pointer is correctly positioned for the next iteration */
             if (m) {
-                bytes_to_go = l->nelems - last;
+                bytes_to_go = l->nelems - last - 1;
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
             
@@ -9279,21 +9338,20 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
 
     int32_t block_row_size = (int32_t) md->block_row_size;
     while (!feof(qs)) {
-        int32_t first = 1;
-        int32_t last = 0;
+        size_t first = 1;
+        size_t last = 0;
         int count = 0;
 
-        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 " ", &first, &last); /* ending ' ' eats any white space */
+        count = fscanf(qs, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
-            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (first > last) {
-            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
-            break;
-        } else if (last >= (int32_t) l->nelems) {
-            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (last >= l->nelems) {
+            fprintf(stderr, "Warning: ID in range is greater than the number of elements in the input index file! Skipping over this entry.\n");
+            continue;
         }
 
         /* iterate through separate rows, calculating associated block */
@@ -9301,8 +9359,9 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
         int32_t new_block_idx = -1;
         uint32_t row_idx = 0;
         uint32_t col_idx = 0;
+        size_t mutual_byte_diff = 0;
 
-        for ( int32_t query_row = first; query_row <= last; ++query_row ) {
+        for ( size_t query_row = first; query_row <= last; ++query_row ) {
             new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
 
             /* test if we are in a new block */
@@ -9354,8 +9413,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
             else {
                 /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -9367,7 +9426,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
 
             do {
                 if (row_idx != col_idx) {
-                    bs_print_pair(os, 
+                    if (!m) {
+                        bs_print_pair(os, 
                                   l->elems[row_idx]->chr,
                                   l->elems[row_idx]->start,
                                   l->elems[row_idx]->stop,
@@ -9378,6 +9438,20 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
                                   (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
                                   bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
                                   );
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        bs_print_pair(os, 
+                                  l->elems[row_idx]->chr,
+                                  l->elems[row_idx]->start,
+                                  l->elems[row_idx]->stop,
+                                  l->elems[col_idx]->chr,
+                                  l->elems[col_idx]->start,
+                                  l->elems[col_idx]->stop,
+                                  (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                  (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                  bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                  );
+                    }
                 }
                 col_idx++;
             } while (col_idx < col_idx_max);
@@ -9512,17 +9586,16 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
         size_t last = 0;
         int count = 0;
 
-        count = fscanf(qs, "%lu-%lu ", &first, &last); /* ending ' ' eats any white space */
+        count = fscanf(qs, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
-            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (first > last) {
-            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (last >= l->nelems) {
-            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Warning: ID found in range is greater than the number of elements in the input index file! Skipping over this entry.\n");
+            continue;
         }
 
         /* iterate through separate rows, calculating associated block */
@@ -9530,6 +9603,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
         int32_t new_block_idx = -1;
         size_t row_idx = 0;
         size_t col_idx = 0;
+        size_t mutual_byte_diff = 0;
 
         for (size_t query_row = first; query_row <= last; ++query_row) {
             new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
@@ -9582,8 +9656,8 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
             else {
                 /* read mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -9597,18 +9671,34 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
 
             do {
                 if (row_idx != col_idx) {
-                    bs_print_pair_to_buffer(result_buf + l_result_buf,
-                                            &l_result_buf,
-                                            l->elems[row_idx]->chr,
-                                            l->elems[row_idx]->start,
-                                            l->elems[row_idx]->stop,
-                                            l->elems[col_idx]->chr,
-                                            l->elems[col_idx]->start,
-                                            l->elems[col_idx]->stop,
-                                            (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                            );
+                    if (!m) {
+                        bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                &l_result_buf,
+                                                l->elems[row_idx]->chr,
+                                                l->elems[row_idx]->start,
+                                                l->elems[row_idx]->stop,
+                                                l->elems[col_idx]->chr,
+                                                l->elems[col_idx]->start,
+                                                l->elems[col_idx]->stop,
+                                                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                );
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                &l_result_buf,
+                                                l->elems[row_idx]->chr,
+                                                l->elems[row_idx]->start,
+                                                l->elems[row_idx]->stop,
+                                                l->elems[col_idx]->chr,
+                                                l->elems[col_idx]->start,
+                                                l->elems[col_idx]->stop,
+                                                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                );
+                    }
                     /* resize the result buffer, if necessary */
                     if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
                         char* temp_result_buf = NULL;
@@ -9748,21 +9838,20 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
     int32_t block_row_size = (int32_t) md->block_row_size;
 
     while (!feof(qs)) {
-        int32_t first = 1;
-        int32_t last = 0;
+        size_t first = 1;
+        size_t last = 0;
         int count = 0;
 
-        count = fscanf(qs, "%" SCNd32 "-%" SCNd32 "\n", &first, &last);
+        count = fscanf(qs, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
-            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (first > last) {
-            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
-            break;
-        } else if (last >= (int32_t) l->nelems) {
-            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (last >= l->nelems) {
+            fprintf(stderr, "Warning: ID found in range is greater than the number of elements in the input index file! Skipping over this entry.\n");
+            continue;
         }
 
         /* iterate through separate rows, calculating associated block */
@@ -9770,8 +9859,9 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
         int32_t new_block_idx = -1;
         uint32_t row_idx = 0;
         uint32_t col_idx = 0;
+        size_t mutual_byte_diff = 0;
 
-        for (int32_t query_row = first; query_row <= last; ++query_row) {
+        for (size_t query_row = first; query_row <= last; ++query_row) {
             new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
 
             /* test if we are in a new block */
@@ -9823,8 +9913,8 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
             else {
                 /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -9836,29 +9926,57 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
 
             do {
                 if (row_idx != col_idx) {
-                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                         ((fo == kScoreFilterGt) && (d > fc)) ||
-                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ||
-                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                        bs_print_pair(os, 
-                                      l->elems[row_idx]->chr,
-                                      l->elems[row_idx]->start,
-                                      l->elems[row_idx]->stop,
-                                      l->elems[col_idx]->chr,
-                                      l->elems[col_idx]->start,
-                                      l->elems[col_idx]->stop,
-                                      (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                      (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                      bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                      );
+                    if (!m) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair(os, 
+                                          l->elems[row_idx]->chr,
+                                          l->elems[row_idx]->start,
+                                          l->elems[row_idx]->stop,
+                                          l->elems[col_idx]->chr,
+                                          l->elems[col_idx]->start,
+                                          l->elems[col_idx]->stop,
+                                          (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                          (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                          bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                          );
+                        }
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair(os, 
+                                          l->elems[row_idx]->chr,
+                                          l->elems[row_idx]->start,
+                                          l->elems[row_idx]->stop,
+                                          l->elems[col_idx]->chr,
+                                          l->elems[col_idx]->start,
+                                          l->elems[col_idx]->stop,
+                                          (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                          (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                          bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                          );
+                        }
                     }
                 }
                 col_idx++;
@@ -9998,17 +10116,16 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
         size_t last = 0;
         int count = 0;
 
-        count = fscanf(qs, "%lu-%lu\n", &first, &last);
+        count = fscanf(qs, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
-            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (first > last) {
-            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file!\n");
-            break;
+            fprintf(stderr, "Warning: End-range ID less than start-range ID in the input index file! Skipping over this entry.\n");
+            continue;
         } else if (last >= l->nelems) {
-            fprintf(stderr, "Error: ID found is greater than the number of elements in the input index file!\n");
-            bs_print_usage(stderr);
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "Error: ID found in range is greater than the number of elements in the input index file! Skipping over this entry.\n");
+            continue;
         }
 
         /* iterate through separate rows, calculating associated block */
@@ -10016,6 +10133,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
         int32_t new_block_idx = -1;
         size_t row_idx = 0;
         size_t col_idx = 0;
+        size_t mutual_byte_diff = 0;
 
         for (size_t query_row = first; query_row <= last; ++query_row) {
 
@@ -10070,8 +10188,8 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
             else {
                 /* read only mutual bytes from current block */
                 col_idx = first;
-                size_t mutual_byte_diff = last - first + 1;
-                items_read = fread(byte_buf, sizeof(*byte_buf), mutual_byte_diff, is);
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
                 if (items_read != mutual_byte_diff) {
                     fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
                     exit(EXIT_FAILURE);
@@ -10083,40 +10201,80 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
 
             do {
                 if (row_idx != col_idx) {
-                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                         ((fo == kScoreFilterGt) && (d > fc)) ||
-                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ||
-                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                        bs_print_pair_to_buffer(result_buf + l_result_buf,
-                                                &l_result_buf,
-                                                l->elems[row_idx]->chr,
-                                                l->elems[row_idx]->start,
-                                                l->elems[row_idx]->stop,
-                                                l->elems[col_idx]->chr,
-                                                l->elems[col_idx]->start,
-                                                l->elems[col_idx]->stop,
-                                                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                                                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                                                bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
-                                                );
-                        /* resize the result buffer, if necessary */
-                        if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
-                            char* temp_result_buf = NULL;
-                            temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
-                            if (!temp_result_buf) {
-                                fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
-                                exit(EXIT_FAILURE);
+                    if (!m) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                    &l_result_buf,
+                                                    l->elems[row_idx]->chr,
+                                                    l->elems[row_idx]->start,
+                                                    l->elems[row_idx]->stop,
+                                                    l->elems[col_idx]->chr,
+                                                    l->elems[col_idx]->start,
+                                                    l->elems[col_idx]->stop,
+                                                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                    );
+                            /* resize the result buffer, if necessary */
+                            if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
+                                char* temp_result_buf = NULL;
+                                temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
+                                if (!temp_result_buf) {
+                                    fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
+                                    exit(EXIT_FAILURE);
+                                }
+                                n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
+                                result_buf = temp_result_buf;
                             }
-                            n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
-                            result_buf = temp_result_buf;
+                        }
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                    &l_result_buf,
+                                                    l->elems[row_idx]->chr,
+                                                    l->elems[row_idx]->start,
+                                                    l->elems[row_idx]->stop,
+                                                    l->elems[col_idx]->chr,
+                                                    l->elems[col_idx]->start,
+                                                    l->elems[col_idx]->stop,
+                                                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                                                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                                                    bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max)
+                                                    );
+                            /* resize the result buffer, if necessary */
+                            if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
+                                char* temp_result_buf = NULL;
+                                temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
+                                if (!temp_result_buf) {
+                                    fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
+                                    exit(EXIT_FAILURE);
+                                }
+                                n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
+                                result_buf = temp_result_buf;
+                            }
                         }
                     }
                 }
@@ -10156,7 +10314,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, os, rs, re, rn, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7(l, s, m, os, rs, re, rn, fc, flb, fub, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -10164,6 +10322,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             os     (FILE*) pointer to output stream
  *             rs     (size_t*) pointer to list of query rows of interest (starts)
  *             re     (size_t*) pointer to list of query rows of interest (ends)
@@ -10175,7 +10334,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -10250,6 +10409,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
     size_t col_idx = 0;
+    size_t mutual_byte_diff = 0;
 
     for (uint32_t r_idx = 0; r_idx < rn; r_idx++) {
         size_t first = rs[r_idx];
@@ -10277,43 +10437,102 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
             /* note that we subtract a row unit, if we have already read through the input stream by one row */
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+            
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
+
             /* read a row from current block and print its signal to the output stream os */
             row_idx = query_row;
-            col_idx = 0;
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+
+            size_t items_read = 0;
+            if (!m) {
+                /* read a row from current block */
+                col_idx = 0;
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read only mutual bytes from current block */
+                col_idx = first;
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            size_t col_idx_max = (m) ? (last + 1) : l->nelems;
+
             do {
                 if (row_idx != col_idx) {
-                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                         ((fo == kScoreFilterGt) && (d > fc)) ||
-                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ||
-                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                        bs_print_pair(os, 
-                                      l->elems[row_idx]->chr,
-                                      l->elems[row_idx]->start,
-                                      l->elems[row_idx]->stop,
-                                      l->elems[col_idx]->chr,
-                                      l->elems[col_idx]->start,
-                                      l->elems[col_idx]->stop,
-                                      d);
+                    if (!m) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair(os, 
+                                          l->elems[row_idx]->chr,
+                                          l->elems[row_idx]->start,
+                                          l->elems[row_idx]->stop,
+                                          l->elems[col_idx]->chr,
+                                          l->elems[col_idx]->start,
+                                          l->elems[col_idx]->stop,
+                                          d);
+                        }
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair(os, 
+                                          l->elems[row_idx]->chr,
+                                          l->elems[row_idx]->start,
+                                          l->elems[row_idx]->stop,
+                                          l->elems[col_idx]->chr,
+                                          l->elems[col_idx]->start,
+                                          l->elems[col_idx]->stop,
+                                          d);
+                        }
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
             
             /* set current block index */
             current_block_idx = new_block_idx;
@@ -10330,7 +10549,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
 }
 
 /**
- * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(l, s, b, rs, re, rn, fc, flb, fub, fo)
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(l, s, m, b, rs, re, rn, fc, flb, fub, fo)
  *
  * @details    Queries raw split square matrix store for 
  *             provided multiple-index globals and prints BED7 (BED3 
@@ -10338,6 +10557,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
  *
  * @param      l      (lookup_t*) pointer to lookup table
  *             s      (sqr_store_t*) pointer to square matrix store
+ *             m      (boolean_t) flag to decide if query is for mutual row-col regions
  *             b      (char**) pointer to output buffer
  *             rs     (size_t*) pointer to list of query rows of interest (starts)
  *             re     (size_t*) pointer to list of query rows of interest (ends)
@@ -10349,7 +10569,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
  */
 
 void
-bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, char** b, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
+bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, boolean_t m, char** b, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo) 
 {
     /* validate query row list size */
     if (rn == 0) {
@@ -10434,6 +10654,8 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, 
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
     size_t col_idx = 0;
+    size_t mutual_byte_diff = 0;
+
     for (size_t r_idx = 0; r_idx < rn; r_idx++) {
         size_t first = rs[r_idx];
         size_t last = re[r_idx];
@@ -10460,55 +10682,125 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, 
             /* note that we subtract a row unit, if we have already read through the input stream by one row */
             int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
             int64_t bytes_to_go = row_diff * l->nelems;
+
+            /* if the mutual-region flag is set, then we add "first" bytes to go into the row by another row bytes */
+            if (m) {
+                bytes_to_go += first;
+            }
+            
+            /* seek to the correct location */
             if (bytes_to_go > 0) {
                 fseek(is, bytes_to_go, SEEK_CUR);
             }
+            
             /* read a row from current block and print its signal to the output stream os */
             row_idx = query_row;
-            col_idx = 0;
-            size_t items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
-            if (items_read != l->nelems) {
-                fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
-                exit(EXIT_FAILURE);
+            size_t items_read = 0;
+            if (!m) {
+                /* read a row from current block */
+                col_idx = 0;
+                items_read = fread(byte_buf, sizeof(*byte_buf), l->nelems, is);
+                if (items_read != l->nelems) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%u] required)\n", items_read, l->nelems);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else {
+                /* read only mutual bytes from current block */
+                col_idx = first;
+                mutual_byte_diff = last - first + 1;
+                items_read = fread(byte_buf + first, sizeof(*byte_buf), mutual_byte_diff, is);
+                if (items_read != mutual_byte_diff) {
+                    fprintf(stderr, "Error: Could not read correct number of items from store! ([%zu] read, [%lu] required)\n", items_read, mutual_byte_diff);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* the maximum column index depends on whether or not we are looking at mutual bytes */
+            size_t col_idx_max = (m) ? (last + 1) : l->nelems;
+
             do {
                 if (row_idx != col_idx) {
-                    score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
-                        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
-                        bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
-                    if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
-                         ((fo == kScoreFilterGt) && (d > fc)) ||
-                         ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
-                         ((fo == kScoreFilterLtEq) && (d <= fc)) ||
-                         ((fo == kScoreFilterLt) && (d < fc)) ||
-                         ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
-                         ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
-                         ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
-                         ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
-                        bs_print_pair_to_buffer(result_buf + l_result_buf,
-                                                &l_result_buf,
-                                                l->elems[row_idx]->chr,
-                                                l->elems[row_idx]->start,
-                                                l->elems[row_idx]->stop,
-                                                l->elems[col_idx]->chr,
-                                                l->elems[col_idx]->start,
-                                                l->elems[col_idx]->stop,
-                                                d);
-                        /* resize the result buffer, if necessary */
-                        if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
-                            char* temp_result_buf = NULL;
-                            temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
-                            if (!temp_result_buf) {
-                                fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
-                                exit(EXIT_FAILURE);
+                    if (!m) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                    &l_result_buf,
+                                                    l->elems[row_idx]->chr,
+                                                    l->elems[row_idx]->start,
+                                                    l->elems[row_idx]->stop,
+                                                    l->elems[col_idx]->chr,
+                                                    l->elems[col_idx]->start,
+                                                    l->elems[col_idx]->stop,
+                                                    d);
+                            /* resize the result buffer, if necessary */
+                            if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
+                                char* temp_result_buf = NULL;
+                                temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
+                                if (!temp_result_buf) {
+                                    fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
+                                    exit(EXIT_FAILURE);
+                                }
+                                n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
+                                result_buf = temp_result_buf;
                             }
-                            n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
-                            result_buf = temp_result_buf;
+                        }
+                    }
+                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[col_idx]) :
+                            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[col_idx]) :
+                            bs_decode_byte_to_score_custom(byte_buf[col_idx], bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+                        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+                             ((fo == kScoreFilterGt) && (d > fc)) ||
+                             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+                             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+                             ((fo == kScoreFilterLt) && (d < fc)) ||
+                             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+                             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+                             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+                             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+                            bs_print_pair_to_buffer(result_buf + l_result_buf,
+                                                    &l_result_buf,
+                                                    l->elems[row_idx]->chr,
+                                                    l->elems[row_idx]->start,
+                                                    l->elems[row_idx]->stop,
+                                                    l->elems[col_idx]->chr,
+                                                    l->elems[col_idx]->start,
+                                                    l->elems[col_idx]->stop,
+                                                    d);
+                            /* resize the result buffer, if necessary */
+                            if (l_result_buf + OUTPUT_LINE_MAX_LEN >= n_result_buf) {
+                                char* temp_result_buf = NULL;
+                                temp_result_buf = realloc(result_buf, l_result_buf + OUTPUT_LINE_MAX_LEN);
+                                if (!temp_result_buf) {
+                                    fprintf(stderr, "Error: Could not allocate memory to sqr result reallocation buffer!\n");
+                                    exit(EXIT_FAILURE);
+                                }
+                                n_result_buf = l_result_buf + OUTPUT_LINE_MAX_LEN;
+                                result_buf = temp_result_buf;
+                            }
                         }
                     }
                 }
                 col_idx++;
-            } while (col_idx < l->nelems);
+            } while (col_idx < col_idx_max);
+
+            /* if we are reading mutual-region bytes, we need to seek to the end of the */
+            /* row so that the file pointer is correctly positioned for the next iteration */
+            if (m) {
+                bytes_to_go = l->nelems - last - 1;
+                fseek(is, bytes_to_go, SEEK_CUR);
+            }
             
             /* set current block index */
             current_block_idx = new_block_idx;
@@ -11861,6 +12153,7 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
 
     /* clean up */
     free(byte_buf), byte_buf = NULL;
+    free(md_src_fn), md_src_fn = NULL;
 }
 
 /**

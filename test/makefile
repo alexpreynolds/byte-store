@@ -318,7 +318,7 @@ self-signed-certs:
 
 metadata-test-spearman-split-query-https-daemon:
 	$(BIN_DIR)/byte-store -t spearman-rho-sqr-split -Q $(TEST_HTTPD_PORT) -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.spearman.bs -E -K test/server.key -C test/server.pem
-	
+
 metadata-test-jaccard-split-create:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.jaccard.bs -r 12
 
@@ -329,8 +329,17 @@ metadata-test-jaccard-split-query:
 # Mutual tests
 # ------------
 
+mutual-test-jaccard-split-create-with-valgrind:
+	valgrind --track-origins=yes --keep-stacktraces=alloc-and-free --leak-check=full --show-leak-kinds=all $(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -r 2
+
 mutual-test-jaccard-split-create:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -r 2
 
+mutual-test-jaccard-create:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr -c -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs
+
 mutual-test-jaccard-split-query:
-	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -i 1-2
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -i 1-2 --mutual-query
+
+mutual-test-jaccard-query:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs -i 1-3 --mutual-query
