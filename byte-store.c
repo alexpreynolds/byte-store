@@ -8616,7 +8616,7 @@ bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, s
                                   l->elems[col_idx]->stop,
                                   d);
                 }
-                else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                else {
                     size_t mutual_buf_idx = col_idx - rs;
                     d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -8743,7 +8743,7 @@ bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FI
                                       d);
                     }
                 }
-                else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                else {
                     size_t mutual_buf_idx = col_idx - rs;
                     d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                         (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -8966,7 +8966,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, bool
                                       l->elems[col_idx]->stop,
                                       d);
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -9210,7 +9210,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
                             result_buf = temp_result_buf;
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -9460,7 +9460,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
                                       l->elems[col_idx]->stop,
                                       d);
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -9724,7 +9724,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
                             result_buf = temp_result_buf;
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -9997,7 +9997,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_st
                                           d);
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -10287,7 +10287,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t
                             }
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -10553,7 +10553,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t
                                           d);
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
@@ -10817,7 +10817,7 @@ bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, 
                             }
                         }
                     }
-                    else if ((strcmp(l->elems[row_idx]->chr, l->elems[col_idx]->chr) == 0) && (l->elems[row_idx]->stop > l->elems[col_idx]->start) && (l->elems[row_idx]->start < l->elems[col_idx]->stop)) {
+                    else {
                         size_t mutual_buf_idx = col_idx - first;
                         d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(byte_buf[mutual_buf_idx]) :
                             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(byte_buf[mutual_buf_idx]) :
