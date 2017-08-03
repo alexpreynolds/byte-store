@@ -54,6 +54,7 @@ extern "C" {
 #define MULT_IDX_MAX_NUM 4096
 #define HOSTNAME_MAX_LEN 8192
 #define UPLOAD_FILESIZE_MAX 1048576
+#define INITIAL_BUF_CAPACITY 1024
 
 #define PR_SIZET "z"
 
@@ -1110,7 +1111,7 @@ extern "C" {
     char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
     char*                        bs_init_sqr_bzip2_split_store_fn_str(char* p, uint32_t i);
     char*                        bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d);
-    off_t                        bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
+    inline off_t                 bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t rs, size_t re);
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, size_t rs, size_t re);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t* rs, size_t* re, uint32_t rn);

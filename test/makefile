@@ -339,7 +339,10 @@ mutual-test-jaccard-create:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr -c -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs
 
 mutual-test-jaccard-split-query:
-	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -i 1-2 --mutual-query
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard_split.bs -i 1-3 --mutual-query
 
 mutual-test-jaccard-query:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs -i 1-3 --mutual-query
+
+mutual-test-jaccard-query-filter:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs -i 1-3 --mutual-query --score-filter-gt 0.5
