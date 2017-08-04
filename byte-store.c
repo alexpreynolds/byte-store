@@ -3328,7 +3328,7 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
 
     while (!feof(fptr)) {
         /* resize array of indices, if necessary */
-        if ((current_idx - 2) == bs_globals.store_query_indices_capacity) {
+        if ((current_idx > 1) && ((current_idx - 2) == bs_globals.store_query_indices_capacity)) {
             uint32_t resized_indices_arr_capacity = bs_globals.store_query_indices_capacity * 2;
             size_t* resized_indices_starts_arr = NULL;
             resized_indices_starts_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices_starts));
@@ -3357,6 +3357,9 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
 
         count = fscanf(fptr, "%" PR_SIZET "u-%" PR_SIZET "u ", &first, &last); /* ending ' ' eats any white space */
         if (count != 2) {
+            if (count == EOF) {
+                break;
+            }
             fprintf(stderr, "Warning: Found something not a range of A-B in the input index file! Skipping over this entry.\n");
             continue;
         } else if (first > last) {
@@ -3373,7 +3376,7 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
         bs_globals.store_query_indices_num++;
         current_idx++;
     }
-    return kTrue;
+    return (current_idx > 0) ? kTrue : kFalse;
 }
 
 int32_t 
