@@ -4,20 +4,15 @@
 
 set usage_text = 'Usage:\
 \
-    query-bytestore.sh [ --whole-genome | --mutual-regions ]\
-                       [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-dnaseI | --mm10-dnaseI ]\
-                       [ --bytestore-sort | --sort-bed-sort | --score-sort ]\
+    query-bytestore.sh [ --mutual-regions ]\
+                       [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-jaccard | --hg38-dnaseI | --mm10-dnaseI ]\
                          --within-range A:B | --outside-range A:B\
                          <bed-file>\
 \
-    For score range thresholding, -1 <= A <= 1 and -1 <= B <= 1. You must\
-    specify either --within-range or --outside-range to designate the desired\
-    query thresholds.\
+    For score range thresholding, -1 <= A <= 1 and -1 <= B <= 1.\
 \
     The optional --mutual-regions argument restricts output to interval pairs\
-    that mutually overlap where they overlap <bed-file>. The default option is\
-    to return results over the whole genome; you can use --whole-genome to\
-    explicitly select this option.\
+    that mutually overlap where they overlap <bed-file>.\
 \
     At least and at most one database option should be selected (TRANSFAC 2015,\
     UniProbe, Taipale, etc.).\
@@ -26,60 +21,31 @@ set usage_text = 'Usage:\
     BED interval data: chromosome, start, and stop positions.\
 '
 
-set temp=(`getopt -s tcsh -o hbscgmxujtdMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,xfac2015,uniprobe,jaspar,taipale,hg38-dnaseI,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
-if ( $? != 0 ) then
-    echo "Error: Getopt failed. Terminating..." > /dev/stderr
+set temp=(`getopt -s tcsh -o hmxujtgdMw:o: --long help,mutual-regions,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+if ($? != 0) then
+    echo "Terminating..." >/dev/stderr
     exit 1
 endif
 
 eval set argv=\($temp:q\)
 
 @ mutual = 0
-
-@ sort_cnt = 0
-@ mutual_cnt = 0
 @ db_cnt = 0
 @ filter_cnt = 0
 
-set sort_type="sort-bed"
 set db=""
 set filter=""
 set filter_range=""
 
 while (1)
-    switch ($1:q)
+    switch($1:q)
     case -h:
     case --help:
-        echo $usage_text:q > /dev/stdout;
+        echo $usage_text:q;
         exit 0;
-    case -b:
-    case --bytestore-sort:
-        set sort_type = "bytestore";
-        @ sort_cnt += 1;
-        shift;
-        breaksw;
-    case -s:
-    case --sort-bed-sort:
-        set sort_type = "sort-bed";
-        @ sort_cnt += 1;
-        shift;
-        breaksw;
-    case -c:
-    case --score-sort:
-        set sort_type = "score";
-        @ sort_cnt += 1;
-        shift;
-        breaksw;
-    case -g:
-    case --whole-genome:
-        @ mutual = 0;
-        @ mutual_cnt += 1;
-        shift;
-        breaksw;
     case -m:
     case --mutual-regions:
         @ mutual = 1;
-        @ mutual_cnt += 1;
         shift;
         breaksw;
     case -x:
@@ -106,6 +72,12 @@ while (1)
         @ db_cnt += 1
         shift;
         breaksw;
+    case -g:
+    case --hg38-jaccard:
+        set db = "hg38-jaccard";
+        @ db_cnt += 1
+        shift;
+        breaksw;
     case -d:
     case --hg38-dnaseI:
         set db = "hg38-dnaseI";
@@ -120,9 +92,9 @@ while (1)
         breaksw;
     case -w:
     case --within-range:
-        if ( $2:q == "" ) then
-            echo "Error: Please specify A:B range" > /dev/stderr;
-            echo $usage_text:q > /dev/stderr;
+        if ($2:q == "") then
+            echo "Error: Please specify A:B range";
+            echo $usage_text:q;
             exit 1;
         endif
         set filter = "--score-filter-ranged-within-inclusive";
@@ -133,9 +105,9 @@ while (1)
         breaksw;
     case -o:
     case --outside-range:
-        if ( $2:q == "" ) then
-            echo "Error: Please specify A:B range" > /dev/stderr;
-            echo $usage_text:q > /dev/stderr;
+        if ($2:q == "") then
+            echo "Error: Please specify A:B range";
+            echo $usage_text:q;
             exit 1;
         endif
         set filter = "--score-filter-ranged-outside-exclusive";
@@ -148,49 +120,29 @@ while (1)
         shift;
         break;
     default:
-        echo "Internal error!" > /dev/stderr;
+        echo "Internal error!";
         exit 1;
     endsw
 end
 
-# if more than one sort type is specified, print usage and quit
-if ( $sort_cnt > 1 ) then
-    echo "Error: Please specify only one sort type. The default is to use BEDOPS sort-bed" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
-    exit 1
-endif
-if ( $sort_cnt == 0 ) then
-    set sort_type = "sort-bed"
-endif
-
-# if more than one mutual type is specified, print usage and quit
-if ( $mutual_cnt > 1 ) then
-    echo "Error: Please specify either --whole-genome (default) or --mutual-regions (optional)" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
-    exit 1
-endif
-if ( $mutual_cnt == 0 ) then
-    @ mutual = 0
-endif
-
 # if more or less than one filter type is specified, print usage and quit
-if ( $filter_cnt != 1 ) then
-    echo "Error: Please specify at least and no more than one filter type" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
+if ($filter_cnt != 1) then
+    echo "Error: Please specify at least and no more than one filter type"
+    echo $usage_text:q
     exit 1
 endif
 
 # if more or less than one database is specified, print usage statement and quit early
-if ( $db_cnt != 1 ) then
-    echo "Error: Please specify at least and no more than one database" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
+if ($db_cnt != 1) then
+    echo "Error: Please specify at least and no more than one database"
+    echo $usage_text:q
     exit 1
 endif
 
 # if bed file is unspecified, print usage statement and quit early
-if ( $#argv != 1 ) then
-    echo "Error: Please specify <bed-file>" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
+if ($#argv != 1) then
+    echo "Error: Please specify <bed-file>"
+    echo $usage_text:q
     exit 1
 endif
 set query_file = $1:q
@@ -201,9 +153,9 @@ set r1 = `echo "$filter_range" | cut -f1 -d':'`
 set r2 = `echo "$filter_range" | cut -f2 -d':'`
 @ ok1 = `echo "$r1" | awk '(-1 <= $1 && $1 <= 1) { print NR }'`
 @ ok2 = `echo "$r2" | awk '(-1 <= $1 && $1 <= 1) { print NR }'`
-if ( $ok1 == 0 || $ok2 == 0 || $r1 == $r2 ) then
-    echo "Error: Bad range A:B given with filter" > /dev/stderr
-    echo $usage_text:q > /dev/stderr
+if ($ok1 == 0 || $ok2 == 0 || $r1 == $r2) then
+    echo "Error: Bad range A:B given with filter"
+    echo $usage_text:q
     exit 1
 endif
 
@@ -230,12 +182,12 @@ if ( $llp == 1 ) then
 endif
 
 if ( ! -s $query_file ) then
-  echo "Error: Cannot find your <bed-file>" > /dev/stderr
-  echo $usage_text:q > /dev/stderr
+  echo "Error: Cannot find your <bed-file>"
+  echo $usage_text:q
   exit 1
 else if ( ! -s $bs_binary ) then
-  echo "Error: Cannot find the byte-store query binary" > /dev/stderr
-  echo $usage_text:q > /dev/stderr
+  echo "Error: Cannot find the byte-store query binary"
+  echo $usage_text:q
   exit 1
 endif
 
@@ -243,27 +195,31 @@ set master = ""
 set store = ""
 set db_type = ""
 
-if ( $db == "xfac2015" ) then
+if ($db == "xfac2015") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_3143_motifs_xfac2015/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_3143_motifs_xfac2015/jaccard/production/results/827_master_list_v061417a_cross_3143_motifs_xfac2015.50000r.bs"
     set db_type = "jaccard-index-sqr-split"
-else if ( $db == "uniprobe" ) then
+else if ($db == "uniprobe") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_408_motifs_uniprobe/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_408_motifs_uniprobe/jaccard/production/results/827_master_list_v061417a_cross_408_motifs_uniprobe.25000r.bs"
-    set db_type = "jaccard-index-sqr-split"    
-else if ( $db == "jaspar" ) then
+    set db_type = "jaccard-index-sqr-split"
+else if ($db == "jaspar") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_107_motifs_jaspar/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_107_motifs_jaspar/jaccard/production/results/827_master_list_v061417a_cross_107_motifs_jaspar.25000r.bs"
     set db_type = "jaccard-index-sqr-split"
-else if ( $db == "taipale" ) then
+else if ($db == "taipale") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_755_motifs_taipale/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a_cross_755_motifs_taipale/jaccard/production/results/827_master_list_v061417a_cross_755_motifs_taipale.25000r.bs"
-    set db_type = "jaccard-index-sqr-split"    
-else if ( $db == "hg38-dnaseI" ) then
+    set db_type = "jaccard-index-sqr-split"
+else if ($db == "hg38-jaccard") then
+    set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a/jaccard/prerequisites/results/master_with_row_indices.bed"
+    set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a/jaccard/production/results/827_master_list_v061417a.50000r.bs"
+    set db_type = "jaccrad-index-sqr-split"
+else if ($db == "hg38-dnaseI") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/production/results/827_master_list_v061417a.100000r.bs"
-    set db_type = "pearson-r-sqr-split"    
-else if ( $db == "mm10-dnaseI" ) then
+    set db_type = "pearson-r-sqr-split"
+else if ($db == "mm10-dnaseI") then
     set master = "/net/seq/data/projects/bytestore/224_mouse_master_list_v070817a/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/224_mouse_master_list_v070817a/pearson/production/results/224_mouse_master_list_v070817a.50000r.bs"
     set db_type = "pearson-r-sqr-split"
@@ -287,20 +243,14 @@ bedextract $master $query_file \
         }' \
  >! $query_file_master_coords
 
-set query_scope = ""
+set mutual_query = ""
 
-if ( $mutual == 1 ) then
-    set query_scope = "--mutual-query"
+if ($mutual == 1) then
+    set mutual_query = "--mutual-query"
 endif
 
 if ( -s $query_file_master_coords ) then
-    if ( $sort_type == "bytestore" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope
-    else if ( $sort_type == "sort-bed" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort-bed --max-mem 2G -
-    else if ( $sort_type == "score" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort -k7 -nr -
-    endif
+    $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $mutual_query | sort-bed --max-mem 2G -
 endif
   
 rm -rf $tmpdir
