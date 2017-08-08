@@ -3328,29 +3328,21 @@ bs_parse_query_multiple_index_file(lookup_t* l, char* qf)
 
     while (!feof(fptr)) {
         /* resize array of indices, if necessary */
-        if ((current_idx > 1) && ((current_idx - 2) == bs_globals.store_query_indices_capacity)) {
-            uint32_t resized_indices_arr_capacity = bs_globals.store_query_indices_capacity * 2;
+        if ((current_idx > 1) && ((current_idx - 1) == bs_globals.store_query_indices_capacity)) {
+            size_t resized_indices_arr_capacity = bs_globals.store_query_indices_capacity * 2;
             size_t* resized_indices_starts_arr = NULL;
-            resized_indices_starts_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices_starts));
+            resized_indices_starts_arr = realloc(bs_globals.store_query_indices_starts, resized_indices_arr_capacity * sizeof(*(bs_globals.store_query_indices_starts)));
             if (!resized_indices_starts_arr) {
                 fprintf(stderr, "Error: Could not allocate space for resized multiple indices starts!\n");
                 exit(EXIT_FAILURE);
             }
-            for (uint32_t idx = 0; idx < current_idx; idx++) {
-                resized_indices_starts_arr[idx] = bs_globals.store_query_indices_starts[idx];
-            }
-            free(bs_globals.store_query_indices_starts);
             bs_globals.store_query_indices_starts = resized_indices_starts_arr;
             size_t* resized_indices_ends_arr = NULL;
-            resized_indices_ends_arr = malloc(resized_indices_arr_capacity * sizeof(*bs_globals.store_query_indices_ends));
+            resized_indices_ends_arr = realloc(bs_globals.store_query_indices_ends, resized_indices_arr_capacity * sizeof(*(bs_globals.store_query_indices_ends)));
             if (!resized_indices_ends_arr) {
                 fprintf(stderr, "Error: Could not allocate space for resized multiple indices ends!\n");
                 exit(EXIT_FAILURE);
             }
-            for (uint32_t idx = 0; idx < current_idx; idx++) {
-                resized_indices_ends_arr[idx] = bs_globals.store_query_indices_ends[idx];
-            }
-            free(bs_globals.store_query_indices_ends);
             bs_globals.store_query_indices_ends = resized_indices_ends_arr;
             bs_globals.store_query_indices_capacity = resized_indices_arr_capacity;
         }
