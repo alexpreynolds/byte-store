@@ -214,7 +214,7 @@ else if ($db == "taipale") then
 else if ($db == "hg38-jaccard") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a/jaccard/production/results/827_master_list_v061417a.50000r.bs"
-    set db_type = "jaccrad-index-sqr-split"
+    set db_type = "jaccard-index-sqr-split"
 else if ($db == "hg38-dnaseI") then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/production/results/827_master_list_v061417a.100000r.bs"
