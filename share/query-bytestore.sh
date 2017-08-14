@@ -162,7 +162,9 @@ while (1)
         shift;
         breaksw;
     case --:
-        shift;
+        if ( $query_type != 2) then
+            shift
+        endif
         break;
     default:
         echo "Internal error!" > /dev/stderr;
@@ -205,7 +207,7 @@ if ( $db_cnt != 1 ) then
 endif
 
 # if bed file is unspecified, print usage statement and quit early
-if ( $#argv != 1 ) then
+if ( $#argv != 1  && $query_type != 2 ) then
     echo "Error: Please specify <bed-file>" > /dev/stderr
     echo $usage_text:q > /dev/stderr
     exit 1
@@ -246,7 +248,7 @@ if ( $llp == 1 ) then
   setenv LD_LIBRARY_PATH $LD_LIBRARY_PATH\:"$bs_binary_httpd_lib_path"
 endif
 
-if ( ! -s $query_file ) then
+if ( ! -s $query_file && $query_type != 2 ) then
   echo "Error: Cannot find your <bed-file>" > /dev/stderr
   echo $usage_text:q > /dev/stderr
   exit 1
@@ -290,8 +292,9 @@ else if ( $db == "mm10-dnaseI" ) then
     set db_type = "pearson-r-sqr-split"
 endif
 
-bedextract $master $query_file \
-  | awk 'BEGIN {fst=-99; lst=-99} ; { \
+if ( $query_type != 2 ) then
+    bedextract $master $query_file \
+      | awk 'BEGIN {fst=-99; lst=-99} ; { \
           if ( int($4) != lst+1 ) { \
             if ( lst >= 0 ) { \
               print fst"-"lst; \
@@ -306,23 +309,34 @@ bedextract $master $query_file \
             print fst"-"lst; \
           } \
         }' \
- >! $query_file_master_coords
+    >! $query_file_master_coords
+endif
 
 set query_scope = ""
 
-if ($query_type == 1) then
+if ( $query_type == 1 ) then
     set query_scope = "--mutual-query"
-else if ($query_type == 2) then
+else if ( $query_type == 2 ) then
     set query_scope = "-b $diagonal_walk_distance"
 endif
 
-if ( -s $query_file_master_coords ) then
+if ( $query_type != 2 ) then
+    if ( -s $query_file_master_coords ) then
+        if ( $sort_type == "bytestore" ) then
+            $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope
+        else if ( $sort_type == "sort-bed" ) then
+            $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort-bed --max-mem 2G -
+        else if ( $sort_type == "score" ) then
+            $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort -k7 -nr -
+        endif
+    endif
+else if ( $query_type == 2 ) then
     if ( $sort_type == "bytestore" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope
+        $bs_binary -t $db_type -q -l $master -s $store $filter $filter_range $query_scope
     else if ( $sort_type == "sort-bed" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort-bed --max-mem 2G -
+        $bs_binary -t $db_type -q -l $master -s $store $filter $filter_range $query_scope | sort-bed --max-mem 2G -
     else if ( $sort_type == "score" ) then
-        $bs_binary -t $db_type -q -l $master -s $store -z $query_file_master_coords $filter $filter_range $query_scope | sort -k7 -nr -
+        $bs_binary -t $db_type -q -l $master -s $store $filter $filter_range $query_scope | sort -k7 -nr -
     endif
 endif
   
