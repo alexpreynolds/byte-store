@@ -147,6 +147,7 @@ main(int argc, char** argv)
                 break;
             case kQueryKindMultipleIndices:
             case kQueryKindMultipleIndicesFromFile:
+            case kQueryKindDiagonalOffset:
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported with SUT!\n");
                 exit(EXIT_FAILURE);
@@ -444,6 +445,9 @@ main(int argc, char** argv)
                 separate_rows_found = bs_parse_query_multiple_index_file(lookup, 
                                                                          bs_globals.store_query_str);
                 break;
+            case kQueryKindDiagonalOffset:
+                separate_rows_found = kTrue;
+                break;
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported!\n");
                 exit(EXIT_FAILURE);
@@ -603,7 +607,27 @@ main(int argc, char** argv)
                                                                                          bs_globals.score_filter_cutoff_lower_bound,
                                                                                          bs_globals.score_filter_cutoff_upper_bound,
                                                                                          bs_globals.store_filter);
-                            }
+                        }
+                        break;
+                    case kQueryKindDiagonalOffset:
+                        if (bs_globals.store_filter == kScoreFilterNone) {
+                            bs_print_sqr_split_diagonal_walk_fixed_distance(lookup,
+                                                                            sqr_store,
+                                                                            stdout,
+                                                                            bs_globals.diagonal_offset_value,
+                                                                            bs_globals.diagonal_offset_side);
+                        }
+                        else {
+                            bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup,
+                                                                                     sqr_store,
+                                                                                     stdout,
+                                                                                     bs_globals.diagonal_offset_value,
+                                                                                     bs_globals.diagonal_offset_side,
+                                                                                     bs_globals.score_filter_cutoff,
+                                                                                     bs_globals.score_filter_cutoff_lower_bound,
+                                                                                     bs_globals.score_filter_cutoff_upper_bound,
+                                                                                     bs_globals.store_filter);
+                        }
                         break;
                     default:
                         if (bs_globals.store_filter == kScoreFilterNone) {
@@ -6047,6 +6071,8 @@ bs_init_globals()
     bs_globals.enable_ssl = kFalse;
     bs_globals.ssl_key_pem = NULL;
     bs_globals.ssl_cert_pem = NULL;
+    bs_globals.diagonal_offset_value = 0;
+    bs_globals.diagonal_offset_side = kDiagonalSideUndefined;
 }
 
 /**
@@ -6324,7 +6350,19 @@ bs_init_command_line_options(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
             memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);            
-            break;            
+            break;
+        case 'b':
+            bs_globals.store_query_kind = kQueryKindDiagonalOffset;
+            if (!optarg) {
+                fprintf(stderr, "Error: Diagonal walk offset parameter specified without distance value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            int32_t tmp = 0;
+            sscanf(optarg, "%" SCNd32, &tmp);
+            bs_globals.diagonal_offset_value = ((tmp < 0) ? -tmp : tmp);
+            bs_globals.diagonal_offset_side = ((tmp < 0) ? kDiagonalSideLowerTriangle : kDiagonalSideUpperTriangle);
+            break;
         case 'l':
             if (!optarg) {
                 fprintf(stderr, "Error: Lookup file parameter specified without lookup filename value!\n");
@@ -7484,12 +7522,6 @@ void
 bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, signal_t*, uint32_t))
 {
     FILE* os = NULL;
-    byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_score_to_byte(kSelfCorrelationScore);
-
     os = fopen(bs_globals.store_fn, "wb");
     if (ferror(os)) {
         fprintf(stderr, "Error: Could not open handle to output square matrix store!\n");
@@ -7508,34 +7540,29 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
         signal_t* row_signal = l->elems[row_idx]->signal;
         for (uint32_t col_idx = 0; col_idx < s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[col_idx]->signal;
-            if (row_idx != col_idx) {
-                if (row_signal->n != col_signal->n) {
-                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-                    bs_print_signal(row_signal, stderr);
-                    bs_print_signal(col_signal, stderr);
-                    exit(EXIT_FAILURE);
-                }
-                score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
-                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                    else {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                }
-                else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
-                    bs_globals.zero_sd_warning_issued = kTrue;
-                }
-                buf[s_buf++] = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
-                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
             }
-            else if (row_idx == col_idx) {
-                buf[s_buf++] = self_correlation_score;
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
             }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
+            buf[s_buf++] = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
                     fprintf(stderr, "Error: Could not write score buffer to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
@@ -7660,11 +7687,6 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 {
     byte_t score = 0;
     FILE* os = NULL;
-    byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_score_to_byte(kSelfCorrelationScore);
     
     /* create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
@@ -7716,34 +7738,29 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            if (row_idx != col_idx) {
-                if (row_signal->n != col_signal->n) {
-                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-                    bs_print_signal(row_signal, stderr);
-                    bs_print_signal(col_signal, stderr);
-                    exit(EXIT_FAILURE);
-                }
-                score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
-                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                    else {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                }
-                else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
-                    bs_globals.zero_sd_warning_issued = kTrue;
-                }
-                score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
-                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
             }
-            else {
-                score = self_correlation_score;
-            }            
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+            }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
+            score = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             buf[buf_idx] = score;
             buf_idx++;
         }
@@ -7836,11 +7853,6 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
 {
     byte_t score = 0;
     FILE* os = NULL;
-    byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_score_to_byte(kSelfCorrelationScore);
     
     /* if necessary, create an owner read/write/executable directory to contain block files */
     char* block_dest_dir = NULL;
@@ -7886,34 +7898,29 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= l->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            if (row_idx != col_idx) {
-                if (row_signal->n != col_signal->n) {
-                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-                    bs_print_signal(row_signal, stderr);
-                    bs_print_signal(col_signal, stderr);
-                    exit(EXIT_FAILURE);
-                }
-                score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
-                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                    else {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                }
-                else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
-                    bs_globals.zero_sd_warning_issued = kTrue;
-                }
-                score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
-                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
             }
-            else {
-                score = self_correlation_score;
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
             }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
+            score = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             buf[buf_idx++] = score;
         }
         /* at the end of a row, we write out the bytes */
@@ -8022,11 +8029,6 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 {
     byte_t score = 0;
     FILE* os = NULL;
-    byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -8088,34 +8090,29 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            if (row_idx != col_idx) {
-                if (row_signal->n != col_signal->n) {
-                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-                    bs_print_signal(row_signal, stderr);
-                    bs_print_signal(col_signal, stderr);
-                    exit(EXIT_FAILURE);
-                }
-                score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
-                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                    else {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                }
-                else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
-                    bs_globals.zero_sd_warning_issued = kTrue;
-                }
-                score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
-                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
             }
-            else if (row_idx == col_idx) {
-                score = self_correlation_score;
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
             }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
+            score = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
             /* if bz_uncompressed_buffer is full, compress it, write compressed bytes to output stream, but do not close stream */
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
@@ -8231,11 +8228,6 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
 {
     byte_t score = 0;
     FILE* os = NULL;
-    byte_t self_correlation_score =
-        (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(kSelfCorrelationScore) :
-        (bs_globals.encoding_strategy == kEncodingStrategyCustom) ? bs_encode_score_to_byte_custom(kSelfCorrelationScore, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max) :
-        bs_encode_score_to_byte(kSelfCorrelationScore);
 
     /* test bounds of row-chunk size */
     if (n > kCompressionRowChunkMaximumSize) {
@@ -8312,34 +8304,29 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
         signal_t* row_signal = l->elems[(row_idx - 1)]->signal;
         for (uint32_t col_idx = 1; col_idx <= s->attr->nelems; col_idx++) {
             signal_t* col_signal = l->elems[(col_idx - 1)]->signal;
-            if (row_idx != col_idx) {
-                if (row_signal->n != col_signal->n) {
-                    fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
-                    bs_print_signal(row_signal, stderr);
-                    bs_print_signal(col_signal, stderr);
-                    exit(EXIT_FAILURE);
-                }
-                score_t pairwise_score = NAN;
-                if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
-                    if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                    else {
-                        pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
-                    }
-                }
-                else if (!bs_globals.zero_sd_warning_issued) {
-                    fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
-                    bs_globals.zero_sd_warning_issued = kTrue;
-                }
-                score = 
-                    (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
-                    (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
-                    bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            if (row_signal->n != col_signal->n) {
+                fprintf(stderr, "Error: Vectors being correlated are of unequal length!\n");
+                bs_print_signal(row_signal, stderr);
+                bs_print_signal(col_signal, stderr);
+                exit(EXIT_FAILURE);
             }
-            else if (row_idx == col_idx) {
-                score = self_correlation_score;
-            }            
+            score_t pairwise_score = NAN;
+            if ((row_signal->data_contains_nan == kFalse) && (col_signal->data_contains_nan == kFalse)) {
+                if (((sf == bs_pearson_r_signal) || (sf == bs_spearman_rho_signal_v2)) && (row_signal->sd != 0.0f) && (col_signal->sd != 0.0f)) {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+                else {
+                    pairwise_score = (*sf)(row_signal, col_signal, row_signal->n);
+                }
+            }
+            else if (!bs_globals.zero_sd_warning_issued) {
+                fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
+                bs_globals.zero_sd_warning_issued = kTrue;
+            }
+            score = 
+                (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
+                (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
+                bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             bz_uncompressed_buffer[uncompressed_buffer_idx++] = score;
             if (uncompressed_buffer_idx % bz_uncompressed_buffer_size == 0) {
                 BZ2_bzWrite(&bzf_error, bzf, bz_uncompressed_buffer, uncompressed_buffer_idx);
@@ -11584,6 +11571,318 @@ bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FIL
     free(md_string), md_string = NULL;
     free(md), md = NULL;
     free(byte_buf), byte_buf = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_split_diagonal_walk_fixed_distance(l, s, os, v, ds)
+ *
+ * @details    prints values a fixed distance from the diagonal of a split square matrix
+ *
+ * @param      l          (lookup_t*) pointer to lookup table
+ *             s          (sqr_store_t*) pointer to square matrix store
+ *             os         (FILE*) pointer to output stream
+ *             v          (uint32_t) how far off of the diagonal is the walk?
+ *             ds         (diagonal_side_t) do you want values below the diagonal (kDiagonalSideLowerTriangle) or above it (kDiagonalSideUpperTriangle)
+ *
+ * @return     none
+ */
+
+void
+bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds)
+{
+    /* bounds sanity check */
+    if (v >= l->nelems) {
+        fprintf(stderr, "Error: Zero-indexed walk distance [%u] lies outside bounds [%u] of byte-store container!\n", v, l->nelems);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE *is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is), is = NULL;
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* iterate through separate rows, calculating associated block */
+    int32_t block_row_size = (int32_t) md->block_row_size;
+    int32_t current_block_idx = -1;
+    int32_t new_block_idx = -1;
+    size_t row_idx = 0;
+    size_t col_idx = 0;
+    size_t start_idx = (ds == kDiagonalSideLowerTriangle) ? v : 0;
+    size_t stop_idx = (ds == kDiagonalSideUpperTriangle) ? ((v < l->nelems) ? l->nelems-v : (start_idx - 1)) : l->nelems;
+    
+    for (size_t query_row = start_idx; query_row < stop_idx; query_row++) {
+        col_idx = (ds == kDiagonalSideLowerTriangle) ? (query_row - v) : (query_row + v);
+        new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+        /* test if we are in a new block */
+        if (new_block_idx != current_block_idx) {
+            /* close current block file, if one is already open, and then open a new block */
+            if (is) {
+                fclose(is), is = NULL;
+            }
+            is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+            if (ferror(is)) {
+                fprintf(stderr, "Error: Could not open handle to input store!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            /* adjust row_idx so that byte offset calculation is relative to current block */
+            row_idx = block_row_size * new_block_idx;
+        }
+        
+        /* we offset some number of bytes from current position of input stream, as necessary */
+        /* note that we subtract a row unit, if we are in the same block and so have already */
+        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+        /* otherwise we will almost certainly overflow and run into byte offset problems that */
+        /* cause garbage output */
+        
+        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+        int64_t bytes_to_go = row_diff * l->nelems;
+        
+        /* add "first" bytes to go into the row by another row bytes */
+        /* seek to the correct location */
+        bytes_to_go += col_idx;
+        fseek(is, bytes_to_go, SEEK_CUR);
+        
+        row_idx = (uint32_t) query_row;
+        
+        byte_t b = fgetc(is);
+        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(b) :
+            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(b) :
+            bs_decode_byte_to_score_custom(b, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+
+        bs_print_pair(os,
+                      l->elems[row_idx]->chr,
+                      l->elems[row_idx]->start,
+                      l->elems[row_idx]->stop,
+                      l->elems[col_idx]->chr,
+                      l->elems[col_idx]->start,
+                      l->elems[col_idx]->stop,
+                      d);
+        
+        /* we need to seek to the end of the row so that the file pointer is correctly positioned for the next iteration */
+        bytes_to_go = l->nelems - bytes_to_go - 1; /* -1 for 1 byte move in fgetc */
+        fseek(is, bytes_to_go, SEEK_CUR);
+
+        /* set current block index */
+        current_block_idx = new_block_idx;
+    }
+    
+    /* clean up */
+    fclose(is), is = NULL;
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
+}
+
+/**
+ * @brief      bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(l, s, os, v, ds, fc, flb, fub, fo)
+ *
+ * @details    prints values a fixed distance from the diagonal of a split square matrix
+ *
+ * @param      l          (lookup_t*) pointer to lookup table
+ *             s          (sqr_store_t*) pointer to square matrix store
+ *             os         (FILE*) pointer to output stream
+ *             v          (uint32_t) how far off of the diagonal is the walk?
+ *             ds         (diagonal_side_t) do you want values below the diagonal (kDiagonalSideLowerTriangle) or above it (kDiagonalSideUpperTriangle)
+ *             fc         (score_t) score filter cutoff
+ *             flb        (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub        (score_t) score filter cutoff upper bound for ranged thresholds
+ *             fo         (score_filter_t) score filter operation
+ *
+ * @return     none
+ */
+
+void
+bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+{
+    /* bounds sanity check */
+    if (v >= l->nelems) {
+        fprintf(stderr, "Error: Zero-indexed walk distance [%u] lies outside bounds [%u] of byte-store container!\n", v, l->nelems);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(block_src_dir);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE *is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char *md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(is), is = NULL;
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* iterate through separate rows, calculating associated block */
+    int32_t block_row_size = (int32_t) md->block_row_size;
+    int32_t current_block_idx = -1;
+    int32_t new_block_idx = -1;
+    size_t row_idx = 0;
+    size_t col_idx = 0;
+    size_t start_idx = (ds == kDiagonalSideLowerTriangle) ? v : 0;
+    size_t stop_idx = (ds == kDiagonalSideUpperTriangle) ? ((v < l->nelems) ? l->nelems-v : (start_idx - 1)) : l->nelems;
+
+    for (size_t query_row = start_idx; query_row < stop_idx; query_row++) {
+        col_idx = (ds == kDiagonalSideLowerTriangle) ? (query_row - v) : (query_row + v);        
+        new_block_idx = (int32_t) (query_row / block_row_size); /* explicit cast */
+        /* test if we are in a new block */
+        if (new_block_idx != current_block_idx) {
+            /* close current block file, if one is already open, and then open a new block */
+            if (is) {
+                fclose(is), is = NULL;
+            }
+            is = fopen(bs_init_sqr_split_store_fn_str(block_src_dir, new_block_idx), "rb");
+            if (ferror(is)) {
+                fprintf(stderr, "Error: Could not open handle to input store!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            /* adjust row_idx so that byte offset calculation is relative to current block */
+            row_idx = block_row_size * new_block_idx;
+        }
+        
+        /* we offset some number of bytes from current position of input stream, as necessary */
+        /* note that we subtract a row unit, if we are in the same block and so have already */
+        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
+        /* otherwise we will almost certainly overflow and run into byte offset problems that */
+        /* cause garbage output */
+        
+        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
+        int64_t bytes_to_go = row_diff * l->nelems;
+        
+        /* add "first" bytes to go into the row by another row bytes */
+        /* seek to the correct location */
+        bytes_to_go += col_idx;
+        fseek(is, bytes_to_go, SEEK_CUR);
+        
+        row_idx = (uint32_t) query_row;
+        
+        byte_t b = fgetc(is);
+        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(b) :
+            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(b) :
+            bs_decode_byte_to_score_custom(b, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+        
+        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+             ((fo == kScoreFilterGt) && (d > fc)) ||
+             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+             ((fo == kScoreFilterLt) && (d < fc)) ||
+             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+            bs_print_pair(os, 
+                          l->elems[row_idx]->chr,
+                          l->elems[row_idx]->start,
+                          l->elems[row_idx]->stop,
+                          l->elems[col_idx]->chr,
+                          l->elems[col_idx]->start,
+                          l->elems[col_idx]->stop,
+                          d);
+        }
+        
+        /* we need to seek to the end of the row so that the file pointer is correctly positioned for the next iteration */
+        bytes_to_go = l->nelems - bytes_to_go - 1; /* -1 for 1 byte move in fgetc */
+        fseek(is, bytes_to_go, SEEK_CUR);
+
+        /* set current block index */
+        current_block_idx = new_block_idx;
+    }
+    
+    /* clean up */
+    fclose(is), is = NULL;
+    free(block_src_dir), block_src_dir = NULL;
+    free(md_src_fn), md_src_fn = NULL;
+    free(md_string), md_string = NULL;
+    free(md), md = NULL;
 }
 
 /**

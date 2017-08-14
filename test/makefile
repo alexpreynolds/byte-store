@@ -346,3 +346,16 @@ mutual-test-jaccard-query:
 
 mutual-test-jaccard-query-filter:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr -q -l $(TEST_DIR)/mutual_jaccard_test.bed -s $(TEST_DIR)/mutual_jaccard.bs -i 1-3 --mutual-query --score-filter-gt 0.5
+
+# -------------------
+# Diagonal walk tests
+# -------------------
+
+diagonal-test-jaccard-split-create:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -r 2
+
+diagonal-test-jaccard-split-query:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -b 2
+
+diagonal-test-jaccard-split-filtered-query:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -b 1 --score-filter-gt 0.5

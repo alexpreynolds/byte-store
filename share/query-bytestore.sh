@@ -4,7 +4,7 @@
 
 set usage_text = 'Usage:\
 \
-    query-bytestore.sh [ --whole-genome | --mutual-regions ]\
+    query-bytestore.sh [ --whole-genome | --mutual-regions | --diagonal-walk <int> ]\
                        [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-jaccard | --hg38-dnaseI | --mm10-dnaseI ]\
                        [ --bytestore-sort | --sort-bed-sort | --score-sort ]\
                          --within-range A:B | --outside-range A:B\
@@ -22,7 +22,7 @@ set usage_text = 'Usage:\
     BED interval data: chromosome, start, and stop positions.\
 '
 
-set temp=(`getopt -s tcsh -o hbscgmxujgtdMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+set temp=(`getopt -s tcsh -o hbscgmD:xujgtdMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
 if ( $? != 0 ) then
     echo "Error: Getopt failed. Terminating..." > /dev/stderr
     exit 1
@@ -30,10 +30,10 @@ endif
 
 eval set argv=\($temp:q\)
 
-@ mutual = 0
+@ query_type = 0
 
 @ sort_cnt = 0
-@ mutual_cnt = 0
+@ query_type_cnt = 0
 @ db_cnt = 0
 @ filter_cnt = 0
 
@@ -41,6 +41,8 @@ set sort_type="sort-bed"
 set db=""
 set filter=""
 set filter_range=""
+
+@ diagonal_walk_distance = 0
 
 while (1)
     switch ($1:q)
@@ -68,14 +70,27 @@ while (1)
         breaksw;
     case -g:
     case --whole-genome:
-        @ mutual = 0;
-        @ mutual_cnt += 1;
+        @ query_type = 0;
+        @ query_type_cnt += 1;
         shift;
         breaksw;
     case -m:
     case --mutual-regions:
-        @ mutual = 1;
-        @ mutual_cnt += 1;
+        @ query_type = 1;
+        @ query_type_cnt += 1;
+        shift;
+        breaksw;
+    case -D:
+    case --diagonal-walk:
+        if ( $2:q == "" ) then
+            echo "Error: Please specify integer (negative or positive) for diagonal walk distance" > /dev/stderr;
+            echo $usage_text:q > /dev/stderr;
+            exit 1;
+        endif
+        @ diagonal_walk_distance = $2
+        @ query_type = 2
+        @ query_type_cnt += 1
+        shift;
         shift;
         breaksw;
     case -x:
@@ -165,14 +180,14 @@ if ( $sort_cnt == 0 ) then
     set sort_type = "sort-bed"
 endif
 
-# if more than one mutual type is specified, print usage and quit
-if ( $mutual_cnt > 1 ) then
-    echo "Error: Please specify either --whole-genome (default) or --mutual-regions (optional)" > /dev/stderr
+# if more than one query type is specified, print usage and quit
+if ( $query_type_cnt > 1 ) then
+    echo "Error: Please specify either --whole-genome (default), --mutual-regions (optional), or --diagonal-walk <int> (optional)" > /dev/stderr
     echo $usage_text:q > /dev/stderr
     exit 1
 endif
-if ( $mutual_cnt == 0 ) then
-    @ mutual = 0
+if ( $query_type_cnt == 0 ) then
+    @ query_type = 0
 endif
 
 # if more or less than one filter type is specified, print usage and quit
@@ -295,8 +310,10 @@ bedextract $master $query_file \
 
 set query_scope = ""
 
-if ($mutual == 1) then
+if ($query_type == 1) then
     set query_scope = "--mutual-query"
+else if ($query_type == 2) then
+    set query_scope = "-b $diagonal_walk_distance"
 endif
 
 if ( -s $query_file_master_coords ) then

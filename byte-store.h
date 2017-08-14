@@ -653,6 +653,7 @@ extern "C" {
         kQueryKindMultipleIndices,
         kQueryKindMultipleIndicesFromFile,
         kQueryKindRange,
+        kQueryKindDiagonalOffset,
         kQueryKindUndefined
     } query_kind_t;
 
@@ -697,6 +698,12 @@ extern "C" {
     const char* kScoreFilterRangedOutsideExclusiveStr = "outside-exclusive";
     const char* kScoreFilterRangedOutsideInclusiveStr = "outside-inclusive";
 
+    typedef enum diagonal_side {
+        kDiagonalSideLowerTriangle = 0,
+        kDiagonalSideUpperTriangle,
+        kDiagonalSideUndefined
+    } diagonal_side_t;
+    
     static struct bs_globals_t {
         boolean_t store_create_flag;
         boolean_t store_query_flag;
@@ -753,6 +760,8 @@ extern "C" {
         boolean_t enable_ssl;
         char* ssl_key_pem;
         char* ssl_cert_pem;
+        uint32_t diagonal_offset_value;
+        diagonal_side_t diagonal_offset_side;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -777,6 +786,7 @@ extern "C" {
         { "multiple-index-query",                                required_argument, NULL, 'w' },
         { "multiple-index-query-from-file",                      required_argument, NULL, 'z' },
         { "range-query",                                         required_argument, NULL, 'g' },
+        { "diagonal-offset-query",                               required_argument, NULL, 'b' },
         { "lookup",                                              required_argument, NULL, 'l' },
         { "store",                                               required_argument, NULL, 's' },
         { "encoding-strategy",                                   required_argument, NULL, 'e' },
@@ -804,7 +814,7 @@ extern "C" {
         { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:mi:w:z:g:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:mi:w:z:g:b:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
@@ -1126,6 +1136,8 @@ extern "C" {
     void                         bs_print_sqr_filtered_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
     void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds);
+    void                         bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_variety_t v);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
