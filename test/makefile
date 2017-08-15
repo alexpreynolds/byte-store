@@ -351,11 +351,17 @@ mutual-test-jaccard-query-filter:
 # Diagonal walk tests
 # -------------------
 
-diagonal-test-jaccard-split-create:
-	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -r 2
+diagonal-test-jaccard-split-create-r2:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r2.bs -r 2
 
-diagonal-test-jaccard-split-query:
-	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -b 2
+diagonal-test-jaccard-split-query-r2:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r2.bs -b 2
 
-diagonal-test-jaccard-split-filtered-query:
-	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split.bs -b 1 --score-filter-gt 0.5
+diagonal-test-jaccard-split-filtered-query-r2:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r2.bs -b 1 --score-filter-gt 0.5
+
+diagonal-test-jaccard-split-create-r3:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -c -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r3.bs -r 3
+
+diagonal-test-jaccard-split-query-r3:
+	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r3.bs -b 2

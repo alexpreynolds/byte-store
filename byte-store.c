@@ -11650,6 +11650,7 @@ bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FIL
     
     /* iterate through separate rows, calculating associated block */
     int32_t block_row_size = (int32_t) md->block_row_size;
+    int32_t block_size = block_row_size * l->nelems;
     int32_t current_block_idx = -1;
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
@@ -11674,24 +11675,16 @@ bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FIL
             }
             /* adjust row_idx so that byte offset calculation is relative to current block */
             row_idx = block_row_size * new_block_idx;
+            /* if we are below the diagonal, and we are in the very first block, we have a little more work to get the correct offset */
+            size_t new_block_offset = (ds == kDiagonalSideLowerTriangle) ? ((current_block_idx == -1) ? (v * l->nelems) % block_size : col_idx) : col_idx;
+            /* adjust input stream offset */
+            fseek(is, new_block_offset, SEEK_CUR);
+            /* update current block index */
+            current_block_idx = new_block_idx;
         }
-        
-        /* we offset some number of bytes from current position of input stream, as necessary */
-        /* note that we subtract a row unit, if we are in the same block and so have already */
-        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
-        /* otherwise we will almost certainly overflow and run into byte offset problems that */
-        /* cause garbage output */
-        
-        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
-        int64_t bytes_to_go = row_diff * l->nelems;
-        
-        /* add "first" bytes to go into the row by another row bytes */
-        /* seek to the correct location */
-        bytes_to_go += col_idx;
-        fseek(is, bytes_to_go, SEEK_CUR);
-        
+                
         row_idx = (uint32_t) query_row;
-        
+
         byte_t b = fgetc(is);
         score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(b) :
             (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(b) :
@@ -11706,12 +11699,8 @@ bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FIL
                       l->elems[col_idx]->stop,
                       d);
         
-        /* we need to seek to the end of the row so that the file pointer is correctly positioned for the next iteration */
-        bytes_to_go = l->nelems - bytes_to_go - 1; /* -1 for 1 byte move in fgetc */
-        fseek(is, bytes_to_go, SEEK_CUR);
-
-        /* set current block index */
-        current_block_idx = new_block_idx;
+        /* we seek forwards by a row */
+        fseek(is, l->nelems, SEEK_CUR);
     }
     
     /* clean up */
@@ -11803,6 +11792,7 @@ bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_
     
     /* iterate through separate rows, calculating associated block */
     int32_t block_row_size = (int32_t) md->block_row_size;
+    int32_t block_size = block_row_size * l->nelems;
     int32_t current_block_idx = -1;
     int32_t new_block_idx = -1;
     size_t row_idx = 0;
@@ -11827,21 +11817,13 @@ bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_
             }
             /* adjust row_idx so that byte offset calculation is relative to current block */
             row_idx = block_row_size * new_block_idx;
+            /* if we are below the diagonal, and we are in the very first block, we have a little more work to get the correct offset */
+            size_t new_block_offset = (ds == kDiagonalSideLowerTriangle) ? ((current_block_idx == -1) ? (v * l->nelems) % block_size : col_idx) : col_idx;
+            /* adjust input stream offset */
+            fseek(is, new_block_offset, SEEK_CUR);
+            /* update current block index */
+            current_block_idx = new_block_idx;
         }
-        
-        /* we offset some number of bytes from current position of input stream, as necessary */
-        /* note that we subtract a row unit, if we are in the same block and so have already */
-        /* read through the input stream by one row. we also make sure that we use 64-bit ints */
-        /* otherwise we will almost certainly overflow and run into byte offset problems that */
-        /* cause garbage output */
-        
-        int64_t row_diff = query_row - row_idx - ((current_block_idx != new_block_idx) ? 0 : 1);
-        int64_t bytes_to_go = row_diff * l->nelems;
-        
-        /* add "first" bytes to go into the row by another row bytes */
-        /* seek to the correct location */
-        bytes_to_go += col_idx;
-        fseek(is, bytes_to_go, SEEK_CUR);
         
         row_idx = (uint32_t) query_row;
         
@@ -11868,13 +11850,9 @@ bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_
                           l->elems[col_idx]->stop,
                           d);
         }
-        
-        /* we need to seek to the end of the row so that the file pointer is correctly positioned for the next iteration */
-        bytes_to_go = l->nelems - bytes_to_go - 1; /* -1 for 1 byte move in fgetc */
-        fseek(is, bytes_to_go, SEEK_CUR);
 
-        /* set current block index */
-        current_block_idx = new_block_idx;
+        /* we seek forwards by a row */
+        fseek(is, l->nelems, SEEK_CUR);
     }
     
     /* clean up */
