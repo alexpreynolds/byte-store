@@ -12189,6 +12189,7 @@ bs_print_sqr_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
     fclose(is);
+    is = NULL;
     metadata_t* md = NULL;
     md = bs_parse_metadata_str(md_string);
     if (!md) {
@@ -12196,7 +12197,7 @@ bs_print_sqr_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
         exit(EXIT_FAILURE);
     }
     
-    /* read a row of data at a time */
+    /* read a line of data at a time */
     byte_t* byte_buf = NULL;
     size_t n_byte_buf = l->nelems;
     byte_buf = malloc(n_byte_buf * sizeof(*byte_buf));
@@ -12207,20 +12208,50 @@ bs_print_sqr_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
 
     uint32_t row_idx = 0;
     uint64_t freq_table[256] = {0};
+
+    size_t current_block_idx = 0;
+    char* block_fn = bs_init_sqr_split_store_fn_str(block_src_dir, current_block_idx);
+    is = fopen(block_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
     do {
-        uint32_t nbyte = 0;
-        if (fread(byte_buf, sizeof(*byte_buf), n_byte_buf, is) != n_byte_buf) {
-            fprintf(stderr, "Error: Could not read a full row of data from sqr input stream!\n");
-            exit(EXIT_FAILURE);
-        }
         do {
-            freq_table[byte_buf[nbyte++]]++;
-        } while (nbyte < l->nelems);
-    } while (++row_idx < l->nelems);
+            uint32_t nbyte = 0;
+            size_t n_bytes_read = fread(byte_buf, sizeof(*byte_buf), n_byte_buf, is);
+            if (n_bytes_read != n_byte_buf) {
+                break;
+            }
+            do {
+                freq_table[byte_buf[nbyte++]]++;
+            } while (nbyte < l->nelems);
+        } while (++row_idx < md->block_row_size);
+        /* increment block index, reset sentinels, and open a new block */
+        current_block_idx++;
+        row_idx = 0;
+        fclose(is);
+        is = NULL;
+        if (current_block_idx < md->count - 1) {
+            free(block_fn);
+            block_fn = NULL;
+            block_fn = bs_init_sqr_split_store_fn_str(block_src_dir, current_block_idx);
+            is = fopen(block_fn, "rb");
+            if (ferror(is)) {
+                fprintf(stderr, "Error: Could not open handle to input store!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+        }
+    } while (current_block_idx < md->count - 1);
+
     bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
     
     /* clean up */
     free(block_src_dir), block_src_dir = NULL;
+    free(block_fn), block_fn = NULL;
     free(md_src_fn), md_src_fn = NULL;
     free(md_string), md_string = NULL;
     free(md), md = NULL;
@@ -12511,7 +12542,7 @@ bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os)
 {
     for (int bin_idx = 0; bin_idx <= 201; bin_idx++) {
         fprintf(os,
-                "%3.6f\t%" PRIu64 "\t%3.6f\n",
+                "%3.2f\t%" PRIu64 "\t%3.6f\n",
                 bs_decode_byte_to_score((byte_t) bin_idx),
                 t[bin_idx],
                 (score_t) t[bin_idx] / n);

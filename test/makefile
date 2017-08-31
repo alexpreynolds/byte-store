@@ -8,6 +8,7 @@ PDF_DIR          = $(TEST_DIR)/pdf
 SAMPLE_DIR       = /tmp/byte-store
 AWK_VERSION     := $(shell awk --version | grep "GNU Awk")
 BIN_DIR          = ../
+SHARE_DIR        = ../share
 
 clean:
 	rm -rf $(TEST_DIR)/*~
@@ -365,3 +366,23 @@ diagonal-test-jaccard-split-create-r3:
 
 diagonal-test-jaccard-split-query-r3:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r3.bs -b 2
+
+# ---------------
+# Frequency tests
+# ---------------
+
+frequency-test-pearsonr-sqr-split-create:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs -r 12
+
+frequency-test-pearsonr-sqr-split-measure:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs
+
+frequency-test-pearsonr-sqr-split-measure-total-proportion:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f3 | awk '{s+=$$1} END {print s;}'
+
+frequency-test-pearsonr-sqr-split-measure-total-bytes:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f2 | awk '{s+=$$1} END {print s;}'
+
+frequency-test-pearsonr-sqr-split-measure-and-graph:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
+	$(SHARE_DIR)/graph_frequency.Rscript $(TEST_DIR)/master.12r.pearson.bs/frequency.txt $(TEST_DIR)/master.12r.pearson.bs/frequency "master_with_signal_h40 (Pearson r)" "Pearson r bin" 5000 1
