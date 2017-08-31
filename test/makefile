@@ -375,14 +375,14 @@ frequency-test-pearsonr-sqr-split-create:
 	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs -r 12
 
 frequency-test-pearsonr-sqr-split-measure:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs
 
 frequency-test-pearsonr-sqr-split-measure-total-proportion:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f3 | awk '{s+=$$1} END {print s;}'
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f3 | awk '{s+=$$1} END {print s;}'
 
 frequency-test-pearsonr-sqr-split-measure-total-bytes:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f2 | awk '{s+=$$1} END {print s;}'
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f2 | awk '{s+=$$1} END {print s;}'
 
 frequency-test-pearsonr-sqr-split-measure-and-graph:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
 	$(SHARE_DIR)/graph_frequency.Rscript $(TEST_DIR)/master.12r.pearson.bs/frequency.txt $(TEST_DIR)/master.12r.pearson.bs/frequency "master_with_signal_h40 (Pearson r)" "Pearson r bin" 5000 1

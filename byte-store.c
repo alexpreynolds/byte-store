@@ -30,8 +30,8 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
-                                !bs_globals.store_query_flag,
-                                kTrue,
+                                !bs_globals.store_query_flag && !bs_globals.store_frequency_flag,
+                                ((bs_globals.store_frequency_flag) ? kFalse : kTrue),
                                 kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
@@ -41,8 +41,8 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
              (!bs_globals.store_query_daemon_flag)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
-                                !bs_globals.store_query_flag,
-                                kTrue,
+                                !bs_globals.store_query_flag && !bs_globals.store_frequency_flag,
+                                ((bs_globals.store_frequency_flag) ? kFalse : kTrue),
                                 kTrue);
     }
     else if ((bs_globals.store_type == kStoreJaccardIndexSquareMatrix) ||
@@ -6073,6 +6073,7 @@ bs_init_globals()
     bs_globals.ssl_cert_pem = NULL;
     bs_globals.diagonal_offset_value = 0;
     bs_globals.diagonal_offset_side = kDiagonalSideUndefined;
+    bs_globals.store_frequency_flag = kFalse;
 }
 
 /**
