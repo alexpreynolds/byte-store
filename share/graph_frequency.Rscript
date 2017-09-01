@@ -10,17 +10,26 @@ title <- args[3]
 xLabel <- args[4]
 B <- as.numeric(args[5])
 divideZeroBinByTwo <- as.numeric(args[6])
+lowerBound <- as.numeric(args[7])
+upperBound <- as.numeric(args[8])
 
-d <- read.table(inFn, header=F, sep="\t", col.names=c("score", "count", "proportion"), colClasses=c("numeric", "numeric", "numeric"))
+d <- read.table(inFn, header=F, sep="\t", col.names=c("score", "count", "density"), colClasses=c("numeric", "numeric", "numeric"))
 
 if (divideZeroBinByTwo == 1) {
-   d[d$score == 0.0,]$proportion <- d[d$score == 0.0,]$proportion/2
+   d[d$score == 0.0,]$density <- d[d$score == 0.0,]$density/2
 }
+
+d <- d[((d$score >= lowerBound) && (d$score <= upperBound)), ]
 
 # population
 s <- sum(d$count)
 limit <- 1000000
 n <- ifelse(s > limit, limit, s)
+
+# make rep() do something less ridiculous
+if (max(d$count) > 1000000) {
+  d$count <- ceiling(d$count / 10^(ceiling(log10(max(d$count)) - log10(limit))))
+}
 
 # make freq vector for sampling
 d2 <- rep(d$score, d$count)
@@ -92,7 +101,7 @@ sink()
 
 library(ggplot2)
 
-p <- ggplot(data=d, aes(x=score, y=proportion)) + 
+p <- ggplot(data=d, aes(x=score, y=density)) + 
   geom_bar(stat="identity") + labs(x = xLabel, title = title) + theme(plot.title = element_text(hjust = 0.5)) + 
   geom_vline(xintercept = stats$mean, linetype = "dashed", colour = "red", size = 0.25) + 
   annotate("rect", xmin=signif(stats$mean - stats$ci_mean_95pct, 2), xmax=signif(stats$mean + stats$ci_mean_95pct, 2), ymin=-Inf, ymax=Inf, alpha=0.333, fill="pink") +
@@ -104,17 +113,17 @@ p <- ggplot(data=d, aes(x=score, y=proportion)) +
   annotate("rect", xmin=signif(stats$ci_95percentile_95pct_lb, 2), xmax=signif(stats$ci_95percentile_95pct_ub, 2), ymin=-Inf, ymax=Inf, alpha=0.333, fill="lightgreen") +
   geom_vline(xintercept = stats$percentile90, linetype = "dashed", colour = "darkgreen", size = 0.25) +
   annotate("rect", xmin=signif(stats$ci_90percentile_95pct_lb, 2), xmax=signif(stats$ci_90percentile_95pct_ub, 2), ymin=-Inf, ymax=Inf, alpha=0.333, fill="darkgreen") +
-  annotate("text", label=paste("mean", signif(stats$mean, 2), sep=" "), x = stats$mean + 0.01, y = 0.75*max(d$proportion), size=4, colour="red", hjust=0) +
-  annotate("text", label=paste("CI (95%) (", signif(stats$mean - stats$ci_mean_95pct, 2), ", ", signif(stats$mean + stats$ci_mean_95pct, 2), ")", sep=""), x = stats$mean + 0.01, y = 0.725*max(d$proportion), size=4, colour="red", hjust=0) +
-  annotate("text", label=paste("median", signif(stats$median, 2), sep=" "), x = stats$median + 0.01, y = 0.65*max(d$proportion), size=4, colour="blue", hjust=0) +
-  annotate("text", label=paste("CI (95%) (", signif(stats$median - stats$ci_median_95pct, 2), ", ", signif(stats$median + stats$ci_median_95pct, 2), ")", sep=""), x = stats$median + 0.01, y = 0.625*max(d$proportion), size=4, colour="blue", hjust=0) +
-  annotate("text", label=paste("99th percentile", signif(stats$percentile99, 2), sep=" "), x = stats$percentile99 + 0.01, y = 0.55*max(d$proportion), size=4, colour="darkolivegreen3", hjust=0) +
-  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_99percentile_95pct_lb, 2), ", ", signif(stats$ci_99percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile99 + 0.01, y = 0.525*max(d$proportion), size=4, colour="darkolivegreen3", hjust=0) +
-  annotate("text", label=paste("95th percentile", signif(stats$percentile95, 2), sep=" "), x = stats$percentile95 + 0.01, y = 0.45*max(d$proportion), size=4, colour="forestgreen", hjust=0) +
-  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_95percentile_95pct_lb, 2), ", ", signif(stats$ci_95percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile95 + 0.01, y = 0.425*max(d$proportion), size=4, colour="forestgreen", hjust=0) +
-  annotate("text", label=paste("90th percentile", signif(stats$percentile90, 2), sep=" "), x = stats$percentile90 + 0.01, y = 0.35*max(d$proportion), size=4, colour="darkgreen", hjust=0) +
-  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_90percentile_95pct_lb, 2), ", ", signif(stats$ci_90percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile90 + 0.01, y = 0.325*max(d$proportion), size=4, colour="darkgreen", hjust=0)
+  annotate("text", label=paste("mean", signif(stats$mean, 2), sep=" "), x = stats$mean + 0.01, y = 0.75*max(d$density), size=4, colour="red", hjust=0) +
+  annotate("text", label=paste("CI (95%) (", signif(stats$mean - stats$ci_mean_95pct, 2), ", ", signif(stats$mean + stats$ci_mean_95pct, 2), ")", sep=""), x = stats$mean + 0.01, y = 0.725*max(d$density), size=4, colour="red", hjust=0) +
+  annotate("text", label=paste("median", signif(stats$median, 2), sep=" "), x = stats$median + 0.01, y = 0.65*max(d$density), size=4, colour="blue", hjust=0) +
+  annotate("text", label=paste("CI (95%) (", signif(stats$median - stats$ci_median_95pct, 2), ", ", signif(stats$median + stats$ci_median_95pct, 2), ")", sep=""), x = stats$median + 0.01, y = 0.625*max(d$density), size=4, colour="blue", hjust=0) +
+  annotate("text", label=paste("99th percentile", signif(stats$percentile99, 2), sep=" "), x = stats$percentile99 + 0.01, y = 0.55*max(d$density), size=4, colour="darkolivegreen3", hjust=0) +
+  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_99percentile_95pct_lb, 2), ", ", signif(stats$ci_99percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile99 + 0.01, y = 0.525*max(d$density), size=4, colour="darkolivegreen3", hjust=0) +
+  annotate("text", label=paste("95th percentile", signif(stats$percentile95, 2), sep=" "), x = stats$percentile95 + 0.01, y = 0.45*max(d$density), size=4, colour="forestgreen", hjust=0) +
+  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_95percentile_95pct_lb, 2), ", ", signif(stats$ci_95percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile95 + 0.01, y = 0.425*max(d$density), size=4, colour="forestgreen", hjust=0) +
+  annotate("text", label=paste("90th percentile", signif(stats$percentile90, 2), sep=" "), x = stats$percentile90 + 0.01, y = 0.35*max(d$density), size=4, colour="darkgreen", hjust=0) +
+  annotate("text", label=paste("CI (95%, B=", B, ") (", signif(stats$ci_90percentile_95pct_lb, 2), ", ", signif(stats$ci_90percentile_95pct_ub, 2), ")", sep=""), x = stats$percentile90 + 0.01, y = 0.325*max(d$density), size=4, colour="darkgreen", hjust=0)
 
-pdf(paste(outPrefix,"proportion","pdf",sep="."))
+pdf(paste(outPrefix,"density","pdf",sep="."))
 print(p)
 dev.off()

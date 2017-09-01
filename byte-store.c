@@ -7530,6 +7530,27 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
         exit(EXIT_FAILURE);
     }
 
+    /* frequency collector */
+    FILE* freq_os = NULL;
+    char* freq_fn = NULL;
+    freq_fn = bs_init_store_frequency_fn(bs_globals.store_fn, kTrue);
+    if (!freq_fn) {
+        fprintf(stderr, "Error: Could not generate frequency filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    freq_os = fopen(freq_fn, "wb");
+    if (ferror(freq_os)) {
+        fprintf(stderr, "Error: Could not open handle to output frequency collector!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(*freq_table));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate memory to frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t total_bytes_encoded = 0;
+
     /* write out a buffer of scores to output stream */
     size_t s_buf = 0;
     size_t n_buf = BUF_MAX_LEN;
@@ -7560,10 +7581,13 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
                 fprintf(stderr, "Warning: One or more vectors contain NAN or have zero standard deviation!\n");
                 bs_globals.zero_sd_warning_issued = kTrue;
             }
-            buf[s_buf++] = 
+            buf[s_buf] = 
                 (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_encode_score_to_byte(pairwise_score) : 
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
                 bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+            freq_table[buf[s_buf]]++;
+            total_bytes_encoded++;
+            s_buf++;
             if (s_buf == n_buf) {
                 if (fwrite(buf, sizeof(*buf), n_buf, os) != n_buf) {
                     fprintf(stderr, "Error: Could not write score buffer to output square matrix store at index (%" PRIu32 ", %" PRIu32 ")!\n", row_idx, col_idx);
@@ -7580,9 +7604,15 @@ bs_populate_sqr_store(sqr_store_t* s, lookup_t* l, score_t (*sf)(signal_t*, sign
         }        
     }
 
+    /* write collected byte frequency table */
+    bs_print_frequency_buffer(freq_table, total_bytes_encoded, freq_os);
+
     /* clean up */
+    free(freq_table), freq_table = NULL;
+    free(freq_fn), freq_fn = NULL;
     free(buf), buf = NULL;
     fclose(os);
+    fclose(freq_os);
 }
 
 /**
@@ -7720,6 +7750,27 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
     size_t buf_size = l->nelems;
     buf = malloc(buf_size * sizeof(*buf));
     size_t buf_idx = 0;
+
+    /* frequency collector */
+    FILE* freq_os = NULL;
+    char* freq_fn = NULL;
+    freq_fn = bs_init_store_frequency_fn(block_dest_dir, kFalse);
+    if (!freq_fn) {
+        fprintf(stderr, "Error: Could not generate frequency filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    freq_os = fopen(freq_fn, "wb");
+    if (ferror(freq_os)) {
+        fprintf(stderr, "Error: Could not open handle to output frequency collector!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(*freq_table));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate memory to frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t total_bytes_encoded = 0;
     
     for (uint32_t row_idx = 1; row_idx <= s->attr->nelems; row_idx++) {
         if (((row_idx - 1) % n == 0) && (!os)) {
@@ -7763,6 +7814,8 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
                 bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             buf[buf_idx] = score;
+            freq_table[score]++;
+            total_bytes_encoded++;
             buf_idx++;
         }
             
@@ -7809,6 +7862,9 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
         }
     }
 
+    /* write collected byte frequency table */
+    bs_print_frequency_buffer(freq_table, total_bytes_encoded, freq_os);
+
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
     md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
@@ -7830,7 +7886,11 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
     free(offsets), offsets = NULL;
     free(md_str), md_str = NULL;
     free(md_dest_fn), md_dest_fn = NULL;
-    free(buf), buf = NULL;   
+    free(buf), buf = NULL;
+
+    free(freq_table), freq_table = NULL;
+    free(freq_fn), freq_fn = NULL;
+    fclose(freq_os);
 }
 
 /**
@@ -7888,6 +7948,27 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
+
+    /* frequency collector */
+    FILE* freq_os = NULL;
+    char* freq_fn = NULL;
+    freq_fn = bs_init_store_frequency_fn(block_dest_fn, kTrue);
+    if (!freq_fn) {
+        fprintf(stderr, "Error: Could not generate frequency filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    freq_os = fopen(freq_fn, "wb");
+    if (ferror(freq_os)) {
+        fprintf(stderr, "Error: Could not open handle to output frequency collector!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(*freq_table));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate memory to frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
+    uint64_t total_bytes_encoded = 0;
     
     /* write out a buffer of 1 row (l->nelems bytes) to output stream */
     byte_t* buf = NULL;
@@ -7923,6 +8004,8 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
                 (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_encode_score_to_byte_mqz(pairwise_score) : 
                 bs_encode_score_to_byte_custom(pairwise_score, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
             buf[buf_idx++] = score;
+            freq_table[score]++;
+            total_bytes_encoded++;
         }
         /* at the end of a row, we write out the bytes */
         bytes_written = fwrite(buf, sizeof(*buf), buf_idx, os);
@@ -7936,9 +8019,17 @@ bs_populate_sqr_split_store_chunk(sqr_store_t* s, lookup_t* l, uint32_t n, uint3
         }
         buf_idx = 0;
     }
+
+    /* write collected byte frequency table */
+    bs_print_frequency_buffer(freq_table, total_bytes_encoded, freq_os);
+
+    /* cleanup */
     fclose(os), os = NULL;
     free(block_dest_fn), block_dest_fn = NULL;
     free(block_dest_dir), block_dest_dir = NULL;
+    free(freq_table), freq_table = NULL;
+    free(freq_fn), freq_fn = NULL;
+    fclose(freq_os);
 }
 
 /**
@@ -8500,6 +8591,36 @@ bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d)
     }
     snprintf(md_dest_fn, strlen(d) + strlen(kCompressionMetadataSplitFn) + 2, "%s/%s", d, kCompressionMetadataSplitFn);
     return md_dest_fn;
+}
+
+
+/**
+ * @brief      bs_init_store_frequency_fn(p)
+ *
+ * @details    Returns frequency filename string given prefix p
+ *
+ * @param      p      (char*) path prefix (e.g. store or block filename or dir)
+ *             f      (boolean_t) flag to indicate if p is a file (true) or a directory (false)
+ *
+ * @return     (char*) formatted frequency filename string
+ */
+
+char*
+bs_init_store_frequency_fn(char* p, boolean_t f)
+{
+    char* frequency_fn = NULL;
+    int fn_len = strlen(p) + 1 + strlen(kRawFrequencySuffixFn);
+    frequency_fn = malloc(fn_len + 1);
+    if (!frequency_fn) {
+        fprintf(stderr, "Error: Could not allocate space for frequency filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    int fn_n = (f) ? sprintf(frequency_fn, "%s.%s", p, kRawFrequencySuffixFn) : sprintf(frequency_fn, "%s/%s", p, kRawFrequencySuffixFn);
+    if (fn_n != fn_len) {
+        fprintf(stderr, "Error: Wrote incomplete filename string!\n");
+        exit(EXIT_FAILURE);
+    }
+    return frequency_fn;
 }
 
 /**
@@ -12208,56 +12329,67 @@ bs_print_sqr_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os)
     }
 
     uint32_t row_idx = 0;
-    uint64_t freq_table[256] = {0};
+    uint64_t* freq_table = NULL;
+    freq_table = calloc(256, sizeof(*freq_table));
+    if (!freq_table) {
+        fprintf(stderr, "Error: Could not allocate memory to frequency table!\n");
+        exit(EXIT_FAILURE);
+    }
 
     size_t current_block_idx = 0;
     char* block_fn = bs_init_sqr_split_store_fn_str(block_src_dir, current_block_idx);
     is = fopen(block_fn, "rb");
     if (ferror(is)) {
-        fprintf(stderr, "Error: Could not open handle to input store!\n");
+        fprintf(stderr, "Error: Could not open handle to input store! [%s]\n", block_fn);
         bs_print_usage(stderr);
         exit(EXIT_FAILURE);
     }
 
+    uint64_t total_bytes_read = 0;
+    size_t last_block_idx = md->count - 1;
     do {
+        fprintf(stderr, "Debug: Measuring block file [%s]\n", block_fn);
         do {
-            uint32_t nbyte = 0;
+            size_t n_byte = 0;
             size_t n_bytes_read = fread(byte_buf, sizeof(*byte_buf), n_byte_buf, is);
             if (n_bytes_read != n_byte_buf) {
                 break;
             }
             do {
-                freq_table[byte_buf[nbyte++]]++;
-            } while (nbyte < l->nelems);
+                size_t byte_index = (size_t)byte_buf[n_byte];
+                freq_table[byte_index]++;
+                n_byte++;
+            } while (n_byte < n_bytes_read);
+            total_bytes_read += n_bytes_read;
         } while (++row_idx < md->block_row_size);
-        /* increment block index, reset sentinels, and open a new block */
+        /* increment block index, reset sentinels, and open a new block, if available */
         current_block_idx++;
         row_idx = 0;
         fclose(is);
         is = NULL;
-        if (current_block_idx < md->count - 1) {
+        if (current_block_idx < last_block_idx) {
             free(block_fn);
             block_fn = NULL;
             block_fn = bs_init_sqr_split_store_fn_str(block_src_dir, current_block_idx);
             is = fopen(block_fn, "rb");
             if (ferror(is)) {
-                fprintf(stderr, "Error: Could not open handle to input store!\n");
+                fprintf(stderr, "Error: Could not open handle to input store! [%s]\n", block_fn);
                 bs_print_usage(stderr);
                 exit(EXIT_FAILURE);
             }
         }
-    } while (current_block_idx < md->count - 1);
+    } while (current_block_idx < last_block_idx);
 
-    bs_print_frequency_buffer(freq_table, s->attr->nbytes, os);
+    bs_print_frequency_buffer(freq_table, total_bytes_read, os);
     
     /* clean up */
+    free(freq_table), freq_table = NULL;
     free(block_src_dir), block_src_dir = NULL;
     free(block_fn), block_fn = NULL;
     free(md_src_fn), md_src_fn = NULL;
     free(md_string), md_string = NULL;
     free(md), md = NULL;
     free(byte_buf), byte_buf = NULL;
-    fclose(is);
 }
 
 /**
@@ -12541,13 +12673,18 @@ bs_print_sqr_bzip2_split_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FIL
 void
 bs_print_frequency_buffer(uint64_t* t, uint64_t n, FILE* os)
 {
+    /* 
+      we use double instead of float, due to the 
+      potential for imprecision in converting a uint64t 
+      integer that is greater than (2^24 + 1) 
+    */
     for (int bin_idx = 0; bin_idx <= 201; bin_idx++) {
         fprintf(os,
                 "%3.2f\t%" PRIu64 "\t%3.6f\n",
                 bs_decode_byte_to_score((byte_t) bin_idx),
                 t[bin_idx],
-                (score_t) t[bin_idx] / n);
-    }    
+                (double) t[bin_idx] / n); 
+    }
 }
 
 /**

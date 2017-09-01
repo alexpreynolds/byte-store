@@ -20,6 +20,7 @@ clean:
 	rm -rf $(TEST_DIR)/*.cbs.blocks
 	rm -rf $(TEST_DIR)/*.key
 	rm -rf $(TEST_DIR)/*.pem
+	rm -rf $(TEST_DIR)/*.frequency.txt
 	rm -rf $(PDF_DIR)
 #   rm -rf test/sample_bs_input.starch
 #   rm -rf test/sample_bs_input.bed
@@ -367,22 +368,41 @@ diagonal-test-jaccard-split-create-r3:
 diagonal-test-jaccard-split-query-r3:
 	$(BIN_DIR)/byte-store -t jaccard-index-sqr-split -q -l $(TEST_DIR)/diagonal_jaccard_test.bed -s $(TEST_DIR)/diagonal_jaccard_split_r3.bs -b 2
 
-# ---------------
-# Frequency tests
-# ---------------
+# ----------------------------
+# Frequency tests (monolithic)
+# ----------------------------
+
+frequency-test-pearsonr-sqr-create:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.monolithic.pearson.bs
+
+frequency-test-pearsonr-sqr-test-count:
+	@[ $$(awk '{s+=$$2}END{print s;}' master.monolithic.pearson.bs.frequency.txt) == "1600" ] && echo "Count test succeeded" || echo "Count test failed -- expected '1600'!"
+
+frequency-test-pearsonr-sqr-test-density:
+	@[ $$(awk '{s+=$$3}END{print s;}' master.monolithic.pearson.bs.frequency.txt) == "1" ] && echo "Density test succeeded" || echo "Density test failed -- expected '1'!"
+
+# -----------------------
+# Frequency tests (split)
+# -----------------------
 
 frequency-test-pearsonr-sqr-split-create:
 	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs -r 12
 
+# -----------------------------------------------------------------------------------------
+# These tests allow creating frequency tables for byte-store containers already constructed
+# but should not be necessary now that frequency tables are generated along with containers
+# or chunks
+# -----------------------------------------------------------------------------------------
+
 frequency-test-pearsonr-sqr-split-measure:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.pearson.bs
 
 frequency-test-pearsonr-sqr-split-measure-total-proportion:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f3 | awk '{s+=$$1} END {print s;}'
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f3 | awk '{s+=$$1} END {print s;}'
 
 frequency-test-pearsonr-sqr-split-measure-total-bytes:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f2 | awk '{s+=$$1} END {print s;}'
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.pearson.bs | cut -f2 | awk '{s+=$$1} END {print s;}'
 
 frequency-test-pearsonr-sqr-split-measure-and-graph:
-	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.query.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
 	$(SHARE_DIR)/graph_frequency.Rscript $(TEST_DIR)/master.12r.pearson.bs/frequency.txt $(TEST_DIR)/master.12r.pearson.bs/frequency "master_with_signal_h40 (Pearson r)" "Pearson r bin" 5000 1

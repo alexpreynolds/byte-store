@@ -582,6 +582,10 @@ extern "C" {
     const char* kRawMetadataSplitFn = "blocks.md";
     const char* kRawMetadataSplitDirSuffix = ""; /* formerly set to "blocks" -- see kCompressionMetadataSplitDirSuffix */
 
+    extern const char* kRawFrequencySuffixFn;
+
+    const char* kRawFrequencySuffixFn = "frequency.txt";
+
     extern const uint32_t kCompressionRowChunkMaximumSize;
     extern const uint32_t kCompressionBzip2BlockSize100k;
     extern const uint32_t kCompressionBzip2BlockSizeFactor;
@@ -1121,6 +1125,7 @@ extern "C" {
     char*                        bs_init_sqr_bzip2_split_store_dir_str(char* p);
     char*                        bs_init_sqr_bzip2_split_store_fn_str(char* p, uint32_t i);
     char*                        bs_init_sqr_bzip2_split_store_metadata_fn_str(char* d);
+    char*                        bs_init_store_frequency_fn(char* p, boolean_t f);
     inline off_t                 bs_sqr_byte_offset_for_element_ij(uint32_t n, uint32_t i, uint32_t j);
     void                         bs_print_sqr_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t rs, size_t re);
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, size_t rs, size_t re);
