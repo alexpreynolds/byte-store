@@ -15,11 +15,20 @@ upperBound <- as.numeric(args[8])
 
 d <- read.table(inFn, header=F, sep="\t", col.names=c("score", "count", "density"), colClasses=c("numeric", "numeric", "numeric"))
 
+lt.z.d <- d[d$score < 0.0,]
+eq.z.d <- d[d$score == 0.0, ]
+gt.z.d <- d[d$score > 0.0, ]
+
 if (divideZeroBinByTwo == 1) {
-   d[d$score == 0.0,]$density <- d[d$score == 0.0,]$density/2
+  d[d$score == 0.0,]$density <- d[d$score == 0.0,]$density/2
+  new.z.d <- data.frame(score=0.0, count=sum(eq.z.d$count)/2, density=sum(eq.z.d$density)/2)
+} else {
+  new.z.d <- data.frame(score=0.0, count=sum(eq.z.d$count), density=sum(eq.z.d$density))
 }
 
-d <- d[((d$score >= lowerBound) && (d$score <= upperBound)), ]
+d <- rbind(lt.z.d, new.z.d, gt.z.d)
+d <- d[d$score >= lowerBound, ]
+d <- d[d$score <= upperBound, ]
 
 # population
 s <- sum(d$count)
