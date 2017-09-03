@@ -10,6 +10,8 @@ AWK_VERSION     := $(shell awk --version | grep "GNU Awk")
 BIN_DIR          = ../
 SHARE_DIR        = ../share
 
+.PHONY: joint-frequency-sqr-split-measure
+
 clean:
 	rm -rf $(TEST_DIR)/*~
 	rm -rf $(TEST_DIR)/*.bs
@@ -406,3 +408,14 @@ frequency-test-pearsonr-sqr-split-measure-total-bytes:
 frequency-test-pearsonr-sqr-split-measure-and-graph:
 	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -f -l $(TEST_DIR)/master_with_signal_h40.col4nr.bed -s $(TEST_DIR)/master.12r.pearson.bs > $(TEST_DIR)/master.12r.pearson.bs/frequency.txt
 	$(SHARE_DIR)/graph_frequency.Rscript $(TEST_DIR)/master.12r.pearson.bs/frequency.txt $(TEST_DIR)/master.12r.pearson.bs/frequency "master_with_signal_h40 (Pearson r)" "Pearson r bin" 5000 1
+
+# -----------------------------
+# Joint frequency tests (split)
+# -----------------------------
+
+joint-frequency-sqr-split-create:
+	$(BIN_DIR)/byte-store -t pearson-r-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.12r.pearson.bs -r 12
+	$(BIN_DIR)/byte-store -t spearman-rho-sqr-split -c -l $(TEST_DIR)/master_with_signal_h40.bed -s $(TEST_DIR)/master.20r.spearman.bs -r 20
+
+joint-frequency-sqr-split-measure:
+	$(SHARE_DIR)/count_joint_encoded_bytes.py $(TEST_DIR)/master.12r.pearson.bs $(TEST_DIR)/master.20r.spearman.bs --elementCount=40
