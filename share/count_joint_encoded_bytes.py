@@ -7,6 +7,7 @@ import errno
 import struct
 import ctypes
 import logging
+import numpy
 
 name = "count_split_joint_encoded_bytes"
 usage = "  $ count_split_joint_encoded_byte --elementCount=L container-dir-1 container-dir-2 > counts.txt"
@@ -70,13 +71,14 @@ def main():
         sys.exit(errno.EINVAL)
 
     # 255^2 bins for a 2d joint distribution
+    # initialize with numpy.uint64 to avoid overflow problems with very large byte-store containers
     bins_per_signal_type = 2**(ctypes.c_ubyte(1).value * 8)
     bins = bins_per_signal_type**2
     if args.debug: logger.info("Debug: Making [%d] zero-ed bins...\n" % (bins))
-    bin_counter = [0] * bins
+    bin_counter = numpy.zeros((bins,), dtype=numpy.uint64)
 
-    n_bytes = element_count
-    total_bytes = 0
+    n_bytes = numpy.uint64(element_count)
+    total_bytes = numpy.uint64(0)
 
     # open initial handles
     first_block_index = 0
@@ -84,12 +86,14 @@ def main():
     if not os.path.exists(first_fn):
         sys.stderr.write("ERROR: Missing first block [%s]\n" % (first_fn))
         sys.exit(errno.EINVAL)
+    sys.stderr.write("Debug: Opening first block [%s]\n" % (first_fn))
     first_handle = open(first_fn, 'rb')
     second_block_index = 0
     second_fn = os.path.join(dirs[1], "%013d.rbs" % (second_block_index))
     if not os.path.exists(second_fn):
         sys.stderr.write("ERROR: Missing second block [%s]\n" % (second_fn))
         sys.exit(errno.EINVAL)
+    sys.stderr.write("Debug: Opening second block [%s]\n" % (second_fn))
     second_handle = open(second_fn, 'rb')
 
     # read through blocks
@@ -118,6 +122,7 @@ def main():
             first_block_index += 1
             first_fn = os.path.join(dirs[0], "%013d.rbs" % (first_block_index))
             try:
+                sys.stderr.write("Debug: Opening first block [%s]\n" % (first_fn))
                 first_handle = open(first_fn, 'rb')
             except IOError:
                 sys.stderr.write("ERROR: Could not open first block [%s]\n" % (first_fn))
@@ -129,6 +134,7 @@ def main():
             second_block_index += 1
             second_fn = os.path.join(dirs[1], "%013d.rbs" % (second_block_index))
             try:
+                sys.stderr.write("Debug: Opening second block [%s]\n" % (second_fn))
                 second_handle = open(second_fn, 'rb')
             except IOError:
                 sys.stderr.write("ERROR: Could not open second block [%s]\n" % (second_fn))
@@ -160,11 +166,12 @@ def main():
     for first_bin_index in inclusive_range(0, 201):
         for second_bin_index in inclusive_range(0, 201):
             offset = first_bin_index * bins_per_signal_type + second_bin_index
-            sys.stdout.write("%3.2f\t%3.2f\t%d\t%3.6f\n" % (
+            # cast to numpy.double to avoid overflow problems
+            sys.stdout.write("%3.2f\t%3.2f\t%d\t%3.12f\n" % (
                 encoded_byte_to_score[first_bin_index],
                 encoded_byte_to_score[second_bin_index],
                 bin_counter[offset],
-                float(bin_counter[offset]) / total_bytes))
+                numpy.double(bin_counter[offset]) / total_bytes))
 
     sys.exit(os.EX_OK)
 
