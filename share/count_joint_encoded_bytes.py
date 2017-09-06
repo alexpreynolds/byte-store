@@ -10,7 +10,7 @@ import logging
 import numpy
 
 name = "count_split_joint_encoded_bytes"
-usage = "  $ count_split_joint_encoded_byte --elementCount=L container-dir-1 container-dir-2 > counts.txt"
+usage = "  $ count_split_joint_encoded_byte --elementCount=L --blockCounts=B1,B2 container-dir-1 container-dir-2 > counts.txt"
 help = """
   The 'count_split_joint_encoded_bytes' script counts the joint
   frequency of bytes in two "split" byte-store containers. 
@@ -43,6 +43,7 @@ def main():
     parser = argparse.ArgumentParser(prog=name, usage=usage, add_help=False)
     parser.add_argument('--help', '-h', action='store_true', dest='help')
     parser.add_argument('--elementCount', '-e', type=int, action="store")
+    parser.add_argument('--blockCounts', '-b', type=str, action="store")
     parser.add_argument('--debug', '-d', action='store_true', dest='debug')
     parser.add_argument('dirs', type=str, nargs='*')
     args = parser.parse_args()
@@ -64,21 +65,23 @@ def main():
     try:
         dirs = args.dirs
         element_count = args.elementCount
+        block_counts_str = args.blockCounts
     except AttributeError as e:
         sys.stderr.write("ERROR: Missing options!\n\n")
         sys.stderr.write(usage + '\n')
         sys.stderr.write(help)
         sys.exit(errno.EINVAL)
 
+    (first_block_count, second_block_count) = [int(x) for x in block_counts_str.split(",")]
+
     # 255^2 bins for a 2d joint distribution
-    # initialize with numpy.uint64 to avoid overflow problems with very large byte-store containers
     bins_per_signal_type = 2**(ctypes.c_ubyte(1).value * 8)
     bins = bins_per_signal_type**2
     if args.debug: logger.info("Debug: Making [%d] zero-ed bins...\n" % (bins))
-    bin_counter = numpy.zeros((bins,), dtype=numpy.uint64)
+    bin_counter = numpy.zeros((bins,), dtype=numpy.int64)
 
-    n_bytes = numpy.uint64(element_count)
-    total_bytes = numpy.uint64(0)
+    n_bytes = element_count
+    total_bytes = 0
 
     # open initial handles
     first_block_index = 0
@@ -96,12 +99,12 @@ def main():
     sys.stderr.write("Debug: Opening second block [%s]\n" % (second_fn))
     second_handle = open(second_fn, 'rb')
 
-    # read through blocks
+    # struct stuff
     struct_format = "=%dB" % (n_bytes)
+    struct_unpack = struct.Struct('%s' % (struct_format)).unpack
+
+    # read through blocks, one row at a time
     while True:
-        # read n_bytes from first_handle and second_handle
-        # if first_bytes_read == 0 or second_bytes_read == 0, close that handle and try to open a new handle
-        # otherwise, update bin_counter for joint frequency
         if args.debug: logger.info("Debug: Attempting to read [%d] bytes from first handle...\n" % (n_bytes))
         first_bytes = first_handle.read(n_bytes)
         first_bytes_read = len(first_bytes)
@@ -111,11 +114,31 @@ def main():
         second_bytes_read = len(second_bytes)
         if args.debug: logger.info("Debug: Read [%d] bytes from second handle\n" % (second_bytes_read))
         
-        # leave the read loop
+        # prime pumps or leave if both are last blocks
         if first_bytes_read == 0 and second_bytes_read == 0:
             first_handle.close()
             second_handle.close()
-            break
+            first_block_index += 1
+            second_block_index += 1
+            if first_block_index == first_block_count and second_block_index == second_block_count:
+                break
+            first_fn = os.path.join(dirs[0], "%013d.rbs" % (first_block_index))
+            try:
+                sys.stderr.write("Debug: Opening first block [%s]\n" % (first_fn))
+                first_handle = open(first_fn, 'rb')
+            except IOError:
+                sys.stderr.write("ERROR: Could not open first block [%s]\n" % (first_fn))
+                sys.exit(errno.ENOENT)
+            first_bytes = first_handle.read(n_bytes)
+            second_fn = os.path.join(dirs[1], "%013d.rbs" % (second_block_index))
+            try:
+                sys.stderr.write("Debug: Opening second block [%s]\n" % (second_fn))
+                second_handle = open(second_fn, 'rb')
+            except IOError:
+                sys.stderr.write("ERROR: Could not open second block [%s]\n" % (second_fn))
+                sys.exit(errno.ENOENT)
+            second_bytes = second_handle.read(n_bytes)
+
         # prime the pump (first buffer)
         elif first_bytes_read == 0:
             first_handle.close()
@@ -128,6 +151,7 @@ def main():
                 sys.stderr.write("ERROR: Could not open first block [%s]\n" % (first_fn))
                 sys.exit(errno.ENOENT)
             first_bytes = first_handle.read(n_bytes)
+
         # prime the pump (second buffer)
         elif second_bytes_read == 0:
             second_handle.close()
@@ -142,20 +166,11 @@ def main():
             second_bytes = second_handle.read(n_bytes)
 
         # unpack bytes
-        first_bytes_unpacked = struct.unpack(struct_format, first_bytes)
-        second_bytes_unpacked = struct.unpack(struct_format, second_bytes)
+        first_bytes_unpacked = numpy.array(struct_unpack(first_bytes))
+        second_bytes_unpacked = numpy.array(struct_unpack(second_bytes))
+        offsets = first_bytes_unpacked * bins_per_signal_type + second_bytes_unpacked
+        numpy.add.at(bin_counter, offsets, 1)
         
-        # increment counts
-        for index in range(0, element_count):
-            first_byte = first_bytes_unpacked[index]
-            second_byte = second_bytes_unpacked[index]
-            offset = first_byte * bins_per_signal_type + second_byte
-            try:
-                bin_counter[offset] += 1
-            except IndexError:
-                sys.stderr.write("ERROR: offset: [%d] bins_per_signal_type: [%d] bins: [%d]\n" % (offset, bins_per_signal_type, bins))
-                sys.exit(errno.EINVAL)
-
         # increment total byte counter
         total_bytes += n_bytes
 
@@ -166,12 +181,11 @@ def main():
     for first_bin_index in inclusive_range(0, 201):
         for second_bin_index in inclusive_range(0, 201):
             offset = first_bin_index * bins_per_signal_type + second_bin_index
-            # cast to numpy.double to avoid overflow problems
             sys.stdout.write("%3.2f\t%3.2f\t%d\t%3.12f\n" % (
                 encoded_byte_to_score[first_bin_index],
                 encoded_byte_to_score[second_bin_index],
                 bin_counter[offset],
-                numpy.double(bin_counter[offset]) / total_bytes))
+                float(bin_counter[offset]) / total_bytes))
 
     sys.exit(os.EX_OK)
 
