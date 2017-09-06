@@ -5,7 +5,7 @@
 set usage_text = 'Usage:\
 \
     query-bytestore.sh [ --whole-genome | --mutual-regions | --diagonal-walk <int> ]\
-                       [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-jaccard | --hg38-dnaseI | --mm10-dnaseI ]\
+                       [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-jaccard | --hg38-dnaseI | --hg38-kmer-pearson | --mm10-dnaseI ]\
                        [ --bytestore-sort | --sort-bed-sort | --score-sort ]\
                          --within-range A:B | --outside-range A:B\
                          <bed-file>\
@@ -22,7 +22,7 @@ set usage_text = 'Usage:\
     BED interval data: chromosome, start, and stop positions.\
 '
 
-set temp=(`getopt -s tcsh -o hbscgmD:xujgtdMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+set temp=(`getopt -s tcsh -o hbscgmD:xujgtdkMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
 if ( $? != 0 ) then
     echo "Error: Getopt failed. Terminating..." > /dev/stderr
     exit 1
@@ -126,6 +126,12 @@ while (1)
     case -d:
     case --hg38-dnaseI:
         set db = "hg38-dnaseI";
+        @ db_cnt += 1
+        shift;
+        breaksw;
+    case -k:
+    case --hg38-kmer-pearson:
+        set db = "hg38-kmer-pearson";
         @ db_cnt += 1
         shift;
         breaksw;
@@ -285,6 +291,10 @@ else if ( $db == "hg38-jaccard" ) then
 else if ( $db == "hg38-dnaseI" ) then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v061417a/pearson/production/results/827_master_list_v061417a.100000r.bs"
+    set db_type = "pearson-r-sqr-split"
+else if ( $db == "hg38-kmer-pearson" ) then
+    set master = "/net/seq/data/projects/bytestore/827_master_list_v090517a_cross_5_mers/pearson/prerequisites/results/master_with_row_indices.bed"
+    set store = "/net/seq/data/projects/bytestore/827_master_list_v090517a_cross_5_mers/pearson/production/results/827_master_list_v090517a_cross_5_mers.25000r.bs"
     set db_type = "pearson-r-sqr-split"
 else if ( $db == "mm10-dnaseI" ) then
     set master = "/net/seq/data/projects/bytestore/224_mouse_master_list_v070817a/pearson/prerequisites/results/master_with_row_indices.bed"
