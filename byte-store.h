@@ -50,6 +50,7 @@ extern "C" {
 #define OFFSET_MAX_LEN 20
 #define MD_OFFSET_MAX_LEN 20
 #define BLOCK_STR_MAX_LEN 13
+#define NORMALIZATION_FACTOR_STR_MAX_LEN 13
 #define LINE_ID_STR_MAX_LEN 13
 #define MULT_IDX_MAX_NUM 4096
 #define HOSTNAME_MAX_LEN 8192
@@ -102,6 +103,12 @@ extern "C" {
     extern const char* kTestVectorM2;
     extern const char* kTestVectorMz;
     extern const char* kTestVectorMu;
+    const score_t kTestVectorDNormFactor;
+    const char* kTestVectorD1;
+    const char* kTestVectorD2;
+    const char* kTestVectorD3;
+    const char* kTestVectorDz;
+    const char* kTestVectorDu;
 
     const char* kTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
@@ -134,6 +141,12 @@ extern "C" {
     const char* kTestVectorM3 = "0,1,1,1,1,0,1,0,1,0,NAN,1";
     const char* kTestVectorMz = "0,0,0,0,0,0,0,0,0";
     const char* kTestVectorMu = "1,1,1,1,1,1,1,1,1";
+    const score_t kTestVectorDNormFactor = 10.0f;
+    const char* kTestVectorD1 = "1,5,5,2";
+    const char* kTestVectorD2 = "3,0,1,1";
+    const char* kTestVectorD3 = "0,1,1,NAN";
+    const char* kTestVectorDz = "0,0,0,0";
+    const char* kTestVectorDu = "5,5,5,5";
 
     extern const score_t kPearsonRTestABCorrelationUnencoded;
     extern const score_t kPearsonRTestABCorrelationEncoded;
@@ -182,6 +195,38 @@ extern "C" {
     const score_t kSpearmanRhoTestACCorrelationUnencoded = NAN;
     const score_t kSpearmanRhoTestACCorrelationEncoded = NAN;
     const byte_t kSpearmanRhoTestACCorrelationEncodedByte = 0xca;
+
+    extern const score_t kNormalizedEuclideanDistanceTestD1D2Unencoded;
+    extern const score_t kNormalizedEuclideanDistanceTestD1D2Encoded;
+    extern const byte_t kNormalizedEuclideanDistanceTestD1D2EncodedByte;
+    extern const score_t kNormalizedEuclideanDistanceTestD1D3Unencoded;
+    extern const score_t kNormalizedEuclideanDistanceTestD1D3Encoded;
+    extern const byte_t kNormalizedEuclideanDistanceTestD1D3EncodedByte;
+    extern const score_t kNormalizedEuclideanDistanceTestDzDzUnencoded;
+    extern const score_t kNormalizedEuclideanDistanceTestDzDzEncoded;
+    extern const byte_t kNormalizedEuclideanDistanceTestDzDzEncodedByte;
+    extern const score_t kNormalizedEuclideanDistanceTestDzDuUnencoded;
+    extern const score_t kNormalizedEuclideanDistanceTestDzDuEncoded;
+    extern const byte_t kNormalizedEuclideanDistanceTestDzDuEncodedByte;
+    extern const score_t kNormalizedEuclideanDistanceTestDuDuUnencoded;
+    extern const score_t kNormalizedEuclideanDistanceTestDuDuEncoded;
+    extern const byte_t kNormalizedEuclideanDistanceTestDuDuEncodedByte;
+
+    const score_t kNormalizedEuclideanDistanceTestD1D2Unencoded = 0.6782330f;
+    const score_t kNormalizedEuclideanDistanceTestD1D2Encoded = 0.67f;
+    const byte_t kNormalizedEuclideanDistanceTestD1D2EncodedByte = 0xa8;
+    const score_t kNormalizedEuclideanDistanceTestD1D3Unencoded = NAN;
+    const score_t kNormalizedEuclideanDistanceTestD1D3Encoded = NAN;
+    const byte_t kNormalizedEuclideanDistanceTestD1D3EncodedByte = 0xca;
+    const score_t kNormalizedEuclideanDistanceTestDzDzUnencoded = 0.0f;
+    const score_t kNormalizedEuclideanDistanceTestDzDzEncoded = +0.0f;
+    const byte_t kNormalizedEuclideanDistanceTestDzDzEncodedByte = 0x65;
+    const score_t kNormalizedEuclideanDistanceTestDzDuUnencoded = 1.0f;
+    const score_t kNormalizedEuclideanDistanceTestDzDuEncoded = 1.0f;
+    const byte_t kNormalizedEuclideanDistanceTestDzDuEncodedByte = 0xc9;
+    const score_t kNormalizedEuclideanDistanceTestDuDuUnencoded = 0.0f;
+    const score_t kNormalizedEuclideanDistanceTestDuDuEncoded = +0.0f;
+    const byte_t kNormalizedEuclideanDistanceTestDuDuEncodedByte = 0x65;
 
     extern const score_t kJaccardIndexTestJ1J2Unencoded;
     extern const score_t kJaccardIndexTestJ1J2Encoded;
@@ -442,6 +487,10 @@ extern "C" {
         kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata,
         kStoreSpearmanRhoSquareMatrixBzip2,
         kStoreSpearmanRhoSquareMatrixBzip2Split,
+        kStoreNormalizedEuclideanDistanceSquareMatrix,
+        kStoreNormalizedEuclideanDistanceSquareMatrixSplit,
+        kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk,
+        kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata,
         kStoreJaccardIndexSquareMatrix,
         kStoreJaccardIndexSquareMatrixSplit,
         kStoreJaccardIndexSquareMatrixSplitSingleChunk,
@@ -468,6 +517,8 @@ extern "C" {
         kStoreUndefined
     } store_type_t;
 
+    /* the order here is important, due to the integer value being used in metadata */
+
     typedef enum score_variety {
         kScoreVarietyPearsonR = 0,
         kScoreVarietySpearmanRho,
@@ -476,6 +527,7 @@ extern "C" {
         kScoreVarietyPearsonPhiSimilarity,
         kScoreVarietyRogersAndTanimotoSimilarity,
         kScoreVarietyNormalizedPointwiseMutualInformation,
+        kScoreVarietyNormalizedEuclideanDistance,
         kScoreVarietyUndefined
     } score_variety_t;
 
@@ -492,6 +544,10 @@ extern "C" {
     extern const char* kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadataStr;
     extern const char* kStoreSpearmanRhoSquareMatrixBzip2Str;
     extern const char* kStoreSpearmanRhoSquareMatrixBzip2SplitStr;
+    extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixStr;
+    extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitStr;
+    extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkStr;
+    extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr;
     extern const char* kStoreJaccardIndexSquareMatrixStr;
     extern const char* kStoreJaccardIndexSquareMatrixSplitStr;
     extern const char* kStoreJaccardIndexSquareMatrixSplitSingleChunkStr;
@@ -529,6 +585,10 @@ extern "C" {
     const char* kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadataStr = "spearman-rho-sqr-split-single-chunk-metadata";
     const char* kStoreSpearmanRhoSquareMatrixBzip2Str = "spearman-rho-sqr-bzip2";
     const char* kStoreSpearmanRhoSquareMatrixBzip2SplitStr = "spearman-rho-sqr-bzip2-split";
+    const char* kStoreNormalizedEuclideanDistanceSquareMatrixStr = "normalized-euclidean-distance-sqr";
+    const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitStr = "normalized-euclidean-distance-sqr-split";
+    const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkStr = "normalized-euclidean-distance-sqr-split-single-chunk";
+    const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr = "normalized-euclidean-distance-sqr-split-single-chunk-metadata";
     const char* kStoreJaccardIndexSquareMatrixStr = "jaccard-index-sqr";
     const char* kStoreJaccardIndexSquareMatrixSplitStr = "jaccard-index-sqr-split";
     const char* kStoreJaccardIndexSquareMatrixSplitSingleChunkStr = "jaccard-index-sqr-split-single-chunk";
@@ -606,13 +666,15 @@ extern "C" {
     extern const float kCompressionMetadataVersion;
     extern const float kCompressionMetadataVersion1p0;
     extern const float kCompressionMetadataVersion1p1;
+    extern const float kCompressionMetadataVersion1p2;
     extern const char* kCompressionMetadataSplitFn;
     extern const char* kCompressionMetadataSplitDirSuffix;
 
     const char kCompressionMetadataDelimiter = '|';
     const float kCompressionMetadataVersion1p0 = 1.0f;
     const float kCompressionMetadataVersion1p1 = 1.1f;
-    const float kCompressionMetadataVersion = 1.1f;
+    const float kCompressionMetadataVersion1p2 = 1.2f;
+    const float kCompressionMetadataVersion = 1.2f;
     const char* kCompressionMetadataSplitFn = "blocks.md";
     const char* kCompressionMetadataSplitDirSuffix = ""; /* formerly set to "blocks" -- this should match kRawMetadataSplitDirSuffix */
 
@@ -631,6 +693,7 @@ extern "C" {
         off_t* offsets;
         size_t count;
         size_t block_row_size;
+        score_t normalization_factor;
         double version;
     } metadata_t;
 
@@ -656,6 +719,7 @@ extern "C" {
         kQueryKindIndex,
         kQueryKindMultipleIndices,
         kQueryKindMultipleIndicesFromFile,
+        kQueryKindMultipleRowAndColumnIndicesFromFile,
         kQueryKindRange,
         kQueryKindDiagonalOffset,
         kQueryKindUndefined
@@ -766,6 +830,8 @@ extern "C" {
         char* ssl_cert_pem;
         uint32_t diagonal_offset_value;
         diagonal_side_t diagonal_offset_side;
+        boolean_t score_normalization_factor_specified_flag;
+        score_t score_normalization_factor;
     } bs_globals;
 
     static struct option bs_client_long_options[] = {
@@ -785,10 +851,12 @@ extern "C" {
         { "score-filter-ranged-within-inclusive",                required_argument, NULL, '8' },
         { "score-filter-ranged-outside-exclusive",               required_argument, NULL, '9' },
         { "score-filter-ranged-outside-inclusive",               required_argument, NULL, '0' },
+        { "score-normalization-factor",                          required_argument, NULL, 'F' },
         { "mutual-query",                                        no_argument,       NULL, 'm' },
         { "index-query",                                         required_argument, NULL, 'i' },
         { "multiple-index-query",                                required_argument, NULL, 'w' },
         { "multiple-index-query-from-file",                      required_argument, NULL, 'z' },
+        { "multiple-row-and-column-index-query-from-file",       required_argument, NULL, 'Z' },
         { "range-query",                                         required_argument, NULL, 'g' },
         { "diagonal-offset-query",                               required_argument, NULL, 'b' },
         { "lookup",                                              required_argument, NULL, 'l' },
@@ -808,6 +876,7 @@ extern "C" {
         { "ssl-cert",                                            required_argument, NULL, 'C' },
         { "test-pearson-r",                                      no_argument,       NULL, 'P' },
         { "test-spearman-rho",                                   no_argument,       NULL, 'S' },
+        { "test-normalized-euclidean-distance",                  no_argument,       NULL, 'D' },
         { "test-jaccard-index",                                  no_argument,       NULL, 'J' },
         { "test-ochiai-similarity",                              no_argument,       NULL, 'O' },
         { "test-pearson-phi-similarity",                         no_argument,       NULL, 'H' },
@@ -818,7 +887,7 @@ extern "C" {
         { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:mi:w:z:g:b:l:s:e:n:x:uyo:p:a:v:d:EK:C:SPJOHTMNh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:F:mi:w:z:Z:g:b:l:s:e:n:x:uyo:p:a:v:d:EK:C:SDPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
@@ -1075,6 +1144,7 @@ extern "C" {
     static inline score_t        bs_sample_sd_signal(score_t* d, uint32_t len, score_t m);
     static inline score_t        bs_sample_sd_ranks(rank_t* d, uint32_t len, score_t m);
     static inline score_t        bs_pearson_r_signal(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_normalized_euclidean_distance_signal(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_spearman_rho_signal_v1(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_spearman_rho_signal_v2(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_jaccard_index_signal(signal_t* x, signal_t* y, uint32_t len);
@@ -1088,6 +1158,7 @@ extern "C" {
     void                         bs_push_elem_to_lookup(element_t* e, lookup_t** l, boolean_t pi, boolean_t ss, boolean_t ir);
     void                         bs_test_pearson_r();
     void                         bs_test_spearman_rho();
+    void                         bs_test_normalized_euclidean_distance();
     void                         bs_test_jaccard_index();
     void                         bs_test_ochiai_similarity();
     void                         bs_test_pearson_phi_similarity();
@@ -1131,10 +1202,12 @@ extern "C" {
     void                         bs_print_sqr_filtered_store_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo, size_t rs, size_t re);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t* rs, size_t* re, uint32_t rn);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, boolean_t m, char** b, size_t* rs, size_t* re, uint32_t rn);
+    void                         bs_print_sqr_split_store_separate_rows_and_columns_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, FILE* os);
     void                         bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, char** b);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7(lookup_t* l, sqr_store_t* s, boolean_t m, FILE* os, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store_t* s, boolean_t m, char** b, size_t* rs, size_t* re, uint32_t rn, score_t fc, score_t flb, score_t fub, score_filter_t fo);
+    void                         bs_print_sqr_filtered_split_store_separate_rows_and_columns_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_store_t* s, char* qf, boolean_t m, char** b, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_bzip2_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os);
@@ -1143,7 +1216,8 @@ extern "C" {
     void                         bs_print_sqr_filtered_bzip2_split_store_to_bed7(lookup_t* l, sqr_store_t* s, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo);
     void                         bs_print_sqr_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds);
     void                         bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_t* s, FILE* os, uint32_t v, diagonal_side_t ds, score_t fc, score_t flb, score_t fub, score_filter_t fo);
-    char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_variety_t v);
+    char*                        bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_t f, score_variety_t v);
+    metadata_t*                  bs_init_metadata_ptr(char* bsd);
     metadata_t*                  bs_parse_metadata_str(char* ms);
     void                         bs_delete_metadata(metadata_t** m);
     void                         bs_print_sqr_store_frequency_to_txt(lookup_t* l, sqr_store_t* s, FILE* os);

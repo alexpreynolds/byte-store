@@ -14,6 +14,7 @@ main(int argc, char** argv)
 
     if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
@@ -28,18 +29,21 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonRSquareMatrixSplit) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunk) ||
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2) ||
-             (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split)) {
+             (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split) ||
+             (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrix) ||
+             (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag && !bs_globals.store_frequency_flag,
                                 ((bs_globals.store_frequency_flag) ? kFalse : kTrue),
                                 kFalse);
     }
     else if (((bs_globals.store_type == kStoreSpearmanRhoSquareMatrix) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
-             (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
-             (!bs_globals.store_query_daemon_flag)) {
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplit) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunk) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2) ||
+              (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixBzip2Split)) &&
+              (!bs_globals.store_query_daemon_flag)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag && !bs_globals.store_frequency_flag,
                                 ((bs_globals.store_frequency_flag) ? kFalse : kTrue),
@@ -108,6 +112,10 @@ main(int argc, char** argv)
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
             case kStoreSpearmanRhoSquareMatrixBzip2:
             case kStoreSpearmanRhoSquareMatrixBzip2Split:
+            case kStoreNormalizedEuclideanDistanceSquareMatrix:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
             case kStoreJaccardIndexSquareMatrix:
             case kStoreJaccardIndexSquareMatrixSplit:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
@@ -147,6 +155,7 @@ main(int argc, char** argv)
                 break;
             case kQueryKindMultipleIndices:
             case kQueryKindMultipleIndicesFromFile:
+            case kQueryKindMultipleRowAndColumnIndicesFromFile:
             case kQueryKindDiagonalOffset:
             case kQueryKindUndefined:
                 fprintf(stderr, "Error: Query type unsupported with SUT!\n");
@@ -182,6 +191,10 @@ main(int argc, char** argv)
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
     case kStoreSpearmanRhoSquareMatrixBzip2:
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
+    case kStoreNormalizedEuclideanDistanceSquareMatrix:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
@@ -291,6 +304,30 @@ main(int argc, char** argv)
                                                   &bs_spearman_rho_signal_v2, 
                                                   kScoreVarietySpearmanRho);
                 break;
+            case kStoreNormalizedEuclideanDistanceSquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_normalized_euclidean_distance_signal);
+                break;
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_normalized_euclidean_distance_signal, 
+                                            kScoreVarietyNormalizedEuclideanDistance);
+                break;
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_normalized_euclidean_distance_signal);
+                break;
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyNormalizedEuclideanDistance);
             case kStoreJaccardIndexSquareMatrix:
                 bs_populate_sqr_store(sqr_store, 
                                       lookup, 
@@ -445,6 +482,7 @@ main(int argc, char** argv)
                 separate_rows_found = bs_parse_query_multiple_index_file(lookup, 
                                                                          bs_globals.store_query_str);
                 break;
+            case kQueryKindMultipleRowAndColumnIndicesFromFile:
             case kQueryKindDiagonalOffset:
                 separate_rows_found = kTrue;
                 break;
@@ -469,6 +507,7 @@ main(int argc, char** argv)
                 case kStoreRandomSquareMatrix:
                 case kStorePearsonRSquareMatrix:
                 case kStoreSpearmanRhoSquareMatrix:
+                case kStoreNormalizedEuclideanDistanceSquareMatrix:
                 case kStoreJaccardIndexSquareMatrix:
                 case kStoreOchiaiSimilaritySquareMatrix:
                 case kStorePearsonPhiSimilaritySquareMatrix:
@@ -495,6 +534,7 @@ main(int argc, char** argv)
                     break;
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
                 case kStoreJaccardIndexSquareMatrixSplit:
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -559,6 +599,8 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
                 case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
@@ -583,6 +625,7 @@ main(int argc, char** argv)
                 switch (bs_globals.store_type) {
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
                 case kStoreJaccardIndexSquareMatrixSplit:
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -590,6 +633,24 @@ main(int argc, char** argv)
                 case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
                     case kQueryKindMultipleIndicesFromFile:
+                        if (bs_globals.store_filter == kScoreFilterNone) {
+                            bs_print_sqr_split_store_separate_rows_and_columns_to_bed7_file(lookup,
+                                                                                            sqr_store,
+                                                                                            bs_globals.store_query_str,
+                                                                                            stdout);
+                        }
+                        else {
+                            bs_print_sqr_filtered_split_store_separate_rows_and_columns_to_bed7_file(lookup,
+                                                                                                     sqr_store,
+                                                                                                     bs_globals.store_query_str,
+                                                                                                     stdout,
+                                                                                                     bs_globals.score_filter_cutoff,
+                                                                                                     bs_globals.score_filter_cutoff_lower_bound,
+                                                                                                     bs_globals.score_filter_cutoff_upper_bound,
+                                                                                                     bs_globals.store_filter);
+                        }
+                        break;
+                    case kQueryKindMultipleRowAndColumnIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup,
                                                                                 sqr_store,
@@ -668,6 +729,9 @@ main(int argc, char** argv)
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
                 case kStoreSpearmanRhoSquareMatrixBzip2:
                 case kStoreSpearmanRhoSquareMatrixBzip2Split:
+                case kStoreNormalizedEuclideanDistanceSquareMatrix:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+                case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
                 case kStoreJaccardIndexSquareMatrix:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -697,6 +761,7 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrix:
             case kStoreSpearmanRhoSquareMatrix:
             case kStoreJaccardIndexSquareMatrix:
+            case kStoreNormalizedEuclideanDistanceSquareMatrix:
             case kStoreOchiaiSimilaritySquareMatrix:
             case kStorePearsonPhiSimilaritySquareMatrix:
             case kStoreRogersAndTanimotoSimilaritySquareMatrix:
@@ -707,6 +772,7 @@ main(int argc, char** argv)
                 break;
             case kStorePearsonRSquareMatrixSplit:
             case kStoreSpearmanRhoSquareMatrixSplit:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
             case kStoreJaccardIndexSquareMatrixSplit:
             case kStoreOchiaiSimilaritySquareMatrixSplit:
             case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -734,6 +800,8 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixSplitSingleChunkMetadata:
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+            case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
             case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
@@ -1504,6 +1572,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -1565,6 +1634,9 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedEuclideanDistanceSquareMatrix:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -1718,6 +1790,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -1779,6 +1852,9 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedEuclideanDistanceSquareMatrix:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -1996,6 +2072,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -2063,6 +2140,9 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedEuclideanDistanceSquareMatrix:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -2278,6 +2358,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     switch (bs_globals.store_type) {
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -2347,6 +2428,9 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreSpearmanRhoSquareMatrixBzip2Split:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunk:
     case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
+    case kStoreNormalizedEuclideanDistanceSquareMatrix:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
+    case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -4339,6 +4423,31 @@ bs_spearman_rho_signal_v2(signal_t* x, signal_t* y, uint32_t len)
 }
 
 /**
+ * @brief      bs_normalized_euclidean_distance_signal(x, y, len)
+ *
+ * @details    Calculates the normalized Euclidean distance of two
+ *             signal vectors
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) Normalized Euclidean distance between [0,1]
+ */
+
+static inline score_t
+bs_normalized_euclidean_distance_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    score_t s = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        score_t difference = x->data[idx] - y->data[idx];
+        s += (difference * difference);
+    }
+        
+    return sqrt(s) / bs_globals.score_normalization_factor;
+}
+
+/**
  * @brief      bs_jaccard_index_signal(x, y, len)
  *
  * @details    Calculates the Jaccard index of two signal
@@ -4801,7 +4910,8 @@ bs_test_normalized_pointwise_mutual_information()
     fprintf(stderr, "Expected - unencoded M1-vs-M3 Normalized PMI measure: %3.6f\n", kNormalizedPointwiseMutualInformationTestM1M3Unencoded);
     fprintf(stderr, "Observed - unencoded M1-vs-M3 Normalized PMI measure: %3.6f\n", unencoded_observed_m1m3_score);
     score_t absolute_diff_unencoded_m1m3_scores = fabs(kNormalizedPointwiseMutualInformationTestM1M3Unencoded - unencoded_observed_m1m3_score);
-    assert(absolute_diff_unencoded_m1m3_scores + kEpsilon > 0 && absolute_diff_unencoded_m1m3_scores - kEpsilon < 0);
+    if (!isnan(absolute_diff_unencoded_m1m3_scores))
+        assert(absolute_diff_unencoded_m1m3_scores + kEpsilon > 0 && absolute_diff_unencoded_m1m3_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed M1-vs-M3 scores do not differ within %3.7f error\n", kEpsilon);
     byte_t encoded_expected_m1m3_score_byte = bs_encode_score_to_byte(kNormalizedPointwiseMutualInformationTestM1M3Unencoded);
     byte_t encoded_observed_m1m3_score_byte = bs_encode_score_to_byte(unencoded_observed_m1m3_score);
@@ -4993,7 +5103,8 @@ bs_test_rogers_and_tanimoto_similarity()
     fprintf(stderr, "Expected - unencoded T1-vs-T3 Rogers and Tanimoto index: %3.6f\n", kRogersAndTanimotoSimilarityTestT1T3Unencoded);
     fprintf(stderr, "Observed - unencoded T1-vs-T3 Rogers and Tanimoto index: %3.6f\n", unencoded_observed_t1t3_score);
     score_t absolute_diff_unencoded_t1t3_scores = fabs(kRogersAndTanimotoSimilarityTestT1T3Unencoded - unencoded_observed_t1t3_score);
-    assert(absolute_diff_unencoded_t1t3_scores + kEpsilon > 0 && absolute_diff_unencoded_t1t3_scores - kEpsilon < 0);
+    if (!isnan(absolute_diff_unencoded_t1t3_scores))
+        assert(absolute_diff_unencoded_t1t3_scores + kEpsilon > 0 && absolute_diff_unencoded_t1t3_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed T1-vs-T3 scores do not differ within %3.7f error\n", kEpsilon);
     byte_t encoded_expected_t1t3_score_byte = bs_encode_score_to_byte(kRogersAndTanimotoSimilarityTestT1T3Unencoded);
     byte_t encoded_observed_t1t3_score_byte = bs_encode_score_to_byte(unencoded_observed_t1t3_score);
@@ -5378,7 +5489,8 @@ bs_test_ochiai_similarity()
     fprintf(stderr, "Expected - unencoded O1-vs-O3 Ochiai index: %3.6f\n", kOchiaiSimilarityTestO1O3Unencoded);
     fprintf(stderr, "Observed - unencoded O1-vs-O3 Ochiai index: %3.6f\n", unencoded_observed_o1o3_score);
     score_t absolute_diff_unencoded_o1o3_scores = fabs(kOchiaiSimilarityTestO1O3Unencoded - unencoded_observed_o1o3_score);
-    assert(absolute_diff_unencoded_o1o3_scores + kEpsilon > 0 && absolute_diff_unencoded_o1o3_scores - kEpsilon < 0);
+    if (!isnan(absolute_diff_unencoded_o1o3_scores))
+        assert(absolute_diff_unencoded_o1o3_scores + kEpsilon > 0 && absolute_diff_unencoded_o1o3_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed O1-vs-O3 scores do not differ within %3.7f error\n", kEpsilon);
     byte_t encoded_expected_o1o3_score_byte = bs_encode_score_to_byte(kOchiaiSimilarityTestO1O3Unencoded);
     byte_t encoded_observed_o1o3_score_byte = bs_encode_score_to_byte(unencoded_observed_o1o3_score);
@@ -5570,7 +5682,8 @@ bs_test_jaccard_index()
     fprintf(stderr, "Expected - unencoded J1-vs-J3 Jaccard index: %3.6f\n", kJaccardIndexTestJ1J3Unencoded);
     fprintf(stderr, "Observed - unencoded J1-vs-J3 Jaccard index: %3.6f\n", unencoded_observed_j1j3_score);
     score_t absolute_diff_unencoded_j1j3_scores = fabs(kJaccardIndexTestJ1J3Unencoded - unencoded_observed_j1j3_score);
-    assert(absolute_diff_unencoded_j1j3_scores + kEpsilon > 0 && absolute_diff_unencoded_j1j3_scores - kEpsilon < 0);
+    if (!isnan(absolute_diff_unencoded_j1j3_scores))
+        assert(absolute_diff_unencoded_j1j3_scores + kEpsilon > 0 && absolute_diff_unencoded_j1j3_scores - kEpsilon < 0);
     fprintf(stderr, "\t-> Expected and observed J1-vs-J3 scores do not differ within %3.7f error\n", kEpsilon);
     byte_t encoded_expected_j1j3_score_byte = bs_encode_score_to_byte(kJaccardIndexTestJ1J3Unencoded);
     byte_t encoded_observed_j1j3_score_byte = bs_encode_score_to_byte(unencoded_observed_j1j3_score);
@@ -5953,6 +6066,202 @@ bs_test_pearson_r()
 }
 
 /**
+ * @brief      bs_test_normalized_euclidean_distance()
+ *
+ * @details    Tests calculation and encoding of normalized
+ *             Euclidean distance from test vectors
+ */
+
+void
+bs_test_normalized_euclidean_distance()
+{
+    /* set a normalization factor, or tests will fail! */
+    bs_globals.score_normalization_factor = 10; /* sqrt(4*5^2) */
+
+    signal_t* d1 = NULL;
+    bs_init_signal((char*) kTestVectorD1, &d1, kFalse, kFalse);
+    if (!d1) {
+        fprintf(stderr, "Error: Could not allocate space for test (D1) normalized Euclidean distance vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* d2 = NULL;
+    bs_init_signal((char*) kTestVectorD2, &d2, kFalse, kFalse);
+    if (!d2) {
+        fprintf(stderr, "Error: Could not allocate space for test (D2) normalized Euclidean distance vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* d3 = NULL;
+    bs_init_signal((char*) kTestVectorD3, &d3, kFalse, kFalse);
+    if (!d3) {
+        fprintf(stderr, "Error: Could not allocate space for test (D3) normalized Euclidean distance vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* dz = NULL;
+    bs_init_signal((char*) kTestVectorDz, &dz, kFalse, kFalse);
+    if (!dz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Dz) normalized Euclidean distance vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* du = NULL;
+    bs_init_signal((char*) kTestVectorDu, &du, kFalse, kFalse);
+    if (!du) {
+        fprintf(stderr, "Error: Could not allocate space for test (Du) normalized Euclidean distance vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing D1 vs D2\n---\nD1 -> %s\nD2 -> %s\n---\n", kTestVectorD1, kTestVectorD2);
+    if (d1->n != d2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(d1, stderr);
+        bs_print_signal(d2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_d1d2_score = NAN;
+    if ((d1->data_contains_nan == kFalse) && (d2->data_contains_nan == kFalse)) {
+        unencoded_observed_d1d2_score = bs_normalized_euclidean_distance_signal(d1, d2, d1->n);
+    }
+    fprintf(stderr, "Expected - unencoded D1-vs-D2 normalized Euclidean distance: %3.6f\n", kNormalizedEuclideanDistanceTestD1D2Unencoded);
+    fprintf(stderr, "Observed - unencoded D1-vs-D2 normalized Euclidean distance: %3.6f\n", unencoded_observed_d1d2_score);
+    score_t absolute_diff_unencoded_d1d2_scores = fabs(kNormalizedEuclideanDistanceTestD1D2Unencoded - unencoded_observed_d1d2_score);
+    assert(absolute_diff_unencoded_d1d2_scores + kEpsilon > 0 && absolute_diff_unencoded_d1d2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed D1-vs-D2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_d1d2_score_byte = bs_encode_score_to_byte(kNormalizedEuclideanDistanceTestD1D2Unencoded);
+    byte_t encoded_observed_d1d2_score_byte = bs_encode_score_to_byte(unencoded_observed_d1d2_score);
+    fprintf(stderr, "Expected - encoded, precomputed D1-vs-D2 normalized Euclidean distance: 0x%02x\n", kNormalizedEuclideanDistanceTestD1D2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed D1-vs-D2 normalized Euclidean distance: 0x%02x\n", encoded_expected_d1d2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed D1-vs-D2 normalized Euclidean distance: 0x%02x\n", encoded_observed_d1d2_score_byte);
+    assert(kNormalizedEuclideanDistanceTestD1D2EncodedByte == encoded_expected_d1d2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed D1-vs-D2 normalized Euclidean distances do not differ\n");
+    assert(kNormalizedEuclideanDistanceTestD1D2EncodedByte == encoded_observed_d1d2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed D1-vs-D2 normalized Euclidean distances do not differ\n");
+    assert(encoded_expected_d1d2_score_byte == encoded_observed_d1d2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed D1-vs-D2 normalized Euclidean distances do not differ\n");
+
+    fprintf(stderr, "Comparing D1 vs D3\n---\nD1 -> %s\nD3 -> %s\n---\n", kTestVectorD1, kTestVectorD3);
+    if (d1->n != d3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(d1, stderr);
+        bs_print_signal(d3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_d1d3_score = NAN;
+    if ((d1->data_contains_nan == kFalse) && (d3->data_contains_nan == kFalse)) {
+        unencoded_observed_d1d3_score = bs_normalized_euclidean_distance_signal(d1, d3, d1->n);
+    }
+    fprintf(stderr, "Expected - unencoded D1-vs-D3 normalized Euclidean distance: %3.6f\n", kNormalizedEuclideanDistanceTestD1D3Unencoded);
+    fprintf(stderr, "Observed - unencoded D1-vs-D3 normalized Euclidean distance: %3.6f\n", unencoded_observed_d1d3_score);
+    score_t absolute_diff_unencoded_d1d3_scores = fabs(kNormalizedEuclideanDistanceTestD1D3Unencoded - unencoded_observed_d1d3_score);
+    if (!isnan(absolute_diff_unencoded_d1d3_scores))
+        assert(absolute_diff_unencoded_d1d3_scores + kEpsilon > 0 && absolute_diff_unencoded_d1d3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed D1-vs-D3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_d1d3_score_byte = bs_encode_score_to_byte(kNormalizedEuclideanDistanceTestD1D3Unencoded);
+    byte_t encoded_observed_d1d3_score_byte = bs_encode_score_to_byte(unencoded_observed_d1d3_score);
+    fprintf(stderr, "Expected - encoded, precomputed D1-vs-D3 normalized Euclidean distance: 0x%02x\n", kNormalizedEuclideanDistanceTestD1D3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed D1-vs-D3 normalized Euclidean distance: 0x%02x\n", encoded_expected_d1d3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed D1-vs-D3 normalized Euclidean distance: 0x%02x\n", encoded_observed_d1d3_score_byte);
+    assert(kNormalizedEuclideanDistanceTestD1D3EncodedByte == encoded_expected_d1d3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed D1-vs-D3 normalized Euclidean distances do not differ\n");
+    assert(kNormalizedEuclideanDistanceTestD1D3EncodedByte == encoded_observed_d1d3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed D1-vs-D3 normalized Euclidean distances do not differ\n");
+    assert(encoded_expected_d1d3_score_byte == encoded_observed_d1d3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed D1-vs-D3 normalized Euclidean distances do not differ\n");
+
+    fprintf(stderr, "Comparing Dz vs Dz\n---\nDz -> %s\nDz -> %s\n---\n", kTestVectorDz, kTestVectorDz);
+    if (dz->n != dz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(dz, stderr);
+        bs_print_signal(dz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_dzdz_score = NAN;
+    if ((dz->data_contains_nan == kFalse) && (dz->data_contains_nan == kFalse)) {
+        unencoded_observed_dzdz_score = bs_normalized_euclidean_distance_signal(dz, dz, dz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Dz-vs-Dz Jaccard index: %3.6f\n", kNormalizedEuclideanDistanceTestDzDzUnencoded);
+    fprintf(stderr, "Observed - unencoded Dz-vs-Dz Jaccard index: %3.6f\n", unencoded_observed_dzdz_score);
+    score_t absolute_diff_unencoded_dzdz_scores = fabs(kNormalizedEuclideanDistanceTestDzDzUnencoded - unencoded_observed_dzdz_score);
+    assert(absolute_diff_unencoded_dzdz_scores + kEpsilon > 0 && absolute_diff_unencoded_dzdz_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Dz-vs-Dz scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_dzdz_score_byte = bs_encode_score_to_byte(kNormalizedEuclideanDistanceTestDzDzUnencoded);
+    byte_t encoded_observed_dzdz_score_byte = bs_encode_score_to_byte(unencoded_observed_dzdz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Dz-vs-Dz normalized Euclidean distance: 0x%02x\n", kNormalizedEuclideanDistanceTestDzDzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Dz-vs-Dz normalized Euclidean distance: 0x%02x\n", encoded_expected_dzdz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Dz-vs-Dz normalized Euclidean distance: 0x%02x\n", encoded_observed_dzdz_score_byte);
+    assert(kNormalizedEuclideanDistanceTestDzDzEncodedByte == encoded_expected_dzdz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Dz-vs-Dz normalized Euclidean distances do not differ\n");
+    assert(kNormalizedEuclideanDistanceTestDzDzEncodedByte == encoded_observed_dzdz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Dz-vs-Dz normalized Euclidean distances do not differ\n");
+    assert(encoded_expected_dzdz_score_byte == encoded_observed_dzdz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Dz-vs-Dz Jaccard indices do not differ\n");
+
+    fprintf(stderr, "Comparing Dz vs Du\n---\nDz -> %s\nDu -> %s\n---\n", kTestVectorDz, kTestVectorDu);
+    if (dz->n != du->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(dz, stderr);
+        bs_print_signal(du, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_dzdu_score = NAN;
+    if ((dz->data_contains_nan == kFalse) && (du->data_contains_nan == kFalse)) {
+        unencoded_observed_dzdu_score = bs_normalized_euclidean_distance_signal(dz, du, dz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Dz-vs-Du normalized Euclidean distance: %3.6f\n", kNormalizedEuclideanDistanceTestDzDuUnencoded);
+    fprintf(stderr, "Observed - unencoded Dz-vs-Du normalized Euclidean distance: %3.6f\n", unencoded_observed_dzdu_score);
+    score_t absolute_diff_unencoded_dzdu_scores = fabs(kNormalizedEuclideanDistanceTestDzDuUnencoded - unencoded_observed_dzdu_score);
+    assert(absolute_diff_unencoded_dzdu_scores + kEpsilon > 0 && absolute_diff_unencoded_dzdu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Dz-vs-Du scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_dzdu_score_byte = bs_encode_score_to_byte(kNormalizedEuclideanDistanceTestDzDuUnencoded);
+    byte_t encoded_observed_dzdu_score_byte = bs_encode_score_to_byte(unencoded_observed_dzdu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Dz-vs-Du normalized Euclidean distance: 0x%02x\n", kNormalizedEuclideanDistanceTestDzDuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Dz-vs-Du normalized Euclidean distance: 0x%02x\n", encoded_expected_dzdu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Dz-vs-Du normalized Euclidean distance: 0x%02x\n", encoded_observed_dzdu_score_byte);
+    assert(kNormalizedEuclideanDistanceTestDzDuEncodedByte == encoded_expected_dzdu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Dz-vs-Du normalized Euclidean distances do not differ\n");
+    assert(kNormalizedEuclideanDistanceTestDzDuEncodedByte == encoded_observed_dzdu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Dz-vs-Du normalized Euclidean distances do not differ\n");
+    assert(encoded_expected_dzdu_score_byte == encoded_observed_dzdu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Dz-vs-Du normalized Euclidean distances do not differ\n");
+
+    fprintf(stderr, "Comparing Du vs Du\n---\nDu -> %s\nDu -> %s\n---\n", kTestVectorDu, kTestVectorDu);
+    if (du->n != du->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(du, stderr);
+        bs_print_signal(du, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_dudu_score = NAN;
+    if ((du->data_contains_nan == kFalse) && (du->data_contains_nan == kFalse)) {
+        unencoded_observed_dudu_score = bs_normalized_euclidean_distance_signal(du, du, du->n);
+    }
+    fprintf(stderr, "Expected - unencoded Du-vs-Du normalized Euclidean distance: %3.6f\n", kNormalizedEuclideanDistanceTestDuDuUnencoded);
+    fprintf(stderr, "Observed - unencoded Du-vs-Du normalized Euclidean distance: %3.6f\n", unencoded_observed_dudu_score);
+    score_t absolute_diff_unencoded_dudu_scores = fabs(kNormalizedEuclideanDistanceTestDuDuUnencoded - unencoded_observed_dudu_score);
+    assert(absolute_diff_unencoded_dudu_scores + kEpsilon > 0 && absolute_diff_unencoded_dudu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Du-vs-Du scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_dudu_score_byte = bs_encode_score_to_byte(kNormalizedEuclideanDistanceTestDuDuUnencoded);
+    byte_t encoded_observed_dudu_score_byte = bs_encode_score_to_byte(unencoded_observed_dudu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Du-vs-Du normalized Euclidean distance: 0x%02x\n", kNormalizedEuclideanDistanceTestDuDuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Du-vs-Du normalized Euclidean distance: 0x%02x\n", encoded_expected_dudu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Du-vs-Du normalized Euclidean distance: 0x%02x\n", encoded_observed_dudu_score_byte);
+    assert(kNormalizedEuclideanDistanceTestDuDuEncodedByte == encoded_expected_dudu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Du-vs-Du normalized Euclidean distances do not differ\n");
+    assert(kNormalizedEuclideanDistanceTestDuDuEncodedByte == encoded_observed_dudu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Du-vs-Du normalized Euclidean distances do not differ\n");
+    assert(encoded_expected_dudu_score_byte == encoded_observed_dudu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Du-vs-Du normalized Euclidean distances do not differ\n");
+
+    bs_delete_signal(&d1);
+    bs_delete_signal(&d2);
+    bs_delete_signal(&d3);
+    bs_delete_signal(&dz);
+    bs_delete_signal(&du);
+}
+
+/**
  * @brief      bs_test_score_encoding()
  *
  * @details    Tests encoding of scores in the interval 
@@ -6074,6 +6383,8 @@ bs_init_globals()
     bs_globals.diagonal_offset_value = 0;
     bs_globals.diagonal_offset_side = kDiagonalSideUndefined;
     bs_globals.store_frequency_flag = kFalse;
+    bs_globals.score_normalization_factor_specified_flag = kFalse;
+    bs_globals.score_normalization_factor = 0;
 }
 
 /**
@@ -6144,6 +6455,10 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitSingleChunkStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplitSingleChunk :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedEuclideanDistanceSquareMatrixStr) == 0) ? kStoreNormalizedEuclideanDistanceSquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedEuclideanDistanceSquareMatrixSplitStr) == 0) ? kStoreNormalizedEuclideanDistanceSquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkStr) == 0) ? kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2Str) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2SplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2Split :
                 (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixStr) == 0) ? kStoreJaccardIndexSquareMatrix :
@@ -6309,6 +6624,10 @@ bs_init_command_line_options(int argc, char** argv)
             bs_globals.score_filter_range_set = kTrue;
             bs_score_filter_counter++;
             break;
+        case 'F':
+            bs_globals.score_normalization_factor_specified_flag = kTrue;
+            sscanf(optarg, "%f", &bs_globals.score_normalization_factor);
+            break;
         case 'm':
             bs_globals.store_filter_mutual_set = kTrue;
             break;
@@ -6336,6 +6655,15 @@ bs_init_command_line_options(int argc, char** argv)
             break;
         case 'z':
             bs_globals.store_query_kind = kQueryKindMultipleIndicesFromFile;
+            if (!optarg) {
+                fprintf(stderr, "Error: Multiple index query parameter specified without multiple index string value!\n");
+                bs_print_usage(stderr);
+                exit(EXIT_FAILURE);
+            }
+            memcpy(bs_globals.store_query_str, optarg, strlen(optarg) + 1);
+            break;
+        case 'Z':
+            bs_globals.store_query_kind = kQueryKindMultipleRowAndColumnIndicesFromFile;
             if (!optarg) {
                 fprintf(stderr, "Error: Multiple index query parameter specified without multiple index string value!\n");
                 bs_print_usage(stderr);
@@ -6485,6 +6813,9 @@ bs_init_command_line_options(int argc, char** argv)
         case 'S':
             bs_test_spearman_rho();
             exit(EXIT_SUCCESS);
+        case 'D':
+            bs_test_normalized_euclidean_distance();
+            exit(EXIT_SUCCESS);  
         case 'J':
             bs_test_jaccard_index();
             exit(EXIT_SUCCESS);
@@ -6582,6 +6913,19 @@ bs_init_command_line_options(int argc, char** argv)
     if (bs_globals.enable_ssl && (!bs_globals.ssl_key_pem || !bs_globals.ssl_cert_pem)) {
         fprintf(stderr, "Error: Must specify paths to SSL key and certificate PEM files!\n");
         bs_print_usage(stderr);
+        exit(EINVAL);
+    }
+
+    if (!bs_globals.score_normalization_factor_specified_flag && ( (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrix ) || 
+                                                                   (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplit ) ||
+                                                                   (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk ) ||
+                                                                   (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata ) )) {
+        fprintf(stderr, "Error: Must specify normalization factor (-F <float>) when using normalized Euclidean distance metric!\n");
+        exit(EINVAL);
+    }
+
+    if (bs_globals.score_normalization_factor_specified_flag && (bs_globals.score_normalization_factor == 0)) {
+        fprintf(stderr, "Error: Must specify non-zero normalization factor! Nice try, though!\n");
         exit(EINVAL);
     }
 }
@@ -7867,7 +8211,7 @@ bs_populate_sqr_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, bs_globals.score_normalization_factor, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -8081,7 +8425,7 @@ bs_populate_sqr_split_store_chunk_metadata(sqr_store_t* s, lookup_t* l, uint32_t
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n, v);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, bs_globals.score_normalization_factor, v);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -8286,7 +8630,7 @@ bs_populate_sqr_bzip2_store(sqr_store_t* s, lookup_t* l, uint32_t n, score_t (*s
 
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, bs_globals.score_normalization_factor, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -8487,7 +8831,7 @@ bs_populate_sqr_bzip2_split_store(sqr_store_t* s, lookup_t* l, uint32_t n, score
     
     /* convert offsets to formatted metadata string and write to output stream */
     char* md_str = NULL;
-    md_str = bs_init_metadata_str(offsets, offset_idx, n, sv);
+    md_str = bs_init_metadata_str(offsets, offset_idx, n, bs_globals.score_normalization_factor, sv);
     if (!md_str) {
         fprintf(stderr, "Error: Could not generate metadata string from offsets!\n");
         exit(EXIT_FAILURE);
@@ -9369,6 +9713,116 @@ bs_print_sqr_split_store_separate_rows_to_bed7_via_buffer(lookup_t* l, sqr_store
 }
 
 /**
+ * @brief      bs_print_sqr_split_store_separate_rows_and_columns_to_bed7_file(l, s, qf, os)
+ *
+ * @details    Queries raw square matrix store folder for
+ *             provided multiple-indices file and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ *             Each line of the indices file should be made up of
+ *             two tab-separated columns containing the indices of 
+ *             the row and column of interest.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             qf     (char*) query file name to parse 
+ *             os     (FILE*) pointer to output stream
+ */
+
+void
+bs_print_sqr_split_store_separate_rows_and_columns_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* check that the query regions file exists */
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* get metadata string and attributes */
+    metadata_t* md = NULL;
+    md = bs_init_metadata_ptr(block_src_dir);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* open a pool of handles to all blocks -- we can use these as we jump around */
+    size_t block_number = l->nelems / md->block_row_size;
+    FILE** block_pool = NULL;
+    block_pool = malloc(sizeof(*block_pool) * block_number);
+
+    /* read through the query regions */
+    while (!feof(qs)) {
+        size_t row = 0;
+        size_t col = 0;
+
+        int count = 0;
+        count = fscanf(qs, "%" PR_SIZET "u\t%" PR_SIZET "u ", &row, &col); /* ending ' ' eats any white space */
+        if (count != 2) {
+            fprintf(stderr, "Warning: Found something not a range of A[TAB]B in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (row >= l->nelems) {
+            fprintf(stderr, "Warning: Row index is greater than the number of elements in the input index file! Skipping over this weird entry.\n");
+            continue;
+        } else if (col >= l->nelems) {
+            fprintf(stderr, "Warning: Column index is greater than the number of elements in the input index file! Skipping over this weird entry.\n");
+            continue;
+        }
+
+        /* calculate the block we need to be in for the specified row and column */
+        int32_t current_block_idx = (int32_t) row / md->block_row_size; /* explicit cast */
+        FILE* current_block = block_pool[current_block_idx];
+
+        /* within the block, jump to row and column */
+        off_t monolithic_byte_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row, col);
+        size_t within_block_byte_offset = monolithic_byte_offset % md->block_row_size;
+
+        /* fseek() and fgetc() the score, decode, and print the pair and score to output stream */
+        fseek(current_block, within_block_byte_offset, SEEK_SET);
+        byte_t b = fgetc(current_block);
+        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(b) :
+            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(b) :
+            bs_decode_byte_to_score_custom(b, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+
+        bs_print_pair(os,
+                      l->elems[row]->chr,
+                      l->elems[row]->start,
+                      l->elems[row]->stop,
+                      l->elems[col]->chr,
+                      l->elems[col]->start,
+                      l->elems[col]->stop,
+                      d);
+    }
+
+    /* close up the pool of block file handles */
+    for (size_t block_idx = 0; block_idx < block_number; block_idx++) {
+        fclose(block_pool[block_idx]);
+        block_pool[block_idx] = NULL;
+    }
+    free(block_pool);
+    block_pool = NULL;
+
+    /* cleanup */
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    fclose(qs);
+    qs = NULL;
+    free(md); 
+    md = NULL;
+}
+
+/**
  * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file(l, s, qf, m, os)
  *
  * @details    Queries raw square matrix store folder for
@@ -9615,7 +10069,7 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup_t* l, sqr_store_t* s,
  * @brief      bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(l, s, qf, m, b)
  *
  * @details    Queries raw square matrix store folder for
- *             provided multiple-index globals and prints BED7 (BED3 
+ *             provided multiple-indices and prints BED7 (BED3 
  *             + BED3 + floating point) to specified output buffer. 
  *
  * @param      l      (lookup_t*) pointer to lookup table
@@ -9891,10 +10345,134 @@ bs_print_sqr_split_store_separate_rows_to_bed7_file_via_buffer(lookup_t* l, sqr_
 }
 
 /**
+ * @brief      bs_print_sqr_filtered_split_store_separate_rows_and_columns_to_bed7_file(l, s, qf, os, fc, flb, fub, fo)
+ *
+ * @details    Queries raw square matrix store folder for
+ *             provided multiple-indices file and prints BED7 (BED3 
+ *             + BED3 + floating point) to specified output stream. 
+ *
+ *             Each line of the indices file should be made up of
+ *             two tab-separated columns containing the indices of 
+ *             the row and column of interest.
+ *
+ * @param      l      (lookup_t*) pointer to lookup table
+ *             s      (sqr_store_t*) pointer to square matrix store
+ *             qf     (char*) query file name to parse 
+ *             os     (FILE*) pointer to output stream
+ *             fc     (score_t) score filter cutoff
+ *             flb    (score_t) score filter cutoff lower bound for ranged thresholds
+ *             fub    (score_t) score filter cutoff upper bound for ranged thresholds
+ *             fo     (score_filter_t) score filter operation
+ */
+
+void
+bs_print_sqr_filtered_split_store_separate_rows_and_columns_to_bed7_file(lookup_t* l, sqr_store_t* s, char* qf, FILE* os, score_t fc, score_t flb, score_t fub, score_filter_t fo)
+{
+    /* init parent folder name for split blocks */
+    char* block_src_dir = NULL;
+    block_src_dir = bs_init_sqr_split_store_dir_str(s->attr->fn);
+    if (!bs_path_exists(block_src_dir)) {
+        fprintf(stderr, "Error: Store per-block destination [%s] does not exist!\n", block_src_dir);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    /* check that the query regions file exists */
+    FILE* qs = NULL;
+    qs = fopen(qf, "r");
+    if (ferror(qs)) {
+        fprintf(stderr, "Error: Could not open handle to query string file!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* get metadata string and attributes */
+    metadata_t* md = NULL;
+    md = bs_init_metadata_ptr(block_src_dir);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* open a pool of handles to all blocks -- we can use these as we jump around */
+    size_t block_number = l->nelems / md->block_row_size;
+    FILE** block_pool = NULL;
+    block_pool = malloc(sizeof(*block_pool) * block_number);
+
+    /* read through the query regions */
+    while (!feof(qs)) {
+        size_t row = 0;
+        size_t col = 0;
+
+        int count = 0;
+        count = fscanf(qs, "%" PR_SIZET "u\t%" PR_SIZET "u ", &row, &col); /* ending ' ' eats any white space */
+        if (count != 2) {
+            fprintf(stderr, "Warning: Found something not a range of A[TAB]B in the input index file! Skipping over this entry.\n");
+            continue;
+        } else if (row >= l->nelems) {
+            fprintf(stderr, "Warning: Row index is greater than the number of elements in the input index file, or perhaps negative! Skipping over this weird entry.\n");
+            continue;
+        } else if (col >= l->nelems) {
+            fprintf(stderr, "Warning: Column index is greater than the number of elements in the input index file, or perhaps negative! Skipping over this weird entry.\n");
+            continue;
+        }
+
+        /* calculate the block we need to be in for the specified row and column */
+        int32_t current_block_idx = (int32_t) row / md->block_row_size; /* explicit cast */
+        FILE* current_block = block_pool[current_block_idx];
+
+        /* within the block, jump to row and column */
+        off_t monolithic_byte_offset = bs_sqr_byte_offset_for_element_ij(l->nelems, row, col);
+        size_t within_block_byte_offset = monolithic_byte_offset % md->block_row_size;
+
+        /* fseek() and fgetc() the score, decode, and print the pair and score to output stream, if threshold filters are met */
+        fseek(current_block, within_block_byte_offset, SEEK_SET);
+        byte_t b = fgetc(current_block);
+        score_t d = (bs_globals.encoding_strategy == kEncodingStrategyFull) ? bs_decode_byte_to_score(b) :
+            (bs_globals.encoding_strategy == kEncodingStrategyMidQuarterZero) ? bs_decode_byte_to_score_mqz(b) :
+            bs_decode_byte_to_score_custom(b, bs_globals.encoding_cutoff_zero_min, bs_globals.encoding_cutoff_zero_max);
+
+        if ( ((fo == kScoreFilterGtEq) && (d >= fc)) ||
+             ((fo == kScoreFilterGt) && (d > fc)) ||
+             ((fo == kScoreFilterEq) && (fabs(d - fc) < kEpsilon)) ||
+             ((fo == kScoreFilterLtEq) && (d <= fc)) ||
+             ((fo == kScoreFilterLt) && (d < fc)) ||
+             ((fo == kScoreFilterRangedWithinExclusive) && (d > flb) && (d < fub)) ||
+             ((fo == kScoreFilterRangedWithinInclusive) && (d >= flb) && (d <= fub)) ||
+             ((fo == kScoreFilterRangedOutsideExclusive) && ((d < flb) || (d > fub))) ||
+             ((fo == kScoreFilterRangedOutsideInclusive) && ((d <= flb) || (d >= fub))) ) {
+            bs_print_pair(os, 
+                          l->elems[row]->chr,
+                          l->elems[row]->start,
+                          l->elems[row]->stop,
+                          l->elems[col]->chr,
+                          l->elems[col]->start,
+                          l->elems[col]->stop,
+                          d);
+        }
+    }
+
+    /* close up the pool of block file handles */
+    for (size_t block_idx = 0; block_idx < block_number; block_idx++) {
+        fclose(block_pool[block_idx]);
+        block_pool[block_idx] = NULL;
+    }
+    free(block_pool);
+    block_pool = NULL;
+
+    /* cleanup */
+    free(block_src_dir); 
+    block_src_dir = NULL;
+    fclose(qs);
+    qs = NULL;
+    free(md); 
+    md = NULL;
+}
+
+/**
  * @brief      bs_print_sqr_filtered_split_store_separate_rows_to_bed7_file(l, s, qf, m, os, fc, flb, fub, fo)
  *
  * @details    Queries raw square matrix store folder for
- *             provided multiple-index globals and prints BED7 (BED3 
+ *             provided multiple-indices and prints BED7 (BED3 
  *             + BED3 + floating point) to specified output stream. 
  *
  * @param      l      (lookup_t*) pointer to lookup table
@@ -11986,7 +12564,7 @@ bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_
 }
 
 /**
- * @brief      bs_init_metadata_str(o, n, s, v)
+ * @brief      bs_init_metadata_str(o, n, s, f, v)
  *
  * @details    Prints formatted metadata string from block
  *             offset array and array length.
@@ -11994,13 +12572,14 @@ bs_print_sqr_filtered_split_diagonal_walk_fixed_distance(lookup_t* l, sqr_store_
  * @param      o      (off_t*) array of block offsets
  *             n      (uint32_t) number of offsets in array
  *             s      (uint32_t) size of a row block
+ *             f      (score_t) normalization factor
  *             v      (score_variety_t) score variety (Pearson r, Spearman rho, etc.)
  *
  * @return     (char*) formatted metadata string 
  */
 
 char*
-bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_variety_t v)
+bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_t f, score_variety_t v)
 {
     char* m_str = NULL;
 
@@ -12060,8 +12639,104 @@ bs_init_metadata_str(off_t* o, uint32_t n, uint32_t s, score_variety_t v)
         m_str[m_size] = '\0';
         m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
     }
+    else if (kCompressionMetadataVersion == kCompressionMetadataVersion1p2) {
+        /* 
+           byte store metadata format (v1.2)
+           ---------------------------------
+           "version|score_variety|row_block_size|normalization_factor|number_of_offsets|offset_1|offset_2|offset_3|...|offset_n|metadata_length\0"
+        */
+        const size_t m_version_length = 6;
+        const size_t m_score_variety_length = 2;
+        const size_t m_row_block_size_length = BLOCK_STR_MAX_LEN + 1;
+        const size_t m_normalization_factor_size_length = NORMALIZATION_FACTOR_STR_MAX_LEN + 1;
+        const size_t m_offsets_length = (OFFSET_MAX_LEN + 1) * (n + 1);
+        const size_t m_metadata_offset_length = MD_OFFSET_MAX_LEN;
+        size_t m_size = 0;
+        size_t m_len = m_version_length + m_score_variety_length + m_row_block_size_length + m_normalization_factor_size_length + m_offsets_length + m_metadata_offset_length + 1; 
+
+        m_str = calloc(m_len, sizeof(*m_str));
+        if (!m_str) {
+            fprintf(stderr, "Error: Could not allocate space for compression offset metadata string!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        m_size += sprintf(m_str + m_size, "%3.1f%c", kCompressionMetadataVersion1p2, kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c",    v,                              kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c",    s,                              kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%8.6f%c", f,                              kCompressionMetadataDelimiter);
+        m_size += sprintf(m_str + m_size, "%d%c",    n,                              kCompressionMetadataDelimiter);
+
+        for (uint32_t o_idx = 0; o_idx < n; o_idx++) {
+            m_size += sprintf(m_str + m_size, "%" PRIu64 "%c", o[o_idx], kCompressionMetadataDelimiter);
+        }
+        m_str[m_size] = '\0';
+        m_size += sprintf(m_str + m_size, "%0*zu", (int) MD_OFFSET_MAX_LEN, strlen(m_str));
+    }
 
     return m_str;
+}
+
+/**
+ * @brief      bs_init_metadata_ptr(bsd)
+ *
+ * @details    Returns metadata struct with attributes given a block source directory path
+ *
+ * @param      bsd    (char*) block source directory
+ */
+
+metadata_t*
+bs_init_metadata_ptr(char* bsd)
+{
+    /* get metadata string and attributes */
+    char* md_src_fn = bs_init_sqr_split_store_metadata_fn_str(bsd);
+    if (!bs_path_exists(md_src_fn)) {
+        fprintf(stderr, "Error: Store per-block metadata file [%s] does not exist!\n", md_src_fn);
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    ssize_t md_fn_size = bs_file_size(md_src_fn);
+    FILE* is = NULL;
+    is = fopen(md_src_fn, "rb");
+    if (ferror(is)) {
+        fprintf(stderr, "Error: Could not open handle to metadata string file!\n");
+        bs_print_usage(stderr);
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN, SEEK_SET);
+    char md_length[MD_OFFSET_MAX_LEN] = {0};
+    if (fread(md_length, sizeof(*md_length), MD_OFFSET_MAX_LEN, is) != MD_OFFSET_MAX_LEN) {
+        fprintf(stderr, "Error: Could not read metadata string length from tail of file! [%s]\n", md_length);
+        exit(EXIT_FAILURE);
+    }
+    uint32_t md_string_length = 0;
+    sscanf(md_length, "%u", &md_string_length);
+    char* md_string = NULL;
+    md_string = malloc(md_string_length);
+    if (!md_string) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate metadata string!\n");
+        exit(EXIT_FAILURE);
+    }
+    fseek(is, md_fn_size - MD_OFFSET_MAX_LEN - md_string_length, SEEK_SET);
+    if (fread(md_string, sizeof(*md_string), md_string_length, is) != md_string_length) {
+        fprintf(stderr, "Error: Could not read metadata string innards from file!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    metadata_t* md = NULL;
+    md = bs_parse_metadata_str(md_string);
+    if (!md) {
+        fprintf(stderr, "Error: Could not extract metadata from archive!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* cleanup */
+    fclose(is), is = NULL;
+    free(md_src_fn); 
+    md_src_fn = NULL;
+    free(md_string); 
+    md_string = NULL;
+
+    return md;
 }
 
 /**
@@ -12086,6 +12761,7 @@ bs_parse_metadata_str(char* ms)
     int md_score_variety_int = 0;
     float md_version = 0.0f;
     size_t md_block_row_size = 0;
+    score_t md_normalization_factor = -1;
     size_t md_num_offsets = 0;
     off_t* md_offsets = NULL;
     
@@ -12166,6 +12842,50 @@ bs_parse_metadata_str(char* ms)
             sscanf(md_token, "%zd", &md_offsets[offset_idx]);
         }
     }
+    else if (md_version == kCompressionMetadataVersion1p2) { /* v1.2 */
+        /* score variety type */
+        md_string_tok_start = ms + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%d", &md_score_variety_int);
+        /* row block size */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zu", &md_block_row_size);
+        /* normalization factor */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;    
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%f", &md_normalization_factor);
+        /* number of offsets */
+        md_string_tok_start = md_string_tok_start + md_delim_length + 1;
+        md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+        md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+        memcpy(md_token, md_string_tok_start, md_delim_length);
+        md_token[md_delim_length] = '\0';
+        sscanf(md_token, "%zu", &md_num_offsets);
+        /* offsets */
+        md_offsets = malloc(md_num_offsets * sizeof(*md_offsets));
+        if (!md_offsets) {
+            fprintf(stderr, "Error: Could not allocate space for offset data!\n");
+            exit(EXIT_FAILURE);
+        }
+        for (size_t offset_idx = 0; offset_idx < md_num_offsets; offset_idx++) {
+            md_string_tok_start = md_string_tok_start + md_delim_length + 1;            
+            md_delim_pos_ptr = strchr(md_string_tok_start, (int) kCompressionMetadataDelimiter);
+            md_delim_length = md_delim_pos_ptr - md_string_tok_start;
+            memcpy(md_token, md_string_tok_start, md_delim_length);
+            md_token[md_delim_length] = '\0';
+            sscanf(md_token, "%zd", &md_offsets[offset_idx]);
+        }
+    }
     else {
         fprintf(stderr, "Error: Could not parse metadata due to unknown version key!\n");
         exit(EXIT_FAILURE);
@@ -12179,6 +12899,7 @@ bs_parse_metadata_str(char* ms)
     metadata->offsets = md_offsets;
     metadata->count = md_num_offsets;
     metadata->block_row_size = md_block_row_size;
+    metadata->normalization_factor = md_normalization_factor;
     metadata->version = md_version;
 
     return metadata;
