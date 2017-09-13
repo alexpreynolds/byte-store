@@ -633,7 +633,7 @@ main(int argc, char** argv)
                 case kStoreRogersAndTanimotoSimilaritySquareMatrixSplit:
                 case kStoreNormalizedPointwiseMutualInformationSquareMatrixSplit:
                     switch (bs_globals.store_query_kind) {
-                    case kQueryKindMultipleIndicesFromFile:
+                    case kQueryKindMultipleRowAndColumnIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_and_columns_to_bed7_file(lookup,
                                                                                             sqr_store,
@@ -651,7 +651,7 @@ main(int argc, char** argv)
                                                                                                      bs_globals.store_filter);
                         }
                         break;
-                    case kQueryKindMultipleRowAndColumnIndicesFromFile:
+                    case kQueryKindMultipleIndicesFromFile:
                         if (bs_globals.store_filter == kScoreFilterNone) {
                             bs_print_sqr_split_store_separate_rows_to_bed7_file(lookup,
                                                                                 sqr_store,
