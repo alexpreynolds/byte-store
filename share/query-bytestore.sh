@@ -4,25 +4,34 @@
 
 set usage_text = 'Usage:\
 \
-    query-bytestore.sh [ --whole-genome | --mutual-regions | --diagonal-walk <int> ]\
-                       [ --xfac2015 | --uniprobe | --taipale | --jaspar | --hg38-jaccard | --hg38-dnaseI | --hg38-kmer-pearson | --mm10-dnaseI ]\
-                       [ --bytestore-sort | --sort-bed-sort | --score-sort ]\
-                         --within-range A:B | --outside-range A:B\
-                         <bed-file>\
+    query-bytestore.sh [ --whole-genome | --mutual-regions | --diagonal-walk <int> ] \
+                       [ --xfac2015          | \
+                         --uniprobe          | \
+                         --taipale           | \
+                         --jaspar            | \
+                         --hg38-jaccard      | \
+                         --hg38-dnaseI       | \
+                         --hg38-kmer-pearson | \
+                         --hg38-229sample-dnaseI-pearsonr-WM20170911 | \
+                         --hg38-3clip-euclidean | \
+                         --mm10-dnaseI ] \
+                       [ --bytestore-sort | --sort-bed-sort | --score-sort ] \
+                         --within-range A:B | --outside-range A:B \
+                         <bed-file> \
 \
     For score range thresholding, -1 <= A <= 1 and -1 <= B <= 1.\
 \
-    The optional --mutual-regions argument restricts output to interval pairs\
-    that mutually overlap where they overlap <bed-file>.\
+    The optional --mutual-regions argument restricts output to interval pairs \
+    that mutually overlap where they overlap <bed-file>. \
 \
-    At least and at most one database option should be selected (TRANSFAC 2015,\
-    UniProbe, Taipale, etc.).\
+    At least and at most one database option should be selected (TRANSFAC 2015, \
+    UniProbe, Taipale, etc.). \
 \
-    The <bed-file> argument should be a regular file, containing three-column\
-    BED interval data: chromosome, start, and stop positions.\
+    The <bed-file> argument should be a regular file, containing three-column \
+    BED interval data: chromosome, start, and stop positions. \
 '
 
-set temp=(`getopt -s tcsh -o hbscgmD:xujgtdkMw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+set temp=(`getopt -s tcsh -o hbscgmD:xujgtdk23Mw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,hg38-229sample-dnaseI-pearsonr-WM20170911,hg38-3clip-euclidean,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
 if ( $? != 0 ) then
     echo "Error: Getopt failed. Terminating..." > /dev/stderr
     exit 1
@@ -131,7 +140,19 @@ while (1)
         breaksw;
     case -k:
     case --hg38-kmer-pearson:
-        set db = "hg38-kmer-pearson";
+        set db = "hg38-kmer-pearson"
+        @ db_cnt += 1
+        shift;
+        breaksw;
+    case -2:
+    case --hg38-229sample-dnaseI-pearsonr-WM20170911:
+        set db = "hg38-229sample-dnaseI-pearsonr-WM20170911"
+        @ db_cnt += 1
+        shift;
+        breaksw;
+    case -3:
+    case --hg38-3clip-euclidean:
+        set db = "hg38-3clip-euclidean"
         @ db_cnt += 1
         shift;
         breaksw;
@@ -296,6 +317,14 @@ else if ( $db == "hg38-kmer-pearson" ) then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v090517a_cross_5_mers/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/827_master_list_v090517a_cross_5_mers/pearson/production/results/827_master_list_v090517a_cross_5_mers.25000r.bs"
     set db_type = "pearson-r-sqr-split"
+else if ( $db == "hg38-229sample-dnaseI-pearsonr-WM20170911" ) then
+    set master = "/net/seq/data/projects/bytestore/WM20170911_229_sample_subset/norm_dnaseI_density/pearson_r/prerequisites/results/master_with_row_indices.bed"
+    set store = "/net/seq/data/projects/bytestore/WM20170911_229_sample_subset/norm_dnaseI_density/pearson_r/production/results/WM20170911_229_sample_subset.norm_dnaseI_density.25000r.bs"
+    set db_type = "pearson-r-sqr-split"
+else if ( $db == "hg38-3clip-euclidean" ) then
+    set master = "/net/seq/data/projects/bytestore/827_master_list_v090717a_cross_clipped_dnase_density/euclidean/prerequisites/results/master_with_row_indices.bed"
+    set store = "/net/seq/data/projects/bytestore/827_master_list_v090717a_cross_clipped_dnase_density/euclidean/production/results/827_master_list_v090717a_cross_clipped_dnase_density.25000r.bs"
+    set db_type = "normalized-euclidean-distance-sqr-split"
 else if ( $db == "mm10-dnaseI" ) then
     set master = "/net/seq/data/projects/bytestore/224_mouse_master_list_v070817a/pearson/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/224_mouse_master_list_v070817a/pearson/production/results/224_mouse_master_list_v070817a.50000r.bs"

@@ -328,6 +328,7 @@ main(int argc, char** argv)
                                                            lookup, 
                                                            bs_globals.store_row_chunk_size, 
                                                            kScoreVarietyNormalizedEuclideanDistance);
+                break;
             case kStoreJaccardIndexSquareMatrix:
                 bs_populate_sqr_store(sqr_store, 
                                       lookup, 
@@ -3596,13 +3597,23 @@ bs_init_lookup(char* fn, boolean_t pi, boolean_t ss, boolean_t ir)
     char* buf = NULL;
     size_t buf_len = 0;
     ssize_t buf_read = 0;
-    char chr_str[CHR_MAX_LEN] = {0};
-    char start_str[COORD_MAX_LEN] = {0};
-    char stop_str[COORD_MAX_LEN] = {0};
-    char id_str[ID_MAX_LEN] = {0};
+    char* chr_str = NULL;
+    char* start_str = NULL;
+    char* stop_str = NULL;
+    char* id_str = NULL;
     uint64_t start_val = 0;
     uint64_t stop_val = 0;
     
+    chr_str = calloc(CHR_MAX_LEN + 1, sizeof(*chr_str));
+    start_str = calloc(COORD_MAX_LEN + 1, sizeof(*start_str));
+    stop_str = calloc(COORD_MAX_LEN + 1, sizeof(*stop_str));
+    id_str = calloc(ID_MAX_LEN + 1, sizeof(*id_str));
+
+    if (!chr_str || !start_str || !stop_str || !id_str) {
+        fprintf(stderr, "Error: Could not allocate space for intermediate tokens!\n");
+        exit(EXIT_FAILURE);
+    }
+
     l = malloc(sizeof(lookup_t));
     if (!l) {
         fprintf(stderr, "Error: Could not allocate space for lookup table!\n");
@@ -3630,8 +3641,18 @@ bs_init_lookup(char* fn, boolean_t pi, boolean_t ss, boolean_t ir)
         bs_push_elem_to_lookup(e, &l, pi, ss, ir);
     }
 
+    free(chr_str);
+    chr_str = NULL;
+    free(start_str);
+    start_str = NULL;
+    free(stop_str);
+    stop_str = NULL;
+    free(id_str);
+    id_str = NULL;
     free(buf);
+    buf = NULL;
     fclose(lf);
+    lf = NULL;
 
     return l;
 }
@@ -6076,7 +6097,7 @@ void
 bs_test_normalized_euclidean_distance()
 {
     /* set a normalization factor, or tests will fail! */
-    bs_globals.score_normalization_factor = 10; /* sqrt(4*5^2) */
+    bs_globals.score_normalization_factor = kTestVectorDNormFactor;
 
     signal_t* d1 = NULL;
     bs_init_signal((char*) kTestVectorD1, &d1, kFalse, kFalse);
