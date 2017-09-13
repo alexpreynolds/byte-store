@@ -6937,7 +6937,8 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EINVAL);
     }
 
-    if (!bs_globals.score_normalization_factor_specified_flag && ( (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrix ) || 
+    if (!bs_globals.store_query_flag && !bs_globals.score_normalization_factor_specified_flag && 
+                                                                 ( (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrix ) || 
                                                                    (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplit ) ||
                                                                    (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk ) ||
                                                                    (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata ) )) {
@@ -6945,7 +6946,7 @@ bs_init_command_line_options(int argc, char** argv)
         exit(EINVAL);
     }
 
-    if (bs_globals.score_normalization_factor_specified_flag && (bs_globals.score_normalization_factor == 0)) {
+    if (!bs_globals.store_query_flag && bs_globals.score_normalization_factor_specified_flag && (bs_globals.score_normalization_factor == 0)) {
         fprintf(stderr, "Error: Must specify non-zero normalization factor! Nice try, though!\n");
         exit(EINVAL);
     }
