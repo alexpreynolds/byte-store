@@ -15,6 +15,7 @@ set usage_text = 'Usage:\
                          --hg38-229sample-dnaseI-pearsonr-WM20170911 | \
                          --hg38-229sample-dnaseI-pearsonr-masterlist | \
                          --hg38-229sample-kmer-pearsonr-masterlist   | \
+                         --hg38-229sample-3clip-pearsonr-masterlist  | \
                          --hg38-3clip-euclidean                      | \
                          --mm10-dnaseI ] \
                        [ --bytestore-sort | --sort-bed-sort | --score-sort ] \
@@ -33,7 +34,7 @@ set usage_text = 'Usage:\
     BED interval data: chromosome, start, and stop positions. \
 '
 
-set temp=(`getopt -s tcsh -o hbscgmD:xujgtdk23Mw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,hg38-229sample-dnaseI-pearsonr-WM20170911,hg38-229sample-dnaseI-pearsonr-masterlist,hg38-229sample-kmer-pearsonr-masterlist,hg38-3clip-euclidean,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+set temp=(`getopt -s tcsh -o hbscgmD:xujgtdk23Mw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,hg38-229sample-dnaseI-pearsonr-WM20170911,hg38-229sample-dnaseI-pearsonr-masterlist,hg38-229sample-kmer-pearsonr-masterlist,hg38-229sample-3clip-pearsonr-masterlist,hg38-3clip-euclidean,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
 if ( $? != 0 ) then
     echo "Error: Getopt failed. Terminating..." > /dev/stderr
     exit 1
@@ -159,6 +160,11 @@ while (1)
         breaksw;
     case --hg38-229sample-kmer-pearsonr-masterlist:
         set db = "hg38-229sample-kmer-pearsonr-masterlist"
+        @ db_cnt += 1
+        shift;
+        breaksw;
+    case --hg38-229sample-3clip-pearsonr-masterlist:
+        set db = "hg38-229sample-3clip-pearsonr-masterlist"
         @ db_cnt += 1
         shift;
         breaksw;
@@ -340,6 +346,10 @@ else if ( $db == "hg38-229sample-dnaseI-pearsonr-masterlist" ) then
 else if ( $db == "hg38-229sample-kmer-pearsonr-masterlist" ) then
     set master = "/net/seq/data/projects/bytestore/229_master_list_v091317a/kmer_composition/pearson_r/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/229_master_list_v091317a/kmer_composition/pearson_r/production/results/229_master_list_v091317a.kmer_composition.25000r.bs"
+    set db_type = "pearson-r-sqr-split"
+else if ( $db == "hg38-229sample-3clip-pearsonr-masterlist" ) then
+    set master = "/net/seq/data/projects/bytestore/229_master_list_v091317a/3clip_dnaseI_density/pearson_r/prerequisites/results/master_with_row_indices.bed"
+    set store = "/net/seq/data/projects/bytestore/229_master_list_v091317a/3clip_dnaseI_density/pearson_r/production/results/229_master_list_v091317a.3clip_dnaseI_density.25000r.bs"
     set db_type = "pearson-r-sqr-split"
 else if ( $db == "hg38-3clip-euclidean" ) then
     set master = "/net/seq/data/projects/bytestore/827_master_list_v090717a_cross_clipped_dnase_density/euclidean/prerequisites/results/master_with_row_indices.bed"
