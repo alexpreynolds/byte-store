@@ -5,20 +5,20 @@
 set usage_text = 'Usage:\
 \
     query-bytestore.sh [ --whole-genome | --mutual-regions | --diagonal-walk <int> ] \
-                       [ --xfac2015                                   | \
-                         --uniprobe                                   | \
-                         --taipale                                    | \
-                         --jaspar                                     | \
-                         --hg38-jaccard                               | \
-                         --hg38-dnaseI                                | \
-                         --hg38-kmer-pearson                          | \
-                         --hg38-229sample-dnaseI-pearsonr-WM20170911  | \
-                         --hg38-229sample-dnaseI-pearsonr-masterlist  | \
-                         --hg38-229sample-jaccard-pearsonr-masterlist | \
-                         --hg38-229sample-kmer-pearsonr-masterlist    | \
-                         --hg38-229sample-3clip-pearsonr-masterlist   | \
-                         --hg38-229sample-3clip-euclidean-masterlist  | \
-                         --hg38-3clip-euclidean                       | \
+                       [ --xfac2015                                           | \
+                         --uniprobe                                           | \
+                         --taipale                                            | \
+                         --jaspar                                             | \
+                         --hg38-jaccard                                       | \
+                         --hg38-dnaseI                                        | \
+                         --hg38-kmer-pearson                                  | \
+                         --hg38-229sample-dnaseI-pearsonr-WM20170911          | \
+                         --hg38-229sample-dnaseI-pearsonr-masterlist          | \
+                         --hg38-229sample-presenceabsence-jaccard-masterlist  | \
+                         --hg38-229sample-kmer-pearsonr-masterlist            | \
+                         --hg38-229sample-3clip-pearsonr-masterlist           | \
+                         --hg38-229sample-3clip-euclidean-masterlist          | \
+                         --hg38-3clip-euclidean                               | \
                          --mm10-dnaseI ] \
                        [ --bytestore-sort | --sort-bed-sort | --score-sort ] \
                          --within-range A:B | --outside-range A:B \
@@ -36,7 +36,7 @@ set usage_text = 'Usage:\
     BED interval data: chromosome, start, and stop positions. \
 '
 
-set temp=(`getopt -s tcsh -o hbscgmD:xujgtdk23Mw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,hg38-229sample-dnaseI-pearsonr-WM20170911,hg38-229sample-dnaseI-pearsonr-masterlist,hg38-229sample-dnaseI-jaccard-masterlist,hg38-229sample-kmer-pearsonr-masterlist,hg38-229sample-3clip-pearsonr-masterlist,hg38-229sample-3clip-euclidean-masterlist,hg38-3clip-euclidean,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
+set temp=(`getopt -s tcsh -o hbscgmD:xujgtdk23Mw:o: --long help,bytestore-sort,sort-bed-sort,score-sort,whole-genome,mutual-regions,diagonal-walk:,xfac2015,uniprobe,jaspar,taipale,hg38-jaccard,hg38-dnaseI,hg38-kmer-pearson,hg38-229sample-dnaseI-pearsonr-WM20170911,hg38-229sample-dnaseI-pearsonr-masterlist,hg38-229sample-presenceabsence-jaccard-masterlist,hg38-229sample-kmer-pearsonr-masterlist,hg38-229sample-3clip-pearsonr-masterlist,hg38-229sample-3clip-euclidean-masterlist,hg38-3clip-euclidean,mm10-dnaseI,within-range:,outside-range: -- $argv:q`)
 if ( $? != 0 ) then
     echo "Error: Getopt failed. Terminating..." > /dev/stderr
     exit 1
@@ -160,8 +160,8 @@ while (1)
         @ db_cnt += 1
         shift;
         breaksw;
-    case --hg38-229sample-dnaseI-jaccard-masterlist:
-        set db = "hg38-229sample-dnaseI-jaccard-masterlist"
+    case --hg38-229sample-presenceabsence-jaccard-masterlist:
+        set db = "hg38-229sample-presenceabsence-jaccard-masterlist"
         @ db_cnt += 1
         shift;
         breaksw;
@@ -355,7 +355,7 @@ else if ( $db == "hg38-229sample-dnaseI-pearsonr-masterlist" ) then
     set master = "/net/seq/data/projects/bytestore/229_master_list_v091317a/norm_dnaseI_density/pearson_r/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/229_master_list_v091317a/norm_dnaseI_density/pearson_r/production/results/229_master_list_v091317a.norm_dnaseI_density.25000r.bs"
     set db_type = "pearson-r-sqr-split"
-else if ( $db == "hg38-229sample-dnaseI-jaccard-masterlist" ) then
+else if ( $db == "hg38-229sample-presenceabsence-jaccard-masterlist" ) then
     set master = "/net/seq/data/projects/bytestore/229_master_list_v091317a/norm_dnaseI_density/jaccard/prerequisites/results/master_with_row_indices.bed"
     set store = "/net/seq/data/projects/bytestore/229_master_list_v091317a/norm_dnaseI_density/jaccard/production/results/229_master_list_v091317a.norm_dnaseI_density.25000r.bs"
     set db_type = "jaccard-index-sqr-split"
