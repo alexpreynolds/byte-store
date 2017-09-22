@@ -15,6 +15,7 @@ main(int argc, char** argv)
     if ((bs_globals.store_type == kStorePearsonRSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata) ||
+        (bs_globals.store_type == kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
         (bs_globals.store_type == kStorePearsonPhiSimilaritySquareMatrixSplitSingleChunkMetadata) ||
@@ -32,7 +33,10 @@ main(int argc, char** argv)
              (bs_globals.store_type == kStorePearsonRSquareMatrixBzip2Split) ||
              (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrix) ||
              (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplit) ||
-             (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk)) {
+             (bs_globals.store_type == kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk) ||
+             (bs_globals.store_type == kStoreCosineSimilaritySquareMatrix) ||
+             (bs_globals.store_type == kStoreCosineSimilaritySquareMatrixSplit) ||
+             (bs_globals.store_type == kStoreCosineSimilaritySquareMatrixSplitSingleChunk)) {
         lookup = bs_init_lookup(bs_globals.lookup_fn,
                                 !bs_globals.store_query_flag && !bs_globals.store_frequency_flag,
                                 ((bs_globals.store_frequency_flag) ? kFalse : kTrue),
@@ -116,6 +120,10 @@ main(int argc, char** argv)
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+            case kStoreCosineSimilaritySquareMatrix:
+            case kStoreCosineSimilaritySquareMatrixSplit:
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
             case kStoreJaccardIndexSquareMatrix:
             case kStoreJaccardIndexSquareMatrixSplit:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
@@ -195,6 +203,10 @@ main(int argc, char** argv)
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+    case kStoreCosineSimilaritySquareMatrix:
+    case kStoreCosineSimilaritySquareMatrixSplit:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
@@ -328,6 +340,31 @@ main(int argc, char** argv)
                                                            lookup, 
                                                            bs_globals.store_row_chunk_size, 
                                                            kScoreVarietyNormalizedEuclideanDistance);
+                break;
+            case kStoreCosineSimilaritySquareMatrix:
+                bs_populate_sqr_store(sqr_store, 
+                                      lookup, 
+                                      &bs_cosine_similarity_signal);
+                break;
+            case kStoreCosineSimilaritySquareMatrixSplit:
+                bs_populate_sqr_split_store(sqr_store, 
+                                            lookup, 
+                                            bs_globals.store_row_chunk_size, 
+                                            &bs_cosine_similarity_signal, 
+                                            kScoreVarietyCosineSimilarity);
+                break;
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+                bs_populate_sqr_split_store_chunk(sqr_store, 
+                                                  lookup, 
+                                                  bs_globals.store_row_chunk_size, 
+                                                  bs_globals.store_row_chunk_offset, 
+                                                  &bs_cosine_similarity_signal);
+                break;
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
+                bs_populate_sqr_split_store_chunk_metadata(sqr_store, 
+                                                           lookup, 
+                                                           bs_globals.store_row_chunk_size, 
+                                                           kScoreVarietyCosineSimilarity);
                 break;
             case kStoreJaccardIndexSquareMatrix:
                 bs_populate_sqr_store(sqr_store, 
@@ -509,6 +546,7 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrix:
                 case kStoreSpearmanRhoSquareMatrix:
                 case kStoreNormalizedEuclideanDistanceSquareMatrix:
+                case kStoreCosineSimilaritySquareMatrix:
                 case kStoreJaccardIndexSquareMatrix:
                 case kStoreOchiaiSimilaritySquareMatrix:
                 case kStorePearsonPhiSimilaritySquareMatrix:
@@ -536,6 +574,7 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+                case kStoreCosineSimilaritySquareMatrixSplit:
                 case kStoreJaccardIndexSquareMatrixSplit:
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -602,6 +641,8 @@ main(int argc, char** argv)
                 case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+                case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
                 case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
@@ -627,6 +668,7 @@ main(int argc, char** argv)
                 case kStorePearsonRSquareMatrixSplit:
                 case kStoreSpearmanRhoSquareMatrixSplit:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+                case kStoreCosineSimilaritySquareMatrixSplit:
                 case kStoreJaccardIndexSquareMatrixSplit:
                 case kStoreOchiaiSimilaritySquareMatrixSplit:
                 case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -733,6 +775,9 @@ main(int argc, char** argv)
                 case kStoreNormalizedEuclideanDistanceSquareMatrix:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
                 case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+                case kStoreCosineSimilaritySquareMatrix:
+                case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+                case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
                 case kStoreJaccardIndexSquareMatrix:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
                 case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -763,6 +808,7 @@ main(int argc, char** argv)
             case kStoreSpearmanRhoSquareMatrix:
             case kStoreJaccardIndexSquareMatrix:
             case kStoreNormalizedEuclideanDistanceSquareMatrix:
+            case kStoreCosineSimilaritySquareMatrix:
             case kStoreOchiaiSimilaritySquareMatrix:
             case kStorePearsonPhiSimilaritySquareMatrix:
             case kStoreRogersAndTanimotoSimilaritySquareMatrix:
@@ -774,6 +820,7 @@ main(int argc, char** argv)
             case kStorePearsonRSquareMatrixSplit:
             case kStoreSpearmanRhoSquareMatrixSplit:
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+            case kStoreCosineSimilaritySquareMatrixSplit:
             case kStoreJaccardIndexSquareMatrixSplit:
             case kStoreOchiaiSimilaritySquareMatrixSplit:
             case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -803,6 +850,8 @@ main(int argc, char** argv)
             case kStoreSpearmanRhoSquareMatrixSplitSingleChunkMetadata:
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
             case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+            case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
             case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
             case kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk:
@@ -1574,6 +1623,7 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+    case kStoreCosineSimilaritySquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -1638,6 +1688,9 @@ bs_qd_request_elements_via_heap(const void* cls, const char* mime, struct MHD_Co
     case kStoreNormalizedEuclideanDistanceSquareMatrix:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+    case kStoreCosineSimilaritySquareMatrix:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -1792,6 +1845,7 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+    case kStoreCosineSimilaritySquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -1856,6 +1910,9 @@ bs_qd_request_elements_via_temporary_file(const void* cls, const char* mime, str
     case kStoreNormalizedEuclideanDistanceSquareMatrix:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+    case kStoreCosineSimilaritySquareMatrix:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -2074,6 +2131,7 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+    case kStoreCosineSimilaritySquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -2144,6 +2202,9 @@ bs_qd_request_random_element_via_temporary_file(const void* cls, const char* mim
     case kStoreNormalizedEuclideanDistanceSquareMatrix:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+    case kStoreCosineSimilaritySquareMatrix:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -2360,6 +2421,7 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStorePearsonRSquareMatrixSplit:
     case kStoreSpearmanRhoSquareMatrixSplit:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplit:
+    case kStoreCosineSimilaritySquareMatrixSplit:
     case kStoreJaccardIndexSquareMatrixSplit:
     case kStoreOchiaiSimilaritySquareMatrixSplit:
     case kStorePearsonPhiSimilaritySquareMatrixSplit:
@@ -2432,6 +2494,9 @@ bs_qd_request_random_element_via_heap(const void* cls, const char* mime, struct 
     case kStoreNormalizedEuclideanDistanceSquareMatrix:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk:
     case kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata:
+    case kStoreCosineSimilaritySquareMatrix:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunk:
+    case kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata:
     case kStoreJaccardIndexSquareMatrix:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunk:
     case kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata:
@@ -4464,8 +4529,34 @@ bs_normalized_euclidean_distance_signal(signal_t* x, signal_t* y, uint32_t len)
         score_t difference = x->data[idx] - y->data[idx];
         s += (difference * difference);
     }
-        
     return sqrt(s) / bs_globals.score_normalization_factor;
+}
+
+/**
+ * @brief      bs_cosine_similarity_signal(x, y, len)
+ *
+ * @details    Calculates the cosine similarity of two
+ *             signal vectors
+ *
+ * @param      x      (signal_t*) pointer to first signal struct
+ *             y      (signal_t*) pointer to second signal struct
+ *             len    (uint32_t) length of signal vectors
+ *
+ * @return     (score_t) cosine similarity measure between [-1,1]
+ */
+
+static inline score_t
+bs_cosine_similarity_signal(signal_t* x, signal_t* y, uint32_t len)
+{
+    score_t xx = 0.0f;
+    score_t xy = 0.0f;
+    score_t yy = 0.0f;
+    for (uint32_t idx = 0; idx < len; idx++) {
+        xx += x->data[idx] * x->data[idx];
+        xy += x->data[idx] * y->data[idx];
+        yy += y->data[idx] * y->data[idx];
+    }
+    return xy / (sqrt(xx) * sqrt(yy));
 }
 
 /**
@@ -6283,6 +6374,203 @@ bs_test_normalized_euclidean_distance()
 }
 
 /**
+ * @brief      bs_test_cosine_similarity()
+ *
+ * @details    Tests calculation and encoding of cosine 
+ *             similarity from test vectors
+ */
+
+void
+bs_test_cosine_similarity()
+{
+    signal_t* i1 = NULL;
+    bs_init_signal((char*) kTestVectorI1, &i1, kFalse, kFalse);
+    if (!i1) {
+        fprintf(stderr, "Error: Could not allocate space for test (I1) cosine similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* i2 = NULL;
+    bs_init_signal((char*) kTestVectorI2, &i2, kFalse, kFalse);
+    if (!i2) {
+        fprintf(stderr, "Error: Could not allocate space for test (I2) cosine similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* i3 = NULL;
+    bs_init_signal((char*) kTestVectorI3, &i3, kFalse, kFalse);
+    if (!i3) {
+        fprintf(stderr, "Error: Could not allocate space for test (I3) cosine similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* iz = NULL;
+    bs_init_signal((char*) kTestVectorIz, &iz, kFalse, kFalse);
+    if (!iz) {
+        fprintf(stderr, "Error: Could not allocate space for test (Iz) cosine similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    signal_t* iu = NULL;
+    bs_init_signal((char*) kTestVectorIu, &iu, kFalse, kFalse);
+    if (!iu) {
+        fprintf(stderr, "Error: Could not allocate space for test (Iu) cosine similarity vector!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "Comparing I1 vs I2\n---\nI1 -> %s\nI2 -> %s\n---\n", kTestVectorI1, kTestVectorI2);
+    if (i1->n != i2->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(i1, stderr);
+        bs_print_signal(i2, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_i1i2_score = NAN;
+    if ((i1->data_contains_nan == kFalse) && (i2->data_contains_nan == kFalse)) {
+        unencoded_observed_i1i2_score = bs_cosine_similarity_signal(i1, i2, i1->n);
+    }
+    fprintf(stderr, "Expected - unencoded I1-vs-I2 cosine similarity: %3.6f\n", kCosineSimilarityTestI1I2Unencoded);
+    fprintf(stderr, "Observed - unencoded I1-vs-I2 cosine similarity: %3.6f\n", unencoded_observed_i1i2_score);
+    score_t absolute_diff_unencoded_i1i2_scores = fabs(kCosineSimilarityTestI1I2Unencoded - unencoded_observed_i1i2_score);
+    assert(absolute_diff_unencoded_i1i2_scores + kEpsilon > 0 && absolute_diff_unencoded_i1i2_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed I1-vs-I2 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_i1i2_score_byte = bs_encode_score_to_byte(kCosineSimilarityTestI1I2Unencoded);
+    byte_t encoded_observed_i1i2_score_byte = bs_encode_score_to_byte(unencoded_observed_i1i2_score);
+    fprintf(stderr, "Expected - encoded, precomputed I1-vs-I2 cosine similarity: 0x%02x\n", kCosineSimilarityTestI1I2EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed I1-vs-I2 cosine similarity: 0x%02x\n", encoded_expected_i1i2_score_byte);
+    fprintf(stderr, "Observed - encoded, computed I1-vs-I2 cosine similarity: 0x%02x\n", encoded_observed_i1i2_score_byte);
+    assert(kCosineSimilarityTestI1I2EncodedByte == encoded_expected_i1i2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed I1-vs-I2 cosine similarities do not differ\n");
+    assert(kCosineSimilarityTestI1I2EncodedByte == encoded_observed_i1i2_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed I1-vs-I2 cosine similarities do not differ\n");
+    assert(encoded_expected_i1i2_score_byte == encoded_observed_i1i2_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed I1-vs-I2 cosine similarities do not differ\n");
+
+    fprintf(stderr, "Comparing I1 vs I3\n---\nD1 -> %s\nD3 -> %s\n---\n", kTestVectorI1, kTestVectorI3);
+    if (i1->n != i3->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(i1, stderr);
+        bs_print_signal(i3, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_i1i3_score = NAN;
+    if ((i1->data_contains_nan == kFalse) && (i3->data_contains_nan == kFalse)) {
+        unencoded_observed_i1i3_score = bs_cosine_similarity_signal(i1, i3, i1->n);
+    }
+    fprintf(stderr, "Expected - unencoded I1-vs-I3 cosine similarity: %3.6f\n", kCosineSimilarityTestI1I3Unencoded);
+    fprintf(stderr, "Observed - unencoded I1-vs-I3 cosine similarity: %3.6f\n", unencoded_observed_i1i3_score);
+    score_t absolute_diff_unencoded_i1i3_scores = fabs(kCosineSimilarityTestI1I3Unencoded - unencoded_observed_i1i3_score);
+    if (!isnan(unencoded_observed_i1i3_score))
+        assert(absolute_diff_unencoded_i1i3_scores + kEpsilon > 0 && absolute_diff_unencoded_i1i3_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed I1-vs-I3 scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_i1i3_score_byte = bs_encode_score_to_byte(kCosineSimilarityTestI1I3Unencoded);
+    byte_t encoded_observed_i1i3_score_byte = bs_encode_score_to_byte(unencoded_observed_i1i3_score);
+    fprintf(stderr, "Expected - encoded, precomputed I1-vs-I3 cosine similarity: 0x%02x\n", kCosineSimilarityTestI1I3EncodedByte);
+    fprintf(stderr, "Expected - encoded, computed I1-vs-I3 cosine similarity: 0x%02x\n", encoded_expected_i1i3_score_byte);
+    fprintf(stderr, "Observed - encoded, computed I1-vs-I3 cosine similarity: 0x%02x\n", encoded_observed_i1i3_score_byte);
+    assert(kCosineSimilarityTestI1I3EncodedByte == encoded_expected_i1i3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed I1-vs-I3 cosine similarities do not differ\n");
+    assert(kCosineSimilarityTestI1I3EncodedByte == encoded_observed_i1i3_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed I1-vs-I3 cosine similarities do not differ\n");
+    assert(encoded_expected_i1i3_score_byte == encoded_observed_i1i3_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed I1-vs-I3 cosine similarities do not differ\n");
+
+    fprintf(stderr, "Comparing Iz vs Iz\n---\nIz -> %s\nIz -> %s\n---\n", kTestVectorIz, kTestVectorIz);
+    if (iz->n != iz->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(iz, stderr);
+        bs_print_signal(iz, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_iziz_score = NAN;
+    if ((iz->data_contains_nan == kFalse) && (iz->data_contains_nan == kFalse)) {
+        unencoded_observed_iziz_score = bs_cosine_similarity_signal(iz, iz, iz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Iz-vs-Iz cosine similarity: %3.6f\n", kCosineSimilarityTestIzIzUnencoded);
+    fprintf(stderr, "Observed - unencoded Iz-vs-Iz cosine similarity: %3.6f\n", unencoded_observed_iziz_score);
+    score_t absolute_diff_unencoded_iziz_scores = fabs(kCosineSimilarityTestIzIzUnencoded - unencoded_observed_iziz_score);
+    if (!isnan(unencoded_observed_iziz_score)) {
+        assert(absolute_diff_unencoded_iziz_scores + kEpsilon > 0 && absolute_diff_unencoded_iziz_scores - kEpsilon < 0);
+        fprintf(stderr, "\t-> Expected and observed Iz-vs-Iz scores do not differ within %3.7f error\n", kEpsilon);
+    }
+    byte_t encoded_expected_iziz_score_byte = bs_encode_score_to_byte(kCosineSimilarityTestIzIzUnencoded);
+    byte_t encoded_observed_iziz_score_byte = bs_encode_score_to_byte(unencoded_observed_iziz_score);
+    fprintf(stderr, "Expected - encoded, precomputed Iz-vs-Iz cosine similarity: 0x%02x\n", kCosineSimilarityTestIzIzEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Iz-vs-Iz cosine similarity: 0x%02x\n", encoded_expected_iziz_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Iz-vs-Iz cosine similarity: 0x%02x\n", encoded_observed_iziz_score_byte);
+    assert(kCosineSimilarityTestIzIzEncodedByte == encoded_expected_iziz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Iz-vs-Iz cosine similarities do not differ\n");
+    assert(kCosineSimilarityTestIzIzEncodedByte == encoded_observed_iziz_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Iz-vs-Iz cosine similarities do not differ\n");
+    assert(encoded_expected_iziz_score_byte == encoded_observed_iziz_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Iz-vs-Iz cosine similarities do not differ\n");
+
+    fprintf(stderr, "Comparing Iz vs Iu\n---\nIz -> %s\nIu -> %s\n---\n", kTestVectorIz, kTestVectorIu);
+    if (iz->n != iu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(iz, stderr);
+        bs_print_signal(iu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_iziu_score = NAN;
+    if ((iz->data_contains_nan == kFalse) && (iu->data_contains_nan == kFalse)) {
+        unencoded_observed_iziu_score = bs_cosine_similarity_signal(iz, iu, iz->n);
+    }
+    fprintf(stderr, "Expected - unencoded Iz-vs-Iu cosine similarity: %3.6f\n", kCosineSimilarityTestIzIuUnencoded);
+    fprintf(stderr, "Observed - unencoded Iz-vs-Iu cosine similarity: %3.6f\n", unencoded_observed_iziu_score);
+    score_t absolute_diff_unencoded_iziu_scores = fabs(kCosineSimilarityTestIzIuUnencoded - unencoded_observed_iziu_score);
+    if (!isnan(unencoded_observed_iziu_score)) {
+        assert(absolute_diff_unencoded_iziu_scores + kEpsilon > 0 && absolute_diff_unencoded_iziu_scores - kEpsilon < 0);
+        fprintf(stderr, "\t-> Expected and observed Iz-vs-Iu scores do not differ within %3.7f error\n", kEpsilon);
+    }
+    byte_t encoded_expected_iziu_score_byte = bs_encode_score_to_byte(kCosineSimilarityTestIzIuUnencoded);
+    byte_t encoded_observed_iziu_score_byte = bs_encode_score_to_byte(unencoded_observed_iziu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Iz-vs-Iu cosine similarity: 0x%02x\n", kCosineSimilarityTestIzIuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Iz-vs-Iu cosine similarity: 0x%02x\n", encoded_expected_iziu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Iz-vs-Iu cosine similarity: 0x%02x\n", encoded_observed_iziu_score_byte);
+    assert(kCosineSimilarityTestIzIuEncodedByte == encoded_expected_iziu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Iz-vs-Iu cosine similarities do not differ\n");
+    assert(kCosineSimilarityTestIzIuEncodedByte == encoded_observed_iziu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Iz-vs-Iu cosine similarities do not differ\n");
+    assert(encoded_expected_iziu_score_byte == encoded_observed_iziu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Iz-vs-Iu cosine similarities do not differ\n");
+
+    fprintf(stderr, "Comparing Iu vs Iu\n---\nIu -> %s\nIu -> %s\n---\n", kTestVectorIu, kTestVectorIu);
+    if (iu->n != iu->n) {
+        fprintf(stderr, "Error: Vectors being compared are of unequal length!\n");
+        bs_print_signal(iu, stderr);
+        bs_print_signal(iu, stderr);
+        exit(EXIT_FAILURE);
+    }
+    score_t unencoded_observed_iuiu_score = NAN;
+    if ((iu->data_contains_nan == kFalse) && (iu->data_contains_nan == kFalse)) {
+        unencoded_observed_iuiu_score = bs_cosine_similarity_signal(iu, iu, iu->n);
+    }
+    fprintf(stderr, "Expected - unencoded Iu-vs-Iu cosine similarity: %3.6f\n", kCosineSimilarityTestIuIuUnencoded);
+    fprintf(stderr, "Observed - unencoded Iu-vs-Iu cosine similarity: %3.6f\n", unencoded_observed_iuiu_score);
+    score_t absolute_diff_unencoded_iuiu_scores = fabs(kCosineSimilarityTestIuIuUnencoded - unencoded_observed_iuiu_score);
+    assert(absolute_diff_unencoded_iuiu_scores + kEpsilon > 0 && absolute_diff_unencoded_iuiu_scores - kEpsilon < 0);
+    fprintf(stderr, "\t-> Expected and observed Iu-vs-Iu scores do not differ within %3.7f error\n", kEpsilon);
+    byte_t encoded_expected_iuiu_score_byte = bs_encode_score_to_byte(kCosineSimilarityTestIuIuUnencoded);
+    byte_t encoded_observed_iuiu_score_byte = bs_encode_score_to_byte(unencoded_observed_iuiu_score);
+    fprintf(stderr, "Expected - encoded, precomputed Iu-vs-Iu cosine similarity: 0x%02x\n", kCosineSimilarityTestIuIuEncodedByte);
+    fprintf(stderr, "Expected - encoded, computed Iu-vs-Iu cosine similarity: 0x%02x\n", encoded_expected_iuiu_score_byte);
+    fprintf(stderr, "Observed - encoded, computed Iu-vs-Iu cosine similarity: 0x%02x\n", encoded_observed_iuiu_score_byte);
+    assert(kCosineSimilarityTestIuIuEncodedByte == encoded_expected_iuiu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and computed Iu-vs-Iu cosine similarities do not differ\n");
+    assert(kCosineSimilarityTestIuIuEncodedByte == encoded_observed_iuiu_score_byte);
+    fprintf(stderr, "\t-> Expected precomputed and observed computed Iu-vs-Iu cosine similarities do not differ\n");
+    assert(encoded_expected_iuiu_score_byte == encoded_observed_iuiu_score_byte);
+    fprintf(stderr, "\t-> Expected computed and observed computed Iu-vs-Iu cosine similarities do not differ\n");
+
+    bs_delete_signal(&i1);
+    bs_delete_signal(&i2);
+    bs_delete_signal(&i3);
+    bs_delete_signal(&iz);
+    bs_delete_signal(&iu);
+}
+
+/**
  * @brief      bs_test_score_encoding()
  *
  * @details    Tests encoding of scores in the interval 
@@ -6836,6 +7124,9 @@ bs_init_command_line_options(int argc, char** argv)
             exit(EXIT_SUCCESS);
         case 'D':
             bs_test_normalized_euclidean_distance();
+            exit(EXIT_SUCCESS); 
+        case 'I':
+            bs_test_cosine_similarity();
             exit(EXIT_SUCCESS);  
         case 'J':
             bs_test_jaccard_index();
