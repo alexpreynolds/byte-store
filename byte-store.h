@@ -109,6 +109,11 @@ extern "C" {
     const char* kTestVectorD3;
     const char* kTestVectorDz;
     const char* kTestVectorDu;
+    const char* kTestVectorI1;
+    const char* kTestVectorI2;
+    const char* kTestVectorI3;
+    const char* kTestVectorIz;
+    const char* kTestVectorIu;
 
     const char* kTestVectorA = "20,8,10,31,50,51,15,41,28,28,11,25,23,21,13,19,14,16,36,38,24,15,35,24,61,31,18,49,19,14,27,19,12,18,15,116,21,28,22,16,11,22,29,31,18,17,9,17,8,14,35,43,10,24,13,19,17,119,33,23,40,10,19,60,12,18,22,7,5,27,40,12,7,21,7,18,6,34,26,6,16,11";
     const char* kTestVectorB = "17,10,9,42,57,56,5,49,24,27,14,22,25,16,21,23,22,10,20,29,14,29,34,14,70,33,5,35,11,13,13,20,15,15,55,19,32,26,10,11,12,16,25,22,31,7,8,2,10,9,14,50,9,38,20,21,14,27,31,14,24,15,14,18,16,26,6,3,8,10,58,16,8,19,10,53,4,76,17,14,29,27";
@@ -147,6 +152,11 @@ extern "C" {
     const char* kTestVectorD3 = "0,1,1,NAN";
     const char* kTestVectorDz = "0,0,0,0";
     const char* kTestVectorDu = "5,5,5,5";
+    const char* kTestVectorI1 = "0.3,0.0,0.6,0.1";
+    const char* kTestVectorI2 = "0.2,0.1,0.1,0.6";
+    const char* kTestVectorI3 = "0.0,0.1,0.4,NAN";
+    const char* kTestVectorIz = "0.0,0.0,0.0,0.0";
+    const char* kTestVectorIu = "1.0,1.0,1.0,1.0";
 
     extern const score_t kPearsonRTestABCorrelationUnencoded;
     extern const score_t kPearsonRTestABCorrelationEncoded;
@@ -227,6 +237,38 @@ extern "C" {
     const score_t kNormalizedEuclideanDistanceTestDuDuUnencoded = 0.0f;
     const score_t kNormalizedEuclideanDistanceTestDuDuEncoded = +0.0f;
     const byte_t kNormalizedEuclideanDistanceTestDuDuEncodedByte = 0x65;
+
+    extern const score_t kCosineSimilarityTestI1I2Unencoded;
+    extern const score_t kCosineSimilarityTestI1I2Encoded;
+    extern const byte_t kCosineSimilarityTestI1I2EncodedByte;
+    extern const score_t kCosineSimilarityTestI1I3Unencoded;
+    extern const score_t kCosineSimilarityTestI1I3Encoded;
+    extern const byte_t kCosineSimilarityTestI1I3EncodedByte;
+    extern const score_t kCosineSimilarityTestIzIzUnencoded;
+    extern const score_t kCosineSimilarityTestIzIzEncoded;
+    extern const byte_t kCosineSimilarityTestIzIzEncodedByte;
+    extern const score_t kCosineSimilarityTestIzIuUnencoded;
+    extern const score_t kCosineSimilarityTestIzIuEncoded;
+    extern const byte_t kCosineSimilarityTestIzIuEncodedByte;
+    extern const score_t kCosineSimilarityTestIuIuUnencoded;
+    extern const score_t kCosineSimilarityTestIuIuEncoded;
+    extern const byte_t kCosineSimilarityTestIuIuEncodedByte;
+
+    const score_t kCosineSimilarityTestI1I2Unencoded = 0.4095142f;
+    const score_t kCosineSimilarityTestI1I2Encoded = 0.40f;
+    const byte_t kCosineSimilarityTestI1I2EncodedByte = 0x8d;
+    const score_t kCosineSimilarityTestI1I3Unencoded = NAN;
+    const score_t kCosineSimilarityTestI1I3Encoded = NAN;
+    const byte_t kCosineSimilarityTestI1I3EncodedByte = 0xca;
+    const score_t kCosineSimilarityTestIzIzUnencoded = NAN;
+    const score_t kCosineSimilarityTestIzIzEncoded = NAN;
+    const byte_t kCosineSimilarityTestIzIzEncodedByte = 0xca;
+    const score_t kCosineSimilarityTestIzIuUnencoded = NAN;
+    const score_t kCosineSimilarityTestIzIuEncoded = NAN;
+    const byte_t kCosineSimilarityTestIzIuEncodedByte = 0xca;
+    const score_t kCosineSimilarityTestIuIuUnencoded = 1.0f;
+    const score_t kCosineSimilarityTestIuIuEncoded = +1.0f;
+    const byte_t kCosineSimilarityTestIuIuEncodedByte = 0xc9;
 
     extern const score_t kJaccardIndexTestJ1J2Unencoded;
     extern const score_t kJaccardIndexTestJ1J2Encoded;
@@ -491,6 +533,10 @@ extern "C" {
         kStoreNormalizedEuclideanDistanceSquareMatrixSplit,
         kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunk,
         kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata,
+        kStoreCosineSimilaritySquareMatrix,
+        kStoreCosineSimilaritySquareMatrixSplit,
+        kStoreCosineSimilaritySquareMatrixSplitSingleChunk,
+        kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata,
         kStoreJaccardIndexSquareMatrix,
         kStoreJaccardIndexSquareMatrixSplit,
         kStoreJaccardIndexSquareMatrixSplitSingleChunk,
@@ -528,6 +574,7 @@ extern "C" {
         kScoreVarietyRogersAndTanimotoSimilarity,
         kScoreVarietyNormalizedPointwiseMutualInformation,
         kScoreVarietyNormalizedEuclideanDistance,
+        kScoreVarietyCosineSimilarity,
         kScoreVarietyUndefined
     } score_variety_t;
 
@@ -548,6 +595,10 @@ extern "C" {
     extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitStr;
     extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkStr;
     extern const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr;
+    extern const char* kStoreCosineSimilaritySquareMatrixStr;
+    extern const char* kStoreCosineSimilaritySquareMatrixSplitStr;
+    extern const char* kStoreCosineSimilarityMatrixSplitSingleChunkStr;
+    extern const char* kStoreCosineSimilaritySplitSingleChunkMetadataStr;
     extern const char* kStoreJaccardIndexSquareMatrixStr;
     extern const char* kStoreJaccardIndexSquareMatrixSplitStr;
     extern const char* kStoreJaccardIndexSquareMatrixSplitSingleChunkStr;
@@ -589,6 +640,10 @@ extern "C" {
     const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitStr = "normalized-euclidean-distance-sqr-split";
     const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkStr = "normalized-euclidean-distance-sqr-split-single-chunk";
     const char* kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr = "normalized-euclidean-distance-sqr-split-single-chunk-metadata";
+    const char* kStoreCosineSimilaritySquareMatrixStr = "cosine-similarity-sqr";
+    const char* kStoreCosineSimilaritySquareMatrixSplitStr = "cosine-similarity-sqr-split";
+    const char* kStoreCosineSimilaritySquareMatrixSplitSingleChunkStr = "cosine-similarity-sqr-split-single-chunk";
+    const char* kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadataStr = "cosine-similarity-sqr-split-single-chunk-metadata";
     const char* kStoreJaccardIndexSquareMatrixStr = "jaccard-index-sqr";
     const char* kStoreJaccardIndexSquareMatrixSplitStr = "jaccard-index-sqr-split";
     const char* kStoreJaccardIndexSquareMatrixSplitSingleChunkStr = "jaccard-index-sqr-split-single-chunk";
@@ -877,6 +932,7 @@ extern "C" {
         { "test-pearson-r",                                      no_argument,       NULL, 'P' },
         { "test-spearman-rho",                                   no_argument,       NULL, 'S' },
         { "test-normalized-euclidean-distance",                  no_argument,       NULL, 'D' },
+        { "test-cosine-similarity",                              no_argument,       NULL, 'I' },
         { "test-jaccard-index",                                  no_argument,       NULL, 'J' },
         { "test-ochiai-similarity",                              no_argument,       NULL, 'O' },
         { "test-pearson-phi-similarity",                         no_argument,       NULL, 'H' },
@@ -887,7 +943,7 @@ extern "C" {
         { NULL,                                                  no_argument,       NULL,  0  }
     };
 
-    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:F:mi:w:z:Z:g:b:l:s:e:n:x:uyo:p:a:v:d:EK:C:SDPJOHTMNh?";
+    static const char* bs_client_opt_string = "t:cqQ:fr:k:2:3:4:5:6:7:8:9:0:F:mi:w:z:Z:g:b:l:s:e:n:x:uyo:p:a:v:d:EK:C:SDIPJOHTMNh?";
 
     static const char* bs_name = "byte-store";
 
@@ -1147,6 +1203,7 @@ extern "C" {
     static inline score_t        bs_normalized_euclidean_distance_signal(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_spearman_rho_signal_v1(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_spearman_rho_signal_v2(signal_t* x, signal_t* y, uint32_t len);
+    static inline score_t        bs_cosine_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_jaccard_index_signal(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_ochiai_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
     static inline score_t        bs_pearson_phi_similarity_signal(signal_t* x, signal_t* y, uint32_t len);
@@ -1159,6 +1216,7 @@ extern "C" {
     void                         bs_test_pearson_r();
     void                         bs_test_spearman_rho();
     void                         bs_test_normalized_euclidean_distance();
+    void                         bs_test_cosine_similarity();
     void                         bs_test_jaccard_index();
     void                         bs_test_ochiai_similarity();
     void                         bs_test_pearson_phi_similarity();
