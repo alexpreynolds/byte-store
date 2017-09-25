@@ -20,7 +20,7 @@ set usage_text = 'Usage:\
                          --hg38-229sample-3clip-euclidean-masterlist          | \
                          --hg38-3clip-euclidean                               | \
                          --mm10-dnaseI                                        | \
-                         --mm10-198sample-dnaseI-pearsonr-092017              |] \
+                         --mm10-198sample-dnaseI-pearsonr-092017              | \
                          --mm10-198sample-dnaseI-pearsonr-092417 ] \
                        [ --bytestore-sort | --sort-bed-sort | --score-sort ] \
                          --within-range A:B | --outside-range A:B \
