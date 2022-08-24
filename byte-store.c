@@ -6770,10 +6770,14 @@ bs_init_command_line_options(int argc, char** argv)
                 (strcmp(bs_globals.store_type_str, kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreNormalizedEuclideanDistanceSquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2Str) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2 :
                 (strcmp(bs_globals.store_type_str, kStoreSpearmanRhoSquareMatrixBzip2SplitStr) == 0) ? kStoreSpearmanRhoSquareMatrixBzip2Split :
+                (strcmp(bs_globals.store_type_str, kStoreCosineSimilaritySquareMatrixStr) == 0) ? kStoreCosineSimilaritySquareMatrix :
+                (strcmp(bs_globals.store_type_str, kStoreCosineSimilaritySquareMatrixSplitStr) == 0) ? kStoreCosineSimilaritySquareMatrixSplit :
+                (strcmp(bs_globals.store_type_str, kStoreCosineSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStoreCosineSimilaritySquareMatrixSplitSingleChunk :
+                (strcmp(bs_globals.store_type_str, kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreCosineSimilaritySquareMatrixSplitSingleChunkMetadata :
                 (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixStr) == 0) ? kStoreJaccardIndexSquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitStr) == 0) ? kStoreJaccardIndexSquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitSingleChunkStr) == 0) ? kStoreJaccardIndexSquareMatrixSplitSingleChunk :
-                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata :
+                (strcmp(bs_globals.store_type_str, kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadataStr) == 0) ? kStoreJaccardIndexSquareMatrixSplitSingleChunkMetadata :              
                 (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixStr) == 0) ? kStoreOchiaiSimilaritySquareMatrix :
                 (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixSplitStr) == 0) ? kStoreOchiaiSimilaritySquareMatrixSplit :
                 (strcmp(bs_globals.store_type_str, kStoreOchiaiSimilaritySquareMatrixSplitSingleChunkStr) == 0) ? kStoreOchiaiSimilaritySquareMatrixSplitSingleChunk :
